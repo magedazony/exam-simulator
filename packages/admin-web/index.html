@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Question Bank Admin</title>
+<link rel="icon" href="data:,">
+<style>
+/* Layout idea: dense desktop tool; left navigation, one working pane, candidate preview beside the editor. */
+:root {
+  --bg: #f4f6f9; --surface: #ffffff; --border: #d5dbe3; --text: #121a26; --muted: #505c6c;
+  --primary: #1b4a78; --primary-soft: #e3edf7; --on-primary: #ffffff;
+  --good: #17694a; --good-soft: #e1f3ea; --bad: #a3281c; --bad-soft: #fbe6e3; --warn: #8a5a00; --warn-soft: #fbefd2;
+  --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1319; --surface: #18202a; --border: #2c3846; --text: #eef1f5; --muted: #a3afbd;
+    --primary: #86b8ea; --primary-soft: #1c2f44; --on-primary: #0b1620;
+    --good: #63cf98; --good-soft: #15301f; --bad: #f29186; --bad-soft: #3a1b18; --warn: #e6b955; --warn-soft: #35290f;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 var(--font); }
+#app { display: grid; grid-template-columns: 210px 1fr; min-height: 100%; }
+#app.signed-out { grid-template-columns: 1fr; place-items: center; }
+nav { background: var(--surface); border-inline-end: 1px solid var(--border); padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; }
+nav .brand { font-weight: 600; font-size: 15px; padding: 0 8px 12px; }
+nav a { color: var(--text); text-decoration: none; padding: 8px 10px; border-radius: 6px; }
+nav a[aria-current="page"] { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+nav .who { margin-top: auto; padding: 10px 8px 0; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+main { padding: 20px 24px 40px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+h1 { font-size: 20px; margin: 0; text-wrap: balance; }
+h2 { font-size: 15px; margin: 0; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr); gap: 16px; align-items: start; }
+@media (max-width: 1000px) { .grid2 { grid-template-columns: 1fr; } #app { grid-template-columns: 1fr; } nav { flex-direction: row; flex-wrap: wrap; } nav .who { margin: 0; border: 0; } }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+label.inline { flex-direction: row; align-items: center; gap: 6px; font-weight: 500; color: var(--text); font-size: 14px; }
+input, select, textarea { font: inherit; font-weight: 400; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; min-height: 36px; }
+textarea { min-height: 84px; resize: vertical; }
+input[type="checkbox"] { min-height: 0; width: 16px; height: 16px; }
+input:disabled, select:disabled, textarea:disabled { opacity: .7; }
+button { font: inherit; font-weight: 600; min-height: 36px; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+button.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+button.danger { border-color: var(--bad); color: var(--bad); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: start; padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+tr.click { cursor: pointer; }
+tr.click:hover td { background: var(--primary-soft); }
+.wrap { overflow-x: auto; }
+.code { font-family: var(--mono); font-size: 12.5px; white-space: nowrap; direction: ltr; unicode-bidi: isolate; }
+.code.wrapok { white-space: normal; }
+[dir="rtl"] th { letter-spacing: 0; text-transform: none; }
+.langbtn { align-self: flex-start; margin: 0 8px 10px; min-height: 30px; padding: 3px 10px; font-weight: 500; }
+.login .langbtn { margin: 0; }
+.pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 1px 9px; border: 1px solid var(--border); white-space: nowrap; }
+.pill.draft { color: var(--muted); }
+.pill.expert_review, .pill.language_qa { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+.pill.approved { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
+.pill.published, .pill.valid, .pill.active { color: var(--good); border-color: var(--good); background: var(--good-soft); }
+.pill.withdrawn, .pill.invalid, .pill.retired { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
+.pill.duplicate { color: var(--warn); border-color: var(--warn); }
+.msg { padding: 9px 12px; border-radius: 6px; }
+.msg.err { background: var(--bad-soft); color: var(--bad); }
+.msg.ok { background: var(--good-soft); color: var(--good); }
+#opts { display: flex; flex-direction: column; gap: 14px; }
+.opt-row { display: grid; grid-template-columns: 26px 1fr 90px; gap: 8px; align-items: start; }
+.opt-row .letter { font-weight: 600; padding-top: 8px; }
+.opt-row textarea { min-height: 38px; }
+.preview .stem { white-space: pre-wrap; }
+.preview ol { margin: 0; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 6px; }
+.preview li.key { color: var(--good); font-weight: 600; }
+.checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; }
+.codes { font-family: var(--mono); font-size: 15px; display: grid; grid-template-columns: repeat(2, max-content); gap: 4px 28px; }
+.login { width: min(380px, calc(100vw - 32px)); }
+.exhibits { display: flex; flex-direction: column; gap: 10px; }
+.exhibit { border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.exhibit img { align-self: flex-start; max-width: 100%; max-height: 420px; height: auto; object-fit: contain; border-radius: 4px; background: #fff; image-rendering: auto; }
+.exhibit table { font-size: 13px; }
+.exhibit .alt { font-size: 12.5px; color: var(--muted); }
+.secret { font-family: var(--mono); word-break: break-all; background: var(--bg); padding: 8px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div id="app" class="signed-out"></div>
+<script>
+"use strict";
+// Admin panel for the question bank. Talks only to the same-origin API.
+// Tokens are kept in memory only: reloading the page signs you out.
+const S = { access: null, refresh: null, me: null, blueprint: null, flash: null, pendingLogin: null, lang: "en" };
+const API = "/api/v1";
+const STATES = ["draft", "expert_review", "language_qa", "approved", "published", "withdrawn"];
+const STATE_NAMES = { draft: "Draft", expert_review: "Expert review", language_qa: "Language and QA", approved: "Approved", published: "Published", withdrawn: "Withdrawn" };
+const CHECKS = [["technical", "Technically correct"], ["outlineMapping", "Mapped to the right task and domain"], ["language", "Plain, clear language"], ["ambiguity", "Ask cannot be read two ways"], ["singleAnswer", "Exactly one defensible answer"], ["distractors", "Distractors plausible and wrong"], ["difficulty", "Difficulty matches its label"], ["biasFairness", "No bias or unfair advantage"]];
+
+// Interface text. English is the key; AR holds the Arabic. Question content is
+// never translated here: it is written by authors and keeps its own direction.
+const AR = {
+  // sign-in
+  "Question bank admin": "إدارة بنك الأسئلة", "Email": "البريد الإلكتروني", "Password": "كلمة المرور", "Code from authenticator app, or a recovery code": "الرمز من تطبيق المصادقة، أو رمز استرداد",
+  "Sign in": "تسجيل الدخول", "Set up two-factor sign-in": "إعداد التحقق بخطوتين", "Staff tools need a code from an authenticator app. Add this key to the app, then enter the six-digit code it shows.": "أدوات فريق العمل تحتاج رمزاً من تطبيق المصادقة. أضف هذا المفتاح إلى التطبيق، ثم أدخل الرمز المكوّن من ستة أرقام الذي يظهر فيه.",
+  "Preparing a key…": "جارٍ تجهيز المفتاح…", "Six-digit code": "الرمز المكوّن من ستة أرقام", "Turn on two-factor sign-in": "تفعيل التحقق بخطوتين", "Or use this link in an app that accepts it:": "أو استخدم هذا الرابط في تطبيق يقبله:",
+  "Save your recovery codes": "احفظ رموز الاسترداد", "Each code signs you in once if you lose your authenticator. They are shown only now.": "كل رمز يتيح لك الدخول مرة واحدة إذا فقدت تطبيق المصادقة. تظهر الرموز الآن فقط.",
+  "I saved them. Sign in again": "حفظتها. سجّل الدخول مرة أخرى", "This account has no staff role": "هذا الحساب ليس له دور في فريق العمل", "Enter the code from your authenticator app.": "أدخل الرمز من تطبيق المصادقة.", "Cannot reach the server.": "تعذّر الوصول إلى الخادم.",
+  "Something went wrong. Check the server and try again.": "حدث خطأ. تحقق من الخادم وحاول مرة أخرى.",
+  // shell and shared words
+  "Question bank": "بنك الأسئلة", "Work queue": "قائمة العمل", "Questions": "الأسئلة", "New question": "سؤال جديد", "Case studies": "دراسات الحالة", "Import": "استيراد", "Blueprints": "المخططات", "Reports": "البلاغات", "Users": "المستخدمون", "Plans and access": "الخطط والوصول", "Security": "الأمان",
+  "Sign out": "تسجيل الخروج", "Nothing here.": "لا يوجد شيء هنا.", "Problem": "مشكلة",
+  "Code": "الرمز", "Task": "المهمة", "Approach": "المنهج", "Type": "النوع", "State": "الحالة", "Stem": "نص السؤال", "Title": "العنوان", "Status": "الحالة", "#": "#",
+  "Draft": "مسودة", "Expert review": "مراجعة الخبير", "Language and QA": "اللغة والجودة", "Approved": "معتمد", "Published": "منشور", "Withdrawn": "مسحوب",
+  "draft": "مسودة", "active": "نشط", "retired": "متقاعد", "published": "منشور", "withdrawn": "مسحوب", "valid": "صالح", "invalid": "غير صالح", "duplicate": "مكرر",
+  "single": "اختيار واحد", "multiple": "اختيارات متعددة", "predictive": "Predictive", "agile": "Agile", "hybrid": "Hybrid",
+  "student": "طالب", "content_author": "مؤلف", "content_reviewer": "مراجع", "administrator": "مدير", "Student": "طالب", "Author": "مؤلف", "Reviewer": "مراجع", "Administrator": "مدير",
+  // exhibits
+  "Alternative text:": "النص البديل:", "Remove": "إزالة", "No exhibits.": "لا توجد مرفقات.", "Add an exhibit ({n} of {max})": "إضافة مرفق ({n} من {max})",
+  "Alternative text, read aloud by screen readers": "النص البديل الذي تقرؤه برامج قراءة الشاشة", "Image (PNG, JPEG or WebP, at most 1 MiB)": "صورة (PNG أو JPEG أو WebP، بحد أقصى 1 ميجابايت)",
+  "Or a table: first line headings, one row per line, cells separated by |": "أو جدول: السطر الأول للعناوين، وصف في كل سطر، والخلايا مفصولة بـ |", "Add exhibit": "إضافة المرفق", "Choose an image or type a table.": "اختر صورة أو اكتب جدولاً.",
+  // queue and lists
+  "My drafts": "مسوداتي", "Waiting for expert review": "بانتظار مراجعة الخبير", "Waiting for language and QA review": "بانتظار مراجعة اللغة والجودة", "Approved, waiting to be published": "معتمدة، بانتظار النشر",
+  "Any": "الكل", "Apply": "تطبيق", "Load more": "عرض المزيد",
+  // editor
+  "Option {l}": "الخيار {l}", "Why this option is right or wrong": "لماذا هذا الخيار صحيح أو خاطئ", "Correct": "صحيح",
+  "I confirm this question is original and not copied from any exam, course or book": "أؤكد أن هذا السؤال أصلي وغير منقول من أي اختبار أو دورة أو كتاب", "Submit for review": "إرسال للمراجعة",
+  "Gate 1 of 2: expert review": "المرحلة 1 من 2: مراجعة الخبير", "Gate 2 of 2: language and QA": "المرحلة 2 من 2: اللغة والجودة",
+  "Technically correct": "صحيح فنياً", "Mapped to the right task and domain": "مرتبط بالمهمة والمجال الصحيحين", "Plain, clear language": "لغة بسيطة وواضحة", "Ask cannot be read two ways": "لا يحتمل السؤال فهمين", "Exactly one defensible answer": "إجابة واحدة فقط يمكن الدفاع عنها", "Distractors plausible and wrong": "البدائل الخاطئة مقنعة وخاطئة فعلاً", "Difficulty matches its label": "الصعوبة مطابقة للتصنيف", "No bias or unfair advantage": "بلا تحيز أو أفضلية غير عادلة",
+  "Comment": "تعليق", "Required when returning": "مطلوب عند الإرجاع", "Approve": "اعتماد", "Return to author": "إرجاع للمؤلف", "Waiting for another reviewer. Authors cannot review their own questions.": "بانتظار مراجع آخر. لا يراجع المؤلف أسئلته.",
+  "Publish": "نشر", "Withdraw from the bank": "سحب من البنك", "Start a new version": "بدء إصدار جديد", "Last review ({gate}): {decision}": "آخر مراجعة ({gate}): {decision}", "returned": "أُعيد", "approved": "اعتُمد", "expert review": "مراجعة الخبير", "language qa": "اللغة والجودة",
+  "{code} · version {n}": "{code} · الإصدار {n}", "New case-study question": "سؤال جديد في دراسة حالة", "Case study": "دراسة الحالة", ", question {n}": "، السؤال {n}", "AI-assisted": "بمساعدة الذكاء الاصطناعي",
+  "Predictive": "Predictive", "Agile": "Agile", "Hybrid": "Hybrid", "Difficulty": "الصعوبة", "Easy": "سهل", "Medium": "متوسط", "Hard": "صعب", "Single choice": "اختيار واحد", "Multiple response": "اختيارات متعددة", "Language": "اللغة", "English": "الإنجليزية", "Arabic": "العربية",
+  "Needs an exhibit": "يحتاج مرفقاً", "Drafted with AI help": "صيغ بمساعدة الذكاء الاصطناعي", "Exhibits": "المرفقات", "Options": "الخيارات", "Add option": "إضافة خيار", "Remove last option": "حذف آخر خيار", "Explanation": "الشرح",
+  "Why the correct answer is correct": "لماذا الإجابة الصحيحة صحيحة", "Mindset": "طريقة التفكير", "Key concept": "المفهوم الأساسي", "Learning objective": "هدف التعلم", "Save draft": "حفظ المسودة", "Create draft": "إنشاء مسودة",
+  "Candidate preview": "معاينة كما يراها الطالب", "Workflow": "سير العمل", "The stem appears here.": "يظهر نص السؤال هنا.", "Choose {n}.": "اختر {n}.", "Correct options are highlighted here only; candidates never see them before answering.": "تظهر الخيارات الصحيحة مميزة هنا فقط؛ لا يراها الطالب قبل الإجابة.",
+  "Draft saved.": "تم حفظ المسودة.", "Draft {code} created.": "تم إنشاء المسودة {code}.", "New draft version started.": "بدأ إصدار مسودة جديد.", "Now {state}.": "الحالة الآن: {state}.",
+  // case studies
+  "New case study": "دراسة حالة جديدة", "Scenario (100 to 6000 characters)": "السيناريو (من 100 إلى 6000 حرف)", "Scenario": "السيناريو", "Needs 2 to 10 questions, each published, before the case study can be published.": "تحتاج من 2 إلى 10 أسئلة منشورة قبل نشر دراسة الحالة.",
+  "Save": "حفظ", "Add a question": "إضافة سؤال", "Publish case study": "نشر دراسة الحالة", "Withdraw case study": "سحب دراسة الحالة", "Saved.": "تم الحفظ.", "Case study published.": "تم نشر دراسة الحالة.", "Case study withdrawn.": "تم سحب دراسة الحالة.",
+  // import
+  "Import questions": "استيراد الأسئلة", "Upload an Excel (.xlsx), CSV or JSON file of up to 500 questions. Columns:": "ارفع ملف Excel (.xlsx) أو CSV أو JSON يضم حتى 500 سؤال. الأعمدة:",
+  "holds letters, such as": "يحتوي على حروف، مثل", "or": "أو", "Excel files: questions on the first sheet, first row for column names. Optional columns aiAssisted and caseKey; a sheet named Case studies (caseKey, title, scenario) creates case-study drafts.": "ملفات Excel: الأسئلة في الورقة الأولى والصف الأول لأسماء الأعمدة. أعمدة اختيارية aiAssisted وcaseKey؛ وورقة باسم Case studies (caseKey وtitle وscenario) تنشئ مسودات دراسات حالة.",
+  "Every imported row becomes a draft and goes through the full review.": "كل صف مستورد يصبح مسودة ويمر بالمراجعة الكاملة.", "Check rows": "فحص الصفوف", "Import valid rows as drafts": "استيراد الصفوف الصالحة كمسودات",
+  "{n} rows read from {file}.": "تمت قراءة {n} صف من {file}.", "The file could not be read. Check that it is a valid Excel, CSV or JSON file.": "تعذّرت قراءة الملف. تأكد أنه ملف Excel أو CSV أو JSON صالح.",
+  "Imported": "تم الاستيراد", "{n} case studies.": "{n} دراسات حالة.", "Unknown case keys: {keys}": "مفاتيح دراسات حالة غير معروفة: {keys}", "{n} case studies created as drafts.": "تم إنشاء {n} دراسات حالة كمسودات.", "Check result": "نتيجة الفحص", "{v} valid, {i} invalid, {d} duplicates": "{v} صالح، {i} غير صالح، {d} مكرر", ", {c} stored as drafts": "، وحُفظ {c} كمسودات", "Row": "الصف", "Result": "النتيجة", "Problems": "المشكلات",
+  // blueprints
+  "Upload a new blueprint version as JSON. It is stored as a draft, and activated only if 20 sample exams built from the current bank are all valid.": "ارفع إصداراً جديداً من المخطط بصيغة JSON. يُحفظ كمسودة، ولا يُفعّل إلا إذا كانت 20 عينة اختبار من البنك الحالي كلها صالحة.",
+  "Upload as draft": "رفع كمسودة", "Version": "الإصدار", "Effective from": "يسري من", "Dry run": "تجربة", "Activate": "تفعيل", "Blueprint stored as a draft.": "تم حفظ المخطط كمسودة.", "{v} of {a} sample exams valid": "{v} من {a} عينات اختبار صالحة", "Blueprint activated.": "تم تفعيل المخطط.",
+  // reports
+  "Question reports": "بلاغات الأسئلة", "Reports from candidates. Aim to triage each within 72 hours.": "بلاغات من الطلاب. الهدف فرز كل بلاغ خلال 72 ساعة.", "Received": "تاريخ الوصول", "Question": "السؤال", "Reason": "السبب",
+  "wrong_answer": "الإجابة خاطئة", "ambiguous": "أكثر من إجابة مناسبة", "typo": "خطأ في الكتابة", "outdated": "معلومة قديمة", "other": "أخرى",
+  // users
+  "Email contains": "البريد يحتوي على", "Search": "بحث", "Changing roles signs the person out. Reset two-factor sign-in only after confirming who is asking, for example by phone; they enrol again at next sign-in.": "تغيير الأدوار يُخرج الشخص من حسابه. لا تُعِد ضبط التحقق بخطوتين إلا بعد التأكد من هوية صاحب الطلب، مثلاً بالهاتف؛ وسيعيد الإعداد عند الدخول التالي.",
+  "Roles": "الأدوار", "Two-factor": "التحقق بخطوتين", "Off": "متوقف", "Save roles": "حفظ الأدوار", "Reset two-factor": "إعادة ضبط التحقق بخطوتين", "Roles saved.": "تم حفظ الأدوار.", "Two-factor sign-in reset. The person enrols again at next sign-in.": "تمت إعادة ضبط التحقق بخطوتين. سيعيد الشخص الإعداد عند الدخول التالي.",
+  // plans and access
+  "Egypt": "مصر", "Gulf countries": "دول الخليج", "Other countries": "دول أخرى", "Prices": "الأسعار", "Plan": "الخطة", "Length": "المدة", "{n} days": "{n} يوماً", "Not set": "غير محدد",
+  "Prices are set here, never in the app code. A plan without a price in a region is not offered for sale there. Store product ids must match the products created in App Store Connect and Google Play Console.": "تُحدَّد الأسعار هنا وليس في كود التطبيق. الخطة التي ليس لها سعر في منطقة لا تُعرض للبيع فيها. يجب أن تطابق معرّفات المنتجات ما أُنشئ في App Store Connect وGoogle Play Console.",
+  "Region": "المنطقة", "Currency": "العملة", "Price": "السعر", "Store product id (optional)": "معرّف المنتج في المتجر (اختياري)", "Save price": "حفظ السعر", "Access codes": "أكواد الوصول",
+  "Single-use codes for training courses and partners. Each code gives one pass. Codes are shown once; only a fingerprint of each is stored, so copy them before leaving this page.": "أكواد تُستخدم مرة واحدة للكورسات والشركاء. كل كود يمنح باقة واحدة. تظهر الأكواد مرة واحدة ولا تُحفظ إلا بصمة لكل كود، فانسخها قبل مغادرة الصفحة.",
+  "Days of access": "أيام الوصول", "How many": "العدد", "Batch name": "اسم الدفعة", "Cairo course, January 2027": "كورس القاهرة، يناير 2027", "Redeem by (optional)": "آخر موعد للتفعيل (اختياري)", "Create codes": "إنشاء الأكواد",
+  "Give a pass to a person": "منح باقة لشخص", "For example a replacement after a refund dispute or a partner account. It starts when any current pass ends.": "مثلاً تعويض بعد نزاع على استرداد أو حساب شريك. تبدأ عند انتهاء أي باقة حالية.", "Days": "الأيام", "Give pass": "منح الباقة",
+  "Enter a three-letter currency code and a price, such as EGP and 499.00.": "أدخل رمز عملة من ثلاثة أحرف وسعراً، مثل EGP و499.00.", "Price saved.": "تم حفظ السعر.", "{n} codes created for “{label}”. Copy them now; they are not shown again.": "تم إنشاء {n} كود للدفعة «{label}». انسخها الآن؛ لن تظهر مرة أخرى.",
+  "No account with this email.": "لا يوجد حساب بهذا البريد.", "{email} has access until {date}.": "لدى {email} وصول حتى {date}.",
+  // audit log
+  "Audit log": "سجل التدقيق", "Every staff action and access change, newest first. Entries cannot be edited or deleted.": "كل إجراءات فريق العمل وتغييرات الوصول، الأحدث أولاً. لا يمكن تعديل السجلات أو حذفها.",
+  "Area": "المجال", "By (email)": "بواسطة (البريد)", "When": "الوقت", "By": "بواسطة", "Action": "الإجراء", "Item": "العنصر", "Details": "التفاصيل",
+  "Users and roles": "المستخدمون والأدوار", "Access and passes": "الوصول والباقات",
+  // security
+  "Recovery codes": "رموز الاسترداد", "Make a new set of ten recovery codes. The old set stops working at once.": "أنشئ مجموعة جديدة من عشرة رموز استرداد. تتوقف المجموعة القديمة فوراً.", "Make new recovery codes": "إنشاء رموز استرداد جديدة", "Save these now. They are shown only once.": "احفظها الآن. تظهر مرة واحدة فقط.",
+};
+const MISSING_AR = new Set();
+window.__missingAr = MISSING_AR; // read by the browser test
+function t(en, vars) {
+  let text = en;
+  if (S.lang === "ar" && en !== "") { if (Object.hasOwn(AR, en)) text = AR[en]; else MISSING_AR.add(en); }
+  return vars ? text.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : text;
+}
+function setLang(lang) {
+  S.lang = lang === "ar" ? "ar" : "en";
+  document.documentElement.lang = S.lang;
+  document.documentElement.dir = S.lang === "ar" ? "rtl" : "ltr";
+  document.title = t("Question bank admin");
+}
+const dateFmt = () => (S.lang === "ar" ? "ar-EG" : "en-GB");
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const has = (...roles) => roles.some((r) => S.me && S.me.roles.includes(r));
+const isAuthor = () => has("content_author", "administrator");
+const isReviewer = () => has("content_reviewer", "administrator");
+const isAdmin = () => has("administrator");
+const pill = (s) => `<span class="pill ${esc(s)}">${esc(t(STATE_NAMES[s] || s))}</span>`;
+const short = (t, n = 90) => (t.length > n ? t.slice(0, n - 1) + "…" : t);
+
+class ApiError extends Error {
+  constructor(status, body) { super(body.title || "Request failed"); this.status = status; this.code = body.code; this.errors = body.errors || []; }
+  describe() { return this.errors.length ? this.message + ": " + this.errors.map((e) => (e.field ? e.field + " " : "") + e.message).join("; ") : this.message; }
+}
+
+async function raw(method, path, body, token) {
+  const headers = { "accept-language": S.lang };
+  if (token) headers.authorization = "Bearer " + token;
+  if (body !== undefined) headers["content-type"] = "application/json";
+  const r = await fetch(API + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  const text = await r.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!r.ok) throw new ApiError(r.status, data);
+  return data;
+}
+
+async function api(method, path, body) {
+  try {
+    return await raw(method, path, body, S.access);
+  } catch (e) {
+    if (!(e instanceof ApiError) || e.status !== 401 || !S.refresh) throw e;
+    // The access token lasts 15 minutes; renew it once and retry.
+    const t = await raw("POST", "/auth/refresh", { refreshToken: S.refresh });
+    S.access = t.accessToken; S.refresh = t.refreshToken;
+    return raw(method, path, body, S.access);
+  }
+}
+
+function flash(kind, text) { S.flash = { kind, text }; }
+function showError(e) { flash("err", e instanceof ApiError ? e.describe() : t("Something went wrong. Check the server and try again.")); render(); }
+
+// ------------------------------------------------------------ sign-in
+
+function loginView(step) {
+  const app = $("#app");
+  app.className = "signed-out";
+  if (step === "enrol") {
+    app.innerHTML = `<div class="panel login"><h1>${t("Set up two-factor sign-in")}</h1>
+      <p class="muted">${t("Staff tools need a code from an authenticator app. Add this key to the app, then enter the six-digit code it shows.")}</p>
+      <div class="secret" id="secret">${t("Preparing a key…")}</div>
+      <label>${t("Six-digit code")}<input id="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></label>
+      <div id="msg"></div><button class="primary" id="enable">${t("Turn on two-factor sign-in")}</button></div>`;
+    api("POST", "/auth/mfa/setup").then((r) => { $("#secret").innerHTML = `<strong id="secret-key">${esc(r.secret)}</strong><br><span class="muted">${t("Or use this link in an app that accepts it:")} <span dir="ltr">${esc(r.otpauthUri)}</span></span>`; }, (e) => { $("#msg").innerHTML = `<p class="msg err">${esc(e.describe ? e.describe() : e.message)}</p>`; });
+    $("#enable").onclick = async () => {
+      try {
+        const r = await api("POST", "/auth/mfa/enable", { code: $("#mfa-code").value.trim() });
+        app.innerHTML = `<div class="panel login"><h1>${t("Save your recovery codes")}</h1>
+          <p>${t("Each code signs you in once if you lose your authenticator. They are shown only now.")}</p>
+          <div class="codes">${r.recoveryCodes.map((c) => `<span>${esc(c)}</span>`).join("")}</div>
+          <button class="primary" id="again">${t("I saved them. Sign in again")}</button></div>`;
+        $("#again").onclick = () => { S.access = S.refresh = null; loginView(); };
+      } catch (e) { $("#msg").innerHTML = `<p class="msg err">${esc(e.describe ? e.describe() : e.message)}</p>`; }
+    };
+    return;
+  }
+  app.innerHTML = `<form class="panel login" id="login"><h1>${t("Question bank admin")}</h1>
+    <label>${t("Email")}<input id="email" dir="ltr" type="email" autocomplete="username" required></label>
+    <label>${t("Password")}<input id="password" type="password" autocomplete="current-password" required></label>
+    <label>${t("Code from authenticator app, or a recovery code")}<input id="otp" autocomplete="one-time-code" placeholder="123456"></label>
+    <div id="msg"></div><button class="primary" type="submit">${t("Sign in")}</button><button type="button" class="langbtn" data-lang>${S.lang === "ar" ? "English" : "العربية"}</button></form>`;
+  $("[data-lang]").onclick = () => { setLang(S.lang === "ar" ? "en" : "ar"); loginView(); };
+  $("#login").onsubmit = async (ev) => {
+    ev.preventDefault();
+    const body = { email: $("#email").value.trim(), password: $("#password").value };
+    const otp = $("#otp").value.trim();
+    if (otp) body.otp = otp;
+    try {
+      const t = await raw("POST", "/auth/login", body);
+      S.access = t.accessToken; S.refresh = t.refreshToken;
+      S.me = await api("GET", "/me");
+      if (S.me.language) setLang(S.me.language);
+      if (!has("content_author", "content_reviewer", "administrator")) { S.access = null; throw new ApiError(403, { title: t("This account has no staff role") }); }
+      try { await api("GET", "/admin/questions?limit=1"); }
+      // A staff account without two-factor sign-in gets here: enrol first.
+      catch (e) { if (e.code === "mfa_required") return loginView("enrol"); throw e; }
+      S.blueprint = await api("GET", "/blueprints/active");
+      location.hash = "#queue"; render();
+    } catch (e) {
+      const text = e.code === "mfa_required" ? t("Enter the code from your authenticator app.") : e instanceof ApiError ? e.describe() : t("Cannot reach the server.");
+      $("#msg").innerHTML = `<p class="msg err">${esc(text)}</p>`;
+    }
+  };
+}
+
+// ------------------------------------------------------------ shell
+
+const NAV = [["queue", "Work queue"], ["questions", "Questions"], ["new", "New question", isAuthor], ["cases", "Case studies"], ["import", "Import", isAuthor], ["blueprints", "Blueprints", isAdmin], ["reports", "Reports"], ["users", "Users", isAdmin], ["access", "Plans and access", isAdmin], ["audit", "Audit log", isAdmin], ["security", "Security"]];
+
+function shell(title, body) {
+  const route = (location.hash.slice(1) || "queue").split("/")[0];
+  const msg = S.flash ? `<p class="msg ${S.flash.kind}">${esc(S.flash.text)}</p>` : "";
+  S.flash = null;
+  const app = $("#app");
+  app.className = "";
+  app.innerHTML = `<nav aria-label="Sections"><div class="brand">${t("Question bank")}</div><button type="button" class="langbtn" data-lang>${S.lang === "ar" ? "English" : "العربية"}</button>${NAV.filter((n) => !n[2] || n[2]()).map(([id, name]) => `<a href="#${id}"${route === id ? ' aria-current="page"' : ""}>${t(name)}</a>`).join("")}
+    <div class="who"><span dir="ltr">${esc(S.me.email)}</span><br>${esc(S.me.roles.map((r) => t(r)).join(S.lang === "ar" ? "، " : ", "))}<br><a href="#signout">${t("Sign out")}</a></div></nav>
+    <main><h1>${esc(title)}</h1>${msg}${body}</main>`;
+  $("[data-lang]").onclick = async () => {
+    setLang(S.lang === "ar" ? "en" : "ar");
+    try { S.me = await api("PATCH", "/me", { language: S.lang }); } catch {}
+    render();
+  };
+}
+
+function table(rows, cols, onClick) {
+  if (!rows.length) return `<p class="muted">${t("Nothing here.")}</p>`;
+  return `<div class="wrap"><table><thead><tr>${cols.map((c) => `<th>${t(c[0])}</th>`).join("")}</tr></thead><tbody>${rows.map((r, i) => `<tr class="${onClick ? "click" : ""}" data-i="${i}" tabindex="${onClick ? 0 : -1}">${cols.map((c) => `<td>${c[1](r)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+function bindRows(rows, handler) {
+  document.querySelectorAll("tr.click").forEach((tr) => {
+    const go = () => handler(rows[Number(tr.dataset.i)]);
+    tr.onclick = go; tr.onkeydown = (e) => { if (e.key === "Enter") go(); };
+  });
+}
+const QCOLS = [["Code", (q) => `<span class="code">${esc(q.publicCode)} v${q.versionNo}</span>`], ["Task", (q) => `<span class="code">${esc(q.taskCode)}</span>`], ["Approach", (q) => esc(t(q.approach))], ["Type", (q) => esc(t(q.type))], ["State", (q) => pill(q.workflowState)], ["Stem", (q) => `<span dir="auto">${esc(short(q.stem))}</span>`]];
+
+// ------------------------------------------------------------ exhibits
+
+function exhibitHtml(e, i, editable) {
+  const body = e.kind === "image"
+    ? `<img src="${esc(e.url)}" alt="${esc(e.altText)}">`
+    : `<div class="wrap" dir="auto"><table><thead><tr>${e.table.header.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${e.table.rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  return `<div class="exhibit">${body}<span class="alt">${t("Alternative text:")} <span dir="auto">${esc(e.altText)}</span></span>${editable ? `<button type="button" data-remove-exhibit="${i}">${t("Remove")}</button>` : ""}</div>`;
+}
+
+// Editable list of exhibits. Calls onChange with the new list after every change.
+function mountExhibits(root, list, max, editable, onChange) {
+  const draw = () => {
+    root.innerHTML = `<div class="exhibits">${list.map((e, i) => exhibitHtml(e, i, editable)).join("") || `<p class="muted">${t("No exhibits.")}</p>`}</div>` +
+      (editable && list.length < max ? `<details><summary>${t("Add an exhibit ({n} of {max})", { n: list.length, max })}</summary><div class="panel" style="margin-top:8px">
+        <label>${t("Alternative text, read aloud by screen readers")}<input class="ex-alt" maxlength="500" dir="auto"></label>
+        <label>${t("Image (PNG, JPEG or WebP, at most 1 MiB)")}<input type="file" class="ex-file" accept="image/png,image/jpeg,image/webp"></label>
+        <label>${t("Or a table: first line headings, one row per line, cells separated by |")} <textarea dir="auto" class="ex-table" placeholder="Measure | Value&#10;PV | 200,000"></textarea></label>
+        <button type="button" class="ex-add">${t("Add exhibit")}</button><div class="ex-msg"></div></div></details>` : "");
+    root.querySelectorAll("[data-remove-exhibit]").forEach((b) => (b.onclick = () => { list.splice(Number(b.dataset.removeExhibit), 1); draw(); onChange(list); }));
+    const add = root.querySelector(".ex-add");
+    if (!add) return;
+    add.onclick = async () => {
+      const altText = root.querySelector(".ex-alt").value.trim();
+      const file = root.querySelector(".ex-file").files[0];
+      const tableText = root.querySelector(".ex-table").value.trim();
+      try {
+        let body;
+        if (file) {
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          let bin = ""; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+          body = { kind: "image", mimeType: file.type, dataBase64: btoa(bin), altText };
+        } else if (tableText) {
+          const lines = tableText.split(/\r?\n/).filter((l) => l.trim()).map((l) => l.split("|").map((c) => c.trim()));
+          body = { kind: "table", altText, table: { header: lines[0], rows: lines.slice(1) } };
+        } else { root.querySelector(".ex-msg").innerHTML = `<p class="msg err">${t("Choose an image or type a table.")}</p>`; return; }
+        list.push(await api("POST", "/admin/exhibits", body));
+        draw(); onChange(list);
+      } catch (e) { root.querySelector(".ex-msg").innerHTML = `<p class="msg err">${esc(e.describe ? e.describe() : e.message)}</p>`; }
+    };
+  };
+  draw();
+}
+
+// ------------------------------------------------------------ views
+
+async function queueView() {
+  const groups = [["draft", "My drafts", (q) => q.authorId === S.me.id, isAuthor], ["expert_review", "Waiting for expert review", (q) => q.authorId !== S.me.id, isReviewer], ["language_qa", "Waiting for language and QA review", (q) => q.authorId !== S.me.id, isReviewer], ["approved", "Approved, waiting to be published", () => true, isAdmin]].filter((g) => g[3]());
+  const lists = await Promise.all(groups.map((g) => api("GET", `/admin/questions?workflowState=${g[0]}&limit=100`)));
+  const sections = groups.map((g, i) => ({ g, rows: lists[i].items.filter(g[2]) }));
+  shell(t("Work queue"), sections.map((s, i) => `<section class="panel"><h2>${t(s.g[1])} (${s.rows.length}${lists[i].nextCursor ? "+" : ""})</h2><div id="q${i}">${table(s.rows, QCOLS, true)}</div></section>`).join(""));
+  sections.forEach((s, i) => { const root = $("#q" + i); root.querySelectorAll("tr.click").forEach((tr) => { tr.onclick = () => (location.hash = "#question/" + s.rows[Number(tr.dataset.i)].id); }); });
+}
+
+async function questionsView() {
+  const params = new URLSearchParams(location.hash.split("?")[1] || "");
+  const state = params.get("state") || "", task = params.get("task") || "";
+  const tasks = S.blueprint.domains.flatMap((d) => d.tasks.map((t) => [t.code, d.name + " · " + t.name]));
+  let rows = [], cursor = null;
+  const load = async () => {
+    const q = new URLSearchParams({ limit: "50" });
+    if (state) q.set("workflowState", state);
+    if (task) q.set("taskCode", task);
+    if (cursor) q.set("cursor", cursor);
+    const r = await api("GET", "/admin/questions?" + q);
+    rows = rows.concat(r.items); cursor = r.nextCursor;
+  };
+  await load();
+  const draw = () => {
+    shell(t("Questions"), `<div class="panel"><div class="row">
+      <label>${t("State")}<select id="f-state"><option value="">${t("Any")}</option>${STATES.map((s) => `<option value="${s}"${s === state ? " selected" : ""}>${t(STATE_NAMES[s])}</option>`).join("")}</select></label>
+      <label>${t("Task")}<select id="f-task"><option value="">${t("Any")}</option>${tasks.map(([c, n]) => `<option value="${c}"${c === task ? " selected" : ""}>${esc(c + " " + n)}</option>`).join("")}</select></label>
+      <button id="apply">${t("Apply")}</button></div></div>
+      <div class="panel">${table(rows, QCOLS, true)}${cursor ? `<button id="more">${t("Load more")}</button>` : ""}</div>`);
+    bindRows(rows, (q) => (location.hash = "#question/" + q.id));
+    $("#apply").onclick = () => { location.hash = `#questions?state=${$("#f-state").value}&task=${$("#f-task").value}`; };
+    if (cursor) $("#more").onclick = async () => { await load(); draw(); };
+  };
+  draw();
+}
+
+function emptyDraft(caseId) {
+  return { taskCode: S.blueprint.domains[0].tasks[0].code, approach: "predictive", difficulty: "medium", type: "single", language: "en", graphic: false, aiAssisted: false, stem: "", caseStudyId: caseId || null,
+    options: [0, 1, 2, 3].map((i) => ({ text: "", isCorrect: i === 0, rationale: "" })), explanation: { whyCorrect: "", mindset: "", keyConcept: "", learningObjective: "" }, workflowState: "draft", authorId: S.me.id };
+}
+
+async function questionView(versionId) {
+  const params = new URLSearchParams(location.hash.split("?")[1] || "");
+  const q = versionId ? await api("GET", "/admin/question-versions/" + versionId) : emptyDraft(params.get("case"));
+  q.explanation = q.explanation || { whyCorrect: "" };
+  const editable = q.workflowState === "draft" && (q.authorId === S.me.id || isAdmin()) && isAuthor();
+  const dis = editable ? "" : " disabled";
+  const sel = (id, label, values, cur, keep) => `<label>${t(label)}<select id="${id}"${dis}>${values.map((v) => `<option value="${v[0]}"${v[0] === cur ? " selected" : ""}>${esc(keep ? v[1] : t(v[1]))}</option>`).join("")}</select></label>`;
+  const tasks = S.blueprint.domains.flatMap((d) => d.tasks.map((t) => [t.code, t.code + " " + t.name]));
+  const optsHtml = (opts) => opts.map((o, i) => `<div class="opt-row" data-i="${i}"><span class="letter">${"ABCDEF"[i]}</span>
+      <div class="row" style="flex-direction:column;align-items:stretch"><textarea dir="auto" class="o-text" aria-label="${t("Option {l}", { l: "ABCDEF"[i] })}"${dis}>${esc(o.text)}</textarea><input dir="auto" class="o-why" placeholder="${t("Why this option is right or wrong")}" value="${esc(o.rationale)}"${dis}></div>
+      <label class="inline"><input type="checkbox" class="o-key"${o.isCorrect ? " checked" : ""}${dis}> ${t("Correct")}</label></div>`).join("");
+
+  let actions = "";
+  const s = q.workflowState;
+  if (versionId && s === "draft" && editable) actions += `<label class="inline"><input type="checkbox" id="orig"> ${t("I confirm this question is original and not copied from any exam, course or book")}</label><button class="primary" data-act="submit">${t("Submit for review")}</button>`;
+  if ((s === "expert_review" || s === "language_qa") && isReviewer() && q.authorId !== S.me.id) {
+    actions += `<p class="muted">${s === "expert_review" ? t("Gate 1 of 2: expert review") : t("Gate 2 of 2: language and QA")}</p><div class="checks">${CHECKS.map(([k, n]) => `<label class="inline"><input type="checkbox" class="chk" data-k="${k}"> ${t(n)}</label>`).join("")}</div>
+      <label>${t("Comment")}<textarea dir="auto" id="comment" placeholder="${t("Required when returning")}"></textarea></label><div class="row"><button class="primary" data-act="approve">${t("Approve")}</button><button class="danger" data-act="return">${t("Return to author")}</button></div>`;
+  }
+  if ((s === "expert_review" || s === "language_qa") && q.authorId === S.me.id) actions += `<p class="muted">${t("Waiting for another reviewer. Authors cannot review their own questions.")}</p>`;
+  if (s === "approved" && isAdmin()) actions += `<button class="primary" data-act="publish">${t("Publish")}</button>`;
+  if (s === "published" && isAdmin()) actions += `<button class="danger" data-act="withdraw">${t("Withdraw from the bank")}</button>`;
+  if ((s === "published" || s === "withdrawn") && isAuthor()) actions += `<button data-act="new-version">${t("Start a new version")}</button>`;
+
+  const review = q.lastReview ? `<p class="msg ${q.lastReview.decision === "returned" ? "err" : "ok"}">${esc(t("Last review ({gate}): {decision}", { gate: t(q.lastReview.gate.replace("_", " ")), decision: t(q.lastReview.decision) }))}${q.lastReview.comment ? ` · <span dir="auto">${esc(q.lastReview.comment)}</span>` : ""}</p>` : "";
+  const title = versionId ? t("{code} · version {n}", { code: q.publicCode, n: q.versionNo }) : q.caseStudyId ? t("New case-study question") : t("New question");
+  shell(title, `<div class="row">${versionId ? pill(s) : ""}${q.caseStudyId ? `<a href="#case/${esc(q.caseStudyId)}">${t("Case study")}${q.caseOrdinal ? t(", question {n}", { n: q.caseOrdinal }) : ""}</a>` : ""}${q.aiAssisted ? `<span class="pill">${t("AI-assisted")}</span>` : ""}</div>${review}
+    <div class="grid2"><form class="panel" id="form">
+      <div class="row">${sel("taskCode", "Task", tasks, q.taskCode, true)}</div>
+      <div class="row">${sel("approach", "Approach", [["predictive", "Predictive"], ["agile", "Agile"], ["hybrid", "Hybrid"]], q.approach)}${sel("difficulty", "Difficulty", [["easy", "Easy"], ["medium", "Medium"], ["hard", "Hard"]], q.difficulty)}${sel("type", "Type", [["single", "Single choice"], ["multiple", "Multiple response"]], q.type)}${sel("language", "Language", [["en", "English"], ["ar", "Arabic"]], q.language)}</div>
+      <div class="row"><label class="inline"><input type="checkbox" id="graphic"${q.graphic ? " checked" : ""}${dis}> ${t("Needs an exhibit")}</label><label class="inline"><input type="checkbox" id="ai"${q.aiAssisted ? " checked" : ""}${dis}> ${t("Drafted with AI help")}</label></div>
+      <label>${t("Stem")}<textarea dir="auto" id="stem" rows="5"${dis}>${esc(q.stem)}</textarea></label>
+      <h2>${t("Exhibits")}</h2><div id="exhibits"></div>
+      <h2>${t("Options")}</h2><div id="opts">${optsHtml(q.options)}</div>
+      ${editable ? `<div class="row"><button type="button" id="add-opt">${t("Add option")}</button><button type="button" id="del-opt">${t("Remove last option")}</button></div>` : ""}
+      <h2>${t("Explanation")}</h2>
+      <label>${t("Why the correct answer is correct")}<textarea dir="auto" id="why"${dis}>${esc(q.explanation.whyCorrect)}</textarea></label>
+      <label>${t("Mindset")}<input dir="auto" id="mindset" value="${esc(q.explanation.mindset)}"${dis}></label>
+      <div class="row"><label style="flex:1">${t("Key concept")}<input dir="auto" id="concept" value="${esc(q.explanation.keyConcept)}"${dis}></label><label style="flex:1">${t("Learning objective")}<input dir="auto" id="objective" value="${esc(q.explanation.learningObjective)}"${dis}></label></div>
+      ${editable ? `<button class="primary" type="submit">${versionId ? t("Save draft") : t("Create draft")}</button>` : ""}
+    </form>
+    <div style="display:flex;flex-direction:column;gap:16px"><section class="panel preview"><h2>${t("Candidate preview")}</h2><div id="preview"></div></section>
+    ${actions ? `<section class="panel"><h2>${t("Workflow")}</h2>${actions}</section>` : ""}</div></div>`);
+
+  const exhibits = (q.exhibits || []).slice();
+  const collect = () => {
+    const opts = [...document.querySelectorAll(".opt-row")].map((r) => ({ text: $(".o-text", r).value, isCorrect: $(".o-key", r).checked, rationale: $(".o-why", r).value }));
+    const doc = { taskCode: $("#taskCode").value, approach: $("#approach").value, difficulty: $("#difficulty").value, type: $("#type").value, language: $("#language").value, graphic: $("#graphic").checked, aiAssisted: $("#ai").checked, stem: $("#stem").value, options: opts,
+      explanation: { whyCorrect: $("#why").value, mindset: $("#mindset").value || null, keyConcept: $("#concept").value || null, learningObjective: $("#objective").value || null } };
+    if (!doc.explanation.whyCorrect.trim()) delete doc.explanation;
+    if (q.caseStudyId && !versionId) doc.caseStudyId = q.caseStudyId;
+    doc.exhibitIds = exhibits.map((e) => e.id);
+    return doc;
+  };
+  const preview = () => {
+    const d = collect();
+    const n = d.options.filter((o) => o.isCorrect).length;
+    $("#preview").innerHTML = `<div dir="${d.language === "ar" ? "rtl" : "ltr"}" style="display:flex;flex-direction:column;gap:8px"><p class="stem">${esc(d.stem) || `<span class="muted">${t("The stem appears here.")}</span>`}</p>${exhibits.map((e) => exhibitHtml(e, 0, false)).join("")}${d.type === "multiple" ? `<p class="muted">${t("Choose {n}.", { n })}</p>` : ""}<ol type="A">${d.options.map((o) => `<li class="${o.isCorrect ? "key" : ""}">${esc(o.text)}</li>`).join("")}</ol></div><p class="muted">${t("Correct options are highlighted here only; candidates never see them before answering.")}</p>`;
+  };
+  mountExhibits($("#exhibits"), exhibits, 3, editable, preview);
+  preview();
+  $("#form").oninput = preview;
+  if (editable) {
+    $("#add-opt").onclick = () => { const d = collect(); if (d.options.length < 6) { d.options.push({ text: "", isCorrect: false, rationale: "" }); $("#opts").innerHTML = optsHtml(d.options); preview(); } };
+    $("#del-opt").onclick = () => { const d = collect(); if (d.options.length > 2) { d.options.pop(); $("#opts").innerHTML = optsHtml(d.options); preview(); } };
+    $("#form").onsubmit = async (ev) => {
+      ev.preventDefault();
+      try {
+        const saved = versionId ? await api("PUT", "/admin/question-versions/" + versionId, collect()) : await api("POST", "/admin/questions", collect());
+        flash("ok", versionId ? t("Draft saved.") : t("Draft {code} created.", { code: saved.publicCode }));
+        if (versionId) render(); else location.hash = "#question/" + saved.id;
+      } catch (e) { showError(e); }
+    };
+  }
+  document.querySelectorAll("[data-act]").forEach((b) => {
+    b.onclick = async () => {
+      const act = b.dataset.act;
+      try {
+        if (act === "new-version") { const v = await api("POST", `/admin/questions/${q.questionId}/versions`); flash("ok", t("New draft version started.")); location.hash = "#question/" + v.id; return; }
+        const body = { action: act };
+        if (act === "submit") body.originalityDeclared = $("#orig").checked;
+        if (act === "approve" || act === "return") { body.checklist = Object.fromEntries([...document.querySelectorAll(".chk")].map((c) => [c.dataset.k, c.checked])); body.comment = $("#comment").value; }
+        const r = await api("POST", `/admin/question-versions/${versionId}/transitions`, body);
+        flash("ok", t("Now {state}.", { state: t(STATE_NAMES[r.workflowState] || r.workflowState) }));
+        render();
+      } catch (e) { showError(e); }
+    };
+  });
+}
+
+async function casesView() {
+  const r = await api("GET", "/admin/case-studies");
+  shell(t("Case studies"), `${isAuthor() ? `<form class="panel" id="new-case"><h2>${t("New case study")}</h2><label>${t("Title")}<input dir="auto" id="c-title" required></label><label>${t("Scenario (100 to 6000 characters)")}<textarea dir="auto" id="c-scenario" rows="6" required></textarea></label><button class="primary" type="submit">${t("Create draft")}</button></form>` : ""}
+    <div class="panel">${table(r.items, [["Code", (c) => `<span class="code">${esc(c.publicCode)}</span>`], ["Title", (c) => `<span dir="auto">${esc(c.title)}</span>`], ["Questions", (c) => c.questionCount], ["Status", (c) => pill(c.status)]], true)}</div>`);
+  bindRows(r.items, (c) => (location.hash = "#case/" + c.id));
+  if (isAuthor()) $("#new-case").onsubmit = async (ev) => {
+    ev.preventDefault();
+    try { const c = await api("POST", "/admin/case-studies", { title: $("#c-title").value, scenario: $("#c-scenario").value }); location.hash = "#case/" + c.id; } catch (e) { showError(e); }
+  };
+}
+
+async function caseView(id) {
+  const c = await api("GET", "/admin/case-studies/" + id);
+  const editable = c.status === "draft" && isAuthor() && (c.createdBy === S.me.id || isAdmin());
+  shell(`${c.publicCode} · ${c.title}`, `<div class="row">${pill(c.status)}<span class="muted">${t("Needs 2 to 10 questions, each published, before the case study can be published.")}</span></div>
+    <form class="panel" id="case-form"><label>${t("Title")}<input dir="auto" id="c-title" value="${esc(c.title)}"${editable ? "" : " disabled"}></label><label>${t("Scenario")}<textarea dir="auto" id="c-scenario" rows="8"${editable ? "" : " disabled"}>${esc(c.scenario)}</textarea></label><h2>${t("Exhibits")}</h2><div id="case-exhibits"></div>${editable ? `<button class="primary" type="submit">${t("Save")}</button>` : ""}</form>
+    <div class="panel"><h2>${t("Questions")}</h2>${table(c.questions, [["#", (q) => q.caseOrdinal], ["Code", (q) => `<span class="code">${esc(q.publicCode)}</span>`], ["State", (q) => pill(q.workflowState)], ["Stem", (q) => `<span dir="auto">${esc(short(q.stem))}</span>`]], true)}
+    <div class="row">${editable ? `<a href="#new?case=${esc(c.id)}"><button type="button">${t("Add a question")}</button></a>` : ""}${isAdmin() && c.status === "draft" ? `<button class="primary" id="pub">${t("Publish case study")}</button>` : ""}${isAdmin() && c.status === "published" ? `<button class="danger" id="wd">${t("Withdraw case study")}</button>` : ""}</div></div>`);
+  bindRows(c.questions, (q) => (location.hash = "#question/" + q.versionId));
+  const caseExhibits = (c.exhibits || []).slice();
+  mountExhibits($("#case-exhibits"), caseExhibits, 5, editable, () => {});
+  if (editable) $("#case-form").onsubmit = async (ev) => { ev.preventDefault(); try { await api("PUT", "/admin/case-studies/" + id, { title: $("#c-title").value, scenario: $("#c-scenario").value, exhibitIds: caseExhibits.map((e) => e.id) }); flash("ok", t("Saved.")); render(); } catch (e) { showError(e); } };
+  if ($("#pub")) $("#pub").onclick = async () => { try { await api("POST", `/admin/case-studies/${id}/publish`); flash("ok", t("Case study published.")); render(); } catch (e) { showError(e); } };
+  if ($("#wd")) $("#wd").onclick = async () => { try { await api("POST", `/admin/case-studies/${id}/withdraw`); flash("ok", t("Case study withdrawn.")); render(); } catch (e) { showError(e); } };
+}
+
+// CSV with quoted fields (RFC 4180). Excel files are turned into rows by the server.
+function parseCsv(text) {
+  const rows = []; let row = [], field = "", quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) { if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; } else if (ch === '"') quoted = false; else field += ch; }
+    else if (ch === '"') quoted = true;
+    else if (ch === ",") { row.push(field); field = ""; }
+    else if (ch === "\n" || ch === "\r") { if (ch === "\r" && text[i + 1] === "\n") i++; row.push(field); rows.push(row); row = []; field = ""; }
+    else field += ch;
+  }
+  if (field !== "" || row.length) { row.push(field); rows.push(row); }
+  return rows.filter((r) => r.some((c) => c.trim() !== ""));
+}
+function csvToDrafts(text) { return gridToDrafts(parseCsv(text.replace(/^﻿/, ""))); }
+// Rows of cells, from CSV or an Excel sheet, to question drafts. The first row names the columns.
+function gridToDrafts(grid) {
+  const [head, ...body] = grid.map((r) => r.map((c) => String(c ?? "")));
+  if (!head) return [];
+  const idx = Object.fromEntries(head.map((h, i) => [h.trim().toLowerCase(), i]));
+  const get = (r, k) => (idx[k] === undefined ? "" : (r[idx[k]] || "").trim());
+  return body.map((r) => {
+    const correct = get(r, "correct").toUpperCase().split(/[;\s,]+/).filter(Boolean);
+    const options = [];
+    for (const L of "ABCDEF") { const t = get(r, "option" + L.toLowerCase()); if (t) options.push({ text: t, isCorrect: correct.includes(L), rationale: get(r, "rationale" + L.toLowerCase()) }); }
+    const d = { taskCode: get(r, "taskcode"), approach: get(r, "approach").toLowerCase(), difficulty: get(r, "difficulty").toLowerCase(), type: get(r, "type").toLowerCase() || (correct.length > 1 ? "multiple" : "single"), stem: get(r, "stem"), options };
+    if (get(r, "language")) d.language = get(r, "language").toLowerCase();
+    if (get(r, "aiassisted")) d.aiAssisted = /^(true|1|yes|y)$/i.test(get(r, "aiassisted"));
+    if (get(r, "casekey")) d.caseKey = get(r, "casekey");
+    if (get(r, "whycorrect")) d.explanation = { whyCorrect: get(r, "whycorrect"), mindset: get(r, "mindset") || null, keyConcept: get(r, "keyconcept") || null, learningObjective: get(r, "learningobjective") || null };
+    return d;
+  });
+}
+
+/** Case studies from a sheet named like "Case studies": columns caseKey, title, scenario. */
+function gridToCases(grid) {
+  const [head, ...body] = grid.map((r) => r.map((c) => String(c ?? "").trim()));
+  if (!head) return [];
+  const idx = Object.fromEntries(head.map((h, i) => [h.toLowerCase(), i]));
+  return body.map((r) => ({ key: r[idx.casekey] || "", title: r[idx.title] || "", scenario: r[idx.scenario] || "" })).filter((c) => c.key);
+}
+
+function importView() {
+  let rows = null, cases = [];
+  shell(t("Import questions"), `<div class="panel"><p>${t("Upload an Excel (.xlsx), CSV or JSON file of up to 500 questions. Columns:")} <span class="code wrapok">taskCode, approach, difficulty, type, stem, optionA … optionF, correct, rationaleA … rationaleF, whyCorrect, mindset, keyConcept, learningObjective, language, aiAssisted, caseKey</span>. <span class="code">correct</span> ${t("holds letters, such as")} <span class="code">B</span> ${t("or")} <span class="code">A;C</span>. ${t("Excel files: questions on the first sheet, first row for column names. Optional columns aiAssisted and caseKey; a sheet named Case studies (caseKey, title, scenario) creates case-study drafts.")}</p>
+    <p class="muted">${t("Every imported row becomes a draft and goes through the full review.")}</p>
+    <div class="row"><input type="file" id="file" accept=".xlsx,.csv,.json,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><button id="check" disabled>${t("Check rows")}</button><button class="primary" id="commit" disabled>${t("Import valid rows as drafts")}</button></div></div><div id="report"></div>`);
+  $("#file").onchange = async () => {
+    const f = $("#file").files[0]; if (!f) return;
+    const name = f.name.toLowerCase();
+    $("#check").disabled = $("#commit").disabled = true;
+    try {
+      if (name.endsWith(".xlsx")) {
+        const bytes = new Uint8Array(await f.arrayBuffer());
+        let bin = ""; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        const book = await api("POST", "/admin/imports/spreadsheet", { dataBase64: btoa(bin) });
+        rows = gridToDrafts(book.rows);
+        const caseSheet = (book.sheets || []).find((sh) => /case/i.test(sh.name));
+        cases = caseSheet ? gridToCases(caseSheet.rows) : [];
+      } else {
+        const text = await f.text();
+        rows = name.endsWith(".json") ? JSON.parse(text) : csvToDrafts(text);
+        if (!Array.isArray(rows)) rows = rows.rows;
+      }
+      if (!Array.isArray(rows)) throw new Error("no rows");
+      $("#check").disabled = false;
+      const unknown = [...new Set(rows.map((r) => r.caseKey).filter((k) => k && !cases.some((c) => c.key === k)))];
+      $("#report").innerHTML = `<p class="muted">${esc(t("{n} rows read from {file}.", { n: rows.length, file: f.name }))}${cases.length ? " " + esc(t("{n} case studies.", { n: cases.length })) : ""}</p>`
+        + (unknown.length ? `<p class="msg err">${esc(t("Unknown case keys: {keys}", { keys: unknown.join(", ") }))}</p>` : "");
+      if (unknown.length) $("#check").disabled = true;
+    } catch (e) {
+      $("#report").innerHTML = `<p class="msg err">${esc(e instanceof ApiError ? e.describe() : t("The file could not be read. Check that it is a valid Excel, CSV or JSON file."))}</p>`;
+    }
+  };
+  const send = async (commit) => {
+    try {
+      let payload = rows.map(({ caseKey, ...d }) => d);
+      if (commit && cases.length) {
+        // Create each case study that valid rows use, then attach those rows to it.
+        const check = await api("POST", "/admin/imports", { rows: payload, commit: false });
+        const used = new Set(rows.filter((r, i) => r.caseKey && check.rows[i].status === "valid").map((r) => r.caseKey));
+        const ids = {};
+        for (const c of cases.filter((c) => used.has(c.key))) ids[c.key] = (await api("POST", "/admin/case-studies", { title: c.title, scenario: c.scenario })).id;
+        payload = rows.map(({ caseKey, ...d }) => (caseKey && ids[caseKey] ? { ...d, caseStudyId: ids[caseKey] } : d));
+        flash("ok", t("{n} case studies created as drafts.", { n: Object.keys(ids).length }));
+      }
+      const r = await api("POST", "/admin/imports", { rows: payload, commit });
+      const sum = r.summary;
+      $("#report").innerHTML = `<div class="panel"><h2>${commit ? t("Imported") : t("Check result")}: ${t("{v} valid, {i} invalid, {d} duplicates", { v: sum.valid, i: sum.invalid, d: sum.duplicates })}${commit ? t(", {c} stored as drafts", { c: sum.committed }) : ""}</h2>
+        ${table(r.rows, [["Row", (x) => x.row], ["Result", (x) => pill(x.status)], ["Problems", (x) => esc(x.errors.map((e) => e.field + ": " + e.message).join("; "))]])}</div>`;
+      $("#commit").disabled = commit || sum.valid === 0;
+    } catch (e) { showError(e); }
+  };
+  $("#check").onclick = () => send(false);
+  $("#commit").onclick = () => send(true);
+}
+
+async function blueprintsView() {
+  const r = await api("GET", "/admin/blueprints");
+  shell(t("Blueprints"), `<div class="panel"><p>${t("Upload a new blueprint version as JSON. It is stored as a draft, and activated only if 20 sample exams built from the current bank are all valid.")}</p><div class="row"><input type="file" id="bp-file" accept=".json,application/json"><button class="primary" id="bp-up">${t("Upload as draft")}</button></div></div>
+    <div class="panel">${table(r.items, [["Code", (b) => `<span class="code">${esc(b.code)}</span>`], ["Version", (b) => b.version], ["Effective from", (b) => esc(b.effectiveFrom)], ["Status", (b) => pill(b.status)], ["", (b) => b.status === "draft" ? `<button data-dry="${b.id}">${t("Dry run")}</button> <button class="primary" data-act-bp="${b.id}">${t("Activate")}</button>` : ""]])}</div><div id="bp-out"></div>`);
+  $("#bp-up").onclick = async () => {
+    const f = $("#bp-file").files[0]; if (!f) return;
+    try { await api("POST", "/admin/blueprints", JSON.parse(await f.text())); flash("ok", t("Blueprint stored as a draft.")); render(); } catch (e) { showError(e); }
+  };
+  document.querySelectorAll("[data-dry]").forEach((b) => (b.onclick = async () => {
+    try { const d = await api("POST", `/admin/blueprints/${b.dataset.dry}/dry-run?count=20`); $("#bp-out").innerHTML = `<div class="panel"><h2>${t("{v} of {a} sample exams valid", { v: d.valid, a: d.attempted })}</h2>${d.violations.length ? "<ul>" + d.violations.map((v) => `<li>${esc(v)}</li>`).join("") + "</ul>" : ""}</div>`; } catch (e) { showError(e); }
+  }));
+  document.querySelectorAll("[data-act-bp]").forEach((b) => (b.onclick = async () => {
+    try { await api("POST", `/admin/blueprints/${b.dataset.actBp}/activate`); S.blueprint = await api("GET", "/blueprints/active"); flash("ok", t("Blueprint activated.")); render(); } catch (e) { showError(e); }
+  }));
+}
+
+async function reportsView() {
+  const r = await api("GET", "/admin/question-reports?status=open");
+  shell(t("Question reports"), `<div class="panel"><p class="muted">${t("Reports from candidates. Aim to triage each within 72 hours.")}</p>${table(r.items, [["Received", (x) => esc(new Date(x.createdAt).toLocaleString(dateFmt()))], ["Question", (x) => `<span class="code">${esc(x.publicCode)} v${x.versionNo}</span>`], ["Reason", (x) => esc(S.lang === "ar" ? t(x.reason) : x.reason.replace("_", " "))], ["Comment", (x) => `<span dir="auto">${esc(x.comment || "")}</span>`]])}</div>`);
+}
+
+async function usersView() {
+  const params = new URLSearchParams(location.hash.split("?")[1] || "");
+  const q = params.get("q") || "";
+  const r = await api("GET", "/admin/users?q=" + encodeURIComponent(q));
+  const ROLE_NAMES = [["student", "Student"], ["content_author", "Author"], ["content_reviewer", "Reviewer"], ["administrator", "Administrator"]];
+  shell(t("Users"), `<form class="panel" id="user-search"><div class="row"><label style="flex:1">${t("Email contains")}<input id="uq" dir="ltr" value="${esc(q)}"></label><button type="submit">${t("Search")}</button></div></form>
+    <div class="panel"><p class="muted">${t("Changing roles signs the person out. Reset two-factor sign-in only after confirming who is asking, for example by phone; they enrol again at next sign-in.")}</p>
+    ${table(r.items, [["Email", (u) => `<span dir="ltr">${esc(u.email)}</span>`], ["Roles", (u) => `<div class="row" data-user="${u.id}">${ROLE_NAMES.map(([k, n]) => `<label class="inline"><input type="checkbox" value="${k}"${u.roles.includes(k) ? " checked" : ""}> ${t(n)}</label>`).join("")}</div>`],
+      ["Two-factor", (u) => (u.mfaEnabled ? pill("active") : `<span class="muted">${t("Off")}</span>`)],
+      ["", (u) => `<button data-save-roles="${u.id}">${t("Save roles")}</button> ${u.mfaEnabled && u.id !== S.me.id ? `<button class="danger" data-reset="${u.id}">${t("Reset two-factor")}</button>` : ""}`]])}</div>`);
+  $("#user-search").onsubmit = (ev) => { ev.preventDefault(); location.hash = "#users?q=" + encodeURIComponent($("#uq").value.trim()); };
+  document.querySelectorAll("[data-save-roles]").forEach((b) => (b.onclick = async () => {
+    const roles = [...document.querySelectorAll(`[data-user="${b.dataset.saveRoles}"] input:checked`)].map((i) => i.value);
+    try { await api("PUT", `/admin/users/${b.dataset.saveRoles}/roles`, { roles }); flash("ok", t("Roles saved.")); render(); } catch (e) { showError(e); }
+  }));
+  document.querySelectorAll("[data-reset]").forEach((b) => (b.onclick = async () => {
+    try { await api("POST", `/admin/users/${b.dataset.reset}/mfa-reset`); flash("ok", t("Two-factor sign-in reset. The person enrols again at next sign-in.")); render(); } catch (e) { showError(e); }
+  }));
+}
+
+const REGIONS = [["EG", "Egypt"], ["GULF", "Gulf countries"], ["INTL", "Other countries"]];
+const minorDigits = (currency) => { try { return new Intl.NumberFormat("en", { style: "currency", currency }).resolvedOptions().maximumFractionDigits; } catch { return 2; } };
+const money = (p) => new Intl.NumberFormat(dateFmt(), { style: "currency", currency: p.currency }).format(p.amountMinor / 10 ** minorDigits(p.currency));
+
+async function accessView() {
+  const plans = (await api("GET", "/admin/plans")).items;
+  const passes = plans.filter((p) => p.kind === "pass");
+  const planName = (p) => (S.lang === "ar" ? (p.kind === "free" ? "مجانية" : "وصول كامل · " + t("{n} days", { n: p.durationDays })) : p.name);
+  const planOptions = passes.map((p) => `<option value="${esc(p.code)}">${esc(planName(p))}</option>`).join("");
+  const priceCell = (p, region) => { const x = p.prices.find((y) => y.region === region); return x ? `${esc(money(x))}${x.storeProductId ? `<br><span class="code muted">${esc(x.storeProductId)}</span>` : ""}` : `<span class="muted">${t("Not set")}</span>`; };
+  shell(t("Plans and access"), `<div class="panel"><h2>${t("Prices")}</h2><p class="muted">${t("Prices are set here, never in the app code. A plan without a price in a region is not offered for sale there. Store product ids must match the products created in App Store Connect and Google Play Console.")}</p>
+      ${table(plans, [["Plan", (p) => `${esc(planName(p))} <span class="code muted">${esc(p.code)}</span>`], ["Length", (p) => (p.durationDays ? t("{n} days", { n: p.durationDays }) : "–")], ...REGIONS.map(([k, n]) => [n, (p) => (p.kind === "free" ? "–" : priceCell(p, k))])])}
+      <form id="price" class="row" style="align-items:flex-end;margin-top:12px">
+        <label>${t("Plan")}<select id="pr-plan">${planOptions}</select></label>
+        <label>${t("Region")}<select id="pr-region">${REGIONS.map(([k, n]) => `<option value="${k}">${t(n)}</option>`).join("")}</select></label>
+        <label>${t("Currency")}<input id="pr-cur" maxlength="3" size="4" placeholder="EGP" required></label>
+        <label>${t("Price")}<input id="pr-amount" inputmode="decimal" size="8" placeholder="499.00" required></label>
+        <label>${t("Store product id (optional)")}<input id="pr-product" size="22"></label>
+        <button class="primary" type="submit">${t("Save price")}</button></form></div>
+    <div class="panel"><h2>${t("Access codes")}</h2><p class="muted">${t("Single-use codes for training courses and partners. Each code gives one pass. Codes are shown once; only a fingerprint of each is stored, so copy them before leaving this page.")}</p>
+      <form id="codes-form" class="row" style="align-items:flex-end">
+        <label>${t("Plan")}<select id="ac-plan">${planOptions}</select></label>
+        <label>${t("Days of access")}<input id="ac-days" type="number" min="1" max="365" value="30" size="5"></label>
+        <label>${t("How many")}<input id="ac-count" type="number" min="1" max="500" value="20" size="5"></label>
+        <label style="flex:1">${t("Batch name")}<input id="ac-label" placeholder="${t("Cairo course, January 2027")}" maxlength="100"></label>
+        <label>${t("Redeem by (optional)")}<input id="ac-exp" type="date"></label>
+        <button class="primary" type="submit">${t("Create codes")}</button></form><div id="ac-out"></div></div>
+    <div class="panel"><h2>${t("Give a pass to a person")}</h2><p class="muted">${t("For example a replacement after a refund dispute or a partner account. It starts when any current pass ends.")}</p>
+      <form id="grant" class="row" style="align-items:flex-end">
+        <label style="flex:1">${t("Email")}<input id="gr-email" type="email" dir="ltr" required></label>
+        <label>${t("Plan")}<select id="gr-plan">${planOptions}</select></label>
+        <label>${t("Days")}<input id="gr-days" type="number" min="1" max="365" value="30" size="5"></label>
+        <label style="flex:1">${t("Reason")}<input id="gr-note" maxlength="500"></label>
+        <button class="primary" type="submit">${t("Give pass")}</button></form><div id="gr-out"></div></div>`);
+  $("#price").onsubmit = async (ev) => {
+    ev.preventDefault();
+    const currency = $("#pr-cur").value.trim().toUpperCase();
+    const amount = Number($("#pr-amount").value.replace(/,/g, ""));
+    if (!/^[A-Z]{3}$/.test(currency) || !Number.isFinite(amount) || amount < 0) return showError(new Error(t("Enter a three-letter currency code and a price, such as EGP and 499.00.")));
+    const body = { currency, amountMinor: Math.round(amount * 10 ** minorDigits(currency)) };
+    const product = $("#pr-product").value.trim(); if (product) body.storeProductId = product;
+    try { await api("PUT", `/admin/plans/${$("#pr-plan").value}/prices/${$("#pr-region").value}`, body); flash("ok", t("Price saved.")); render(); } catch (e) { showError(e); }
+  };
+  $("#codes-form").onsubmit = async (ev) => {
+    ev.preventDefault();
+    const body = { planCode: $("#ac-plan").value, days: Number($("#ac-days").value), count: Number($("#ac-count").value), label: $("#ac-label").value.trim() };
+    if ($("#ac-exp").value) body.expiresAt = new Date($("#ac-exp").value + "T23:59:59Z").toISOString();
+    try {
+      const r = await api("POST", "/admin/access-codes", body);
+      $("#ac-out").innerHTML = `<p class="msg ok">${esc(t("{n} codes created for “{label}”. Copy them now; they are not shown again.", { n: r.codes.length, label: r.label }))}</p>
+        <textarea id="ac-codes" readonly dir="ltr" rows="${Math.min(12, r.codes.length)}" class="code">${esc(r.codes.join("\n"))}</textarea>`;
+    } catch (e) { $("#ac-out").innerHTML = `<p class="msg err">${esc(e.describe ? e.describe() : e.message)}</p>`; }
+  };
+  $("#grant").onsubmit = async (ev) => {
+    ev.preventDefault();
+    const email = $("#gr-email").value.trim().toLowerCase();
+    try {
+      const found = (await api("GET", "/admin/users?q=" + encodeURIComponent(email))).items.find((u) => u.email.toLowerCase() === email);
+      if (!found) { $("#gr-out").innerHTML = `<p class="msg err">${t("No account with this email.")}</p>`; return; }
+      const body = { planCode: $("#gr-plan").value, days: Number($("#gr-days").value) };
+      if ($("#gr-note").value.trim()) body.note = $("#gr-note").value.trim();
+      const a = await api("POST", `/admin/users/${found.id}/grant`, body);
+      $("#gr-out").innerHTML = `<p class="msg ok">${esc(t("{email} has access until {date}.", { email: found.email, date: new Date(a.endsAt).toLocaleDateString(dateFmt(), { day: "numeric", month: "long", year: "numeric" }) }))}</p>`;
+    } catch (e) { $("#gr-out").innerHTML = `<p class="msg err">${esc(e.describe ? e.describe() : e.message)}</p>`; }
+  };
+}
+
+async function auditView() {
+  const params = new URLSearchParams(location.hash.split("?")[1] || "");
+  const action = params.get("action") || "", actor = params.get("actor") || "";
+  let rows = [], cursor = null;
+  const load = async () => {
+    const q = new URLSearchParams({ limit: "50" });
+    if (action) q.set("action", action);
+    if (actor) q.set("actor", actor);
+    if (cursor) q.set("cursor", cursor);
+    const r = await api("GET", "/admin/audit?" + q);
+    rows = rows.concat(r.items); cursor = r.nextCursor;
+  };
+  await load();
+  const ACTIONS = [["", "Any"], ["question", "Questions"], ["case_study", "Case studies"], ["user", "Users and roles"], ["access", "Access and passes"], ["plan", "Prices"], ["blueprint", "Blueprints"], ["exhibit", "Exhibits"]];
+  const changes = (x) => { const v = x.after || x.before; if (!v) return ""; const t2 = JSON.stringify(v); return `<span class="code wrapok" dir="ltr">${esc(t2.length > 160 ? t2.slice(0, 159) + "…" : t2)}</span>`; };
+  const draw = () => {
+    shell(t("Audit log"), `<form class="panel" id="audit-filter"><p class="muted">${t("Every staff action and access change, newest first. Entries cannot be edited or deleted.")}</p><div class="row">
+      <label>${t("Area")}<select id="a-action">${ACTIONS.map(([k, n]) => `<option value="${k}"${k === action ? " selected" : ""}>${t(n)}</option>`).join("")}</select></label>
+      <label style="flex:1">${t("By (email)")}<input id="a-actor" dir="ltr" value="${esc(actor)}"></label><button type="submit">${t("Apply")}</button></div></form>
+      <div class="panel">${table(rows, [["When", (x) => esc(new Date(x.at).toLocaleString(dateFmt()))], ["By", (x) => `<span dir="ltr">${esc(x.actor || "—")}</span>`], ["Action", (x) => `<span class="code">${esc(x.action)}</span>`], ["Item", (x) => `<span class="code">${esc(x.entityType)} ${esc(String(x.entityId).slice(0, 12))}</span>`], ["Details", changes]])}${cursor ? `<button id="more">${t("Load more")}</button>` : ""}</div>`);
+    $("#audit-filter").onsubmit = (ev) => { ev.preventDefault(); location.hash = `#audit?action=${encodeURIComponent($("#a-action").value)}&actor=${encodeURIComponent($("#a-actor").value.trim())}`; };
+    if (cursor) $("#more").onclick = async () => { await load(); draw(); };
+  };
+  draw();
+}
+
+function securityView() {
+  shell(t("Security"), `<div class="panel"><h2>${t("Recovery codes")}</h2><p>${t("Make a new set of ten recovery codes. The old set stops working at once.")}</p><button id="regen">${t("Make new recovery codes")}</button><div id="codes"></div></div>`);
+  $("#regen").onclick = async () => { try { const r = await api("POST", "/auth/mfa/recovery-codes"); $("#codes").innerHTML = `<p class="msg ok">${t("Save these now. They are shown only once.")}</p><div class="codes">${r.recoveryCodes.map((c) => `<span>${esc(c)}</span>`).join("")}</div>`; } catch (e) { showError(e); } };
+}
+
+async function render() {
+  if (!S.access) return loginView();
+  const [route, arg] = location.hash.slice(1).split("?")[0].split("/");
+  try {
+    if (route === "signout") { try { await api("POST", "/auth/logout"); } catch {} S.access = S.refresh = S.me = null; location.hash = ""; return loginView(); }
+    if (route === "questions") return await questionsView();
+    if (route === "question") return await questionView(arg);
+    if (route === "new") return await questionView(null);
+    if (route === "cases") return await casesView();
+    if (route === "case") return await caseView(arg);
+    if (route === "import") return importView();
+    if (route === "blueprints") return await blueprintsView();
+    if (route === "reports") return await reportsView();
+    if (route === "users") return await usersView();
+    if (route === "security") return securityView();
+    if (route === "access") return await accessView();
+    if (route === "audit") return await auditView();
+    return await queueView();
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) { S.access = null; return loginView(); }
+    shell(t("Problem"), `<p class="msg err">${esc(e instanceof ApiError ? e.describe() : t("Cannot reach the server."))}</p>`);
+  }
+}
+window.addEventListener("hashchange", render);
+setLang((navigator.language || "en").toLowerCase().startsWith("ar") ? "ar" : "en");
+render();
+</script>
+</body>
+</html>

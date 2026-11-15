@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full-bleed background; the mark stays inside the 80% safe zone. -->
+  <rect width="512" height="512" fill="#1b4a78"/>
+  <g transform="translate(256 256) scale(0.72) translate(-256 -256)">
+    <circle cx="256" cy="256" r="150" fill="none" stroke="#86b8ea" stroke-width="28" stroke-linecap="round" stroke-dasharray="700 300" transform="rotate(-90 256 256)"/>
+    <path d="M188 262 l46 46 l92 -104" fill="none" stroke="#ffffff" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

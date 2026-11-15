@@ -1,0 +1,206 @@
+{
+  "note": "Original sample questions written for store screenshots only. They are not part of the question bank and have not been through expert review.",
+  "questions": [
+    {
+      "stem": "Two senior developers on an agile team disagree about which database to use, and the argument is delaying sprint work. The product owner asks the project manager to settle it. What should the project manager do first?",
+      "options": [
+        [
+          "Choose the database with the lower licence cost",
+          false,
+          "A cost decision made for the team skips the technical trade-offs the team owns."
+        ],
+        [
+          "Facilitate a short session where the team compares the options against the sprint goal",
+          true,
+          "Helping the team reach its own decision keeps ownership with the people doing the work."
+        ],
+        [
+          "Escalate the disagreement to the functional manager",
+          false,
+          "Escalation is premature before the team has tried to resolve it."
+        ],
+        [
+          "Ask the product owner to decide because the delay affects the backlog",
+          false,
+          "The product owner owns what is built, not how it is built."
+        ]
+      ],
+      "why": "Self-organizing teams decide how to do their work. The project manager acts as a facilitator: bringing the disagreement into the open, framing it around the sprint goal and letting the team decide.",
+      "mindset": "Servant leader: facilitate, do not decide for the team."
+    },
+    {
+      "stem": "Midway through a construction project, a key supplier warns that steel deliveries may arrive three weeks late. The risk was not in the risk register. What should the project manager do next?",
+      "options": [
+        [
+          "Update the schedule baseline to show the later delivery",
+          false,
+          "Changing the baseline needs approved change control and the risk has not happened yet."
+        ],
+        [
+          "Add the risk to the register, analyse it and agree a response with the risk owner",
+          true,
+          "A newly identified risk is recorded, assessed and given an owner and a response."
+        ],
+        [
+          "Tell the sponsor that the project will finish three weeks late",
+          false,
+          "It is too early to report a delay that may still be avoided."
+        ],
+        [
+          "Replace the supplier immediately",
+          false,
+          "A response is chosen after analysis, not before."
+        ]
+      ],
+      "why": "New risks are added to the risk register, analysed for probability and impact, and assigned an owner who plans a response before the risk occurs.",
+      "mindset": "Act early on uncertainty, through the risk process."
+    },
+    {
+      "stem": "A stakeholder who joined the project late says she was never consulted and threatens to block the release. What should the project manager do first?",
+      "options": [
+        [
+          "Meet the stakeholder to understand her interests and concerns",
+          true,
+          "Engagement starts by understanding what the stakeholder needs and expects."
+        ],
+        [
+          "Send her the project charter and the approved scope",
+          false,
+          "Documents alone do not address her concern about being left out."
+        ],
+        [
+          "Ask the sponsor to overrule her",
+          false,
+          "Using authority before listening damages the relationship."
+        ],
+        [
+          "Postpone the release until she agrees",
+          false,
+          "Delaying without understanding the issue may be unnecessary."
+        ]
+      ],
+      "why": "The first step with a dissatisfied stakeholder is to listen: understand interests, influence and expectations, then update the engagement plan.",
+      "mindset": "Engage stakeholders; do not manage them by decree."
+    },
+    {
+      "stem": "In a hybrid project, the hardware phase follows a fixed plan while the software is built in two-week iterations. The software team wants to change a feature that the hardware design depends on. What should the project manager do?",
+      "options": [
+        [
+          "Let the software team proceed because agile welcomes change",
+          false,
+          "The change affects a fixed-plan dependency, so its impact must be assessed first."
+        ],
+        [
+          "Assess the impact on the hardware design with both teams before deciding",
+          true,
+          "Cross-team dependencies in a hybrid project need a joint impact assessment."
+        ],
+        [
+          "Reject the change because the hardware plan is baselined",
+          false,
+          "Rejecting without analysis may lose valuable improvements."
+        ],
+        [
+          "Move the software team to the predictive plan",
+          false,
+          "Changing the delivery approach is out of proportion to one change request."
+        ]
+      ],
+      "why": "In hybrid delivery, changes that cross from the adaptive part into the predictive part are assessed together, then go through the change process where baselines are affected.",
+      "mindset": "Fit the approach to each part, and manage the seams."
+    }
+  ],
+  "cases": [
+    {
+      "title": "Clinic records migration",
+      "scenario": "A group of clinics is moving patient records to a new cloud platform. Data migration follows a fixed plan approved by the regulator, while the clinicians' mobile app is built in short iterations with weekly feedback from doctors. The go-live date is set by the expiry of the current hosting contract."
+    },
+    {
+      "title": "Regional warehouse automation",
+      "scenario": "A distribution company is automating two regional warehouses. Conveyor installation is contracted at a fixed price, while the routing software is developed by an internal agile team. Shift supervisors worry about job changes and safety during the transition."
+    }
+  ],
+  "multiple": {
+    "stem": "Work keeps arriving from outside the sprint, and the team is falling behind on its commitments. Which two actions should the project manager take?",
+    "options": [
+      [
+        "Make every incoming request visible on the backlog so the product owner can prioritize it",
+        true,
+        "Visible, prioritized work lets the product owner make trade-offs openly."
+      ],
+      [
+        "Ask the team to work overtime until the sprint is back on track",
+        false,
+        "Overtime hides the cause and is not sustainable."
+      ],
+      [
+        "Agree with the requesting stakeholders on a single way to bring in new work",
+        true,
+        "One entry point stops work from reaching the team around the backlog."
+      ],
+      [
+        "Refuse all stakeholder requests until the project ends",
+        false,
+        "Refusing all input cuts the feedback the product needs."
+      ]
+    ],
+    "why": "Unplanned work is handled by making it visible and routing it through the product owner, who orders it against the sprint goal. Agreeing one channel with stakeholders protects the team's focus.",
+    "mindset": "Protect the team's focus; make trade-offs visible."
+  },
+  "caseQuestions": [
+    {
+      "stem": "The clinicians' app team wants to add an offline mode that the migration plan did not expect, and it would change the data format the migration produces. What should the project manager do first?",
+      "options": [
+        [
+          "Assess the impact on the migration plan and the audit date with both teams",
+          true,
+          "A change that crosses into the fixed-plan migration needs a joint impact assessment."
+        ],
+        [
+          "Let the app team add it, because the app is built in iterations",
+          false,
+          "The change affects regulated, baselined work outside the app team."
+        ],
+        [
+          "Reject it, because the migration plan was approved by the regulator",
+          false,
+          "Rejecting without analysis may lose something doctors need."
+        ],
+        [
+          "Ask the hosting provider to extend the contract",
+          false,
+          "Extending the contract is premature before knowing the impact."
+        ]
+      ],
+      "why": "In a hybrid project, a change from the adaptive part that touches the predictive, regulated part is first assessed jointly, then handled through change control if baselines are affected.",
+      "mindset": "Manage the seams between the two ways of working."
+    },
+    {
+      "stem": "Shift supervisors at the first warehouse are resisting the new routing software and keep using the old paper lists. What should the project manager do?",
+      "options": [
+        [
+          "Meet the supervisors to understand their concerns and involve them in testing and training",
+          true,
+          "Understanding and involving the people affected builds adoption."
+        ],
+        [
+          "Ask the warehouse manager to forbid the paper lists",
+          false,
+          "Mandating use without addressing concerns increases resistance."
+        ],
+        [
+          "Ignore it, because the software works as specified",
+          false,
+          "Software that people do not use delivers no value."
+        ],
+        [
+          "Delay the second warehouse until the supervisors change their minds",
+          false,
+          "Waiting does not address the cause."
+        ]
+      ],
+      "why": "Organizational change succeeds when affected people understand why, are involved and are supported. Their concerns, here job changes and safety, are addressed directly.",
+      "mindset": "Plan for adoption, not just delivery."
+    }
+  ]
+}

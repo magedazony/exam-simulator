@@ -1,0 +1,11 @@
+{
+  "name": "@pmp-sim/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reference HTTP implementation of the candidate-facing API contract, with no runtime dependencies.",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "test": "node --test --test-concurrency=1 test/xlsx.test.ts test/mailer.test.ts test/messages.test.ts test/billing-google.test.ts test/api.test.ts test/admin.test.ts test/production.test.ts"
+  }
+}

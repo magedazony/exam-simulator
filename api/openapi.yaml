@@ -1,0 +1,2055 @@
+openapi: 3.1.0
+info:
+  title: PMP Exam Simulator API
+  version: 1.0.0-draft.1
+  description: >
+    Contract for the MVP. Independent exam-preparation software, not affiliated
+    with or endorsed by the Project Management Institute.
+
+    Rules that hold for every candidate endpoint: questions are addressed by
+    attempt or session and ordinal, never by question id; no response carries
+    an answer key or rationale before the answer is stored (practice) or the
+    attempt is finished (mock exam); the server is the only authority on time.
+servers:
+  - url: /api/v1
+tags:
+  - name: auth
+  - name: profile
+  - name: taxonomy
+  - name: practice
+  - name: exams
+  - name: results
+  - name: admin
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      tags: [auth]
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201': { description: Account created; verification email sent }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /auth/verify-email:
+    post:
+      tags: [auth]
+      operationId: verifyEmail
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        '204': { description: Email verified }
+        '422': { $ref: '#/components/responses/Problem' }
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshToken
+      security: []
+      description: Rotates the refresh token. Reuse of an old token revokes the session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: New token pair
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '401': { $ref: '#/components/responses/Problem' }
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      responses:
+        '204': { description: Session revoked }
+  /auth/password/reset-request:
+    post:
+      tags: [auth]
+      operationId: requestPasswordReset
+      security: []
+      description: Always answers 202 so that accounts cannot be discovered.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '202': { description: Accepted }
+        '429': { $ref: '#/components/responses/Problem' }
+  /auth/password/reset:
+    post:
+      tags: [auth]
+      operationId: resetPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token: { type: string }
+                newPassword: { type: string, minLength: 10, maxLength: 128 }
+      responses:
+        '204': { description: Password changed; all sessions revoked }
+        '422': { $ref: '#/components/responses/Problem' }
+
+  /me:
+    get:
+      tags: [profile]
+      operationId: getProfile
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+    patch:
+      tags: [profile]
+      operationId: updateProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfileUpdate' }
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '422': { $ref: '#/components/responses/Problem' }
+    delete:
+      tags: [profile]
+      operationId: deleteAccount
+      responses:
+        '202': { description: Deletion scheduled }
+  /me/export:
+    get:
+      tags: [profile]
+      operationId: exportMyData
+      description: Everything stored about the signed-in person (profile, sessions, practice answers, mock exams, reports, access), as a JSON file download. Secrets such as password and token hashes are never included.
+      responses:
+        '200':
+          description: JSON file
+          content:
+            application/json:
+              schema: { type: object }
+        '401': { $ref: '#/components/responses/Problem' }
+  /me/dashboard:
+    get:
+      tags: [profile]
+      operationId: getDashboard
+      responses:
+        '200':
+          description: Dashboard summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dashboard' }
+  /me/analytics:
+    get:
+      tags: [results]
+      operationId: getAnalytics
+      parameters:
+        - name: dimension
+          in: query
+          required: true
+          schema: { type: string, enum: [domain, task, approach, difficulty, type] }
+      responses:
+        '200':
+          description: Performance by the chosen dimension
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [dimension, rows]
+                properties:
+                  dimension: { type: string }
+                  rows:
+                    type: array
+                    items: { $ref: '#/components/schemas/Tally' }
+
+  /blueprints/active:
+    get:
+      tags: [taxonomy]
+      operationId: getActiveBlueprint
+      responses:
+        '200':
+          description: Domains, tasks and filter values of the active blueprint
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BlueprintSummary' }
+
+  /practice/sessions:
+    post:
+      tags: [practice]
+      operationId: startPracticeSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PracticeSessionRequest' }
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PracticeSession' }
+        '402': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /practice/sessions/{sessionId}/questions/{ordinal}:
+    get:
+      tags: [practice]
+      operationId: getPracticeQuestion
+      parameters:
+        - { $ref: '#/components/parameters/sessionId' }
+        - { $ref: '#/components/parameters/ordinal' }
+      responses:
+        '200':
+          description: The question, without key or rationale
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CandidateQuestion' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /practice/sessions/{sessionId}/questions/{ordinal}/answer:
+    post:
+      tags: [practice]
+      operationId: answerPracticeQuestion
+      description: Stores the answer first, then returns correctness and the explanation.
+      parameters:
+        - { $ref: '#/components/parameters/sessionId' }
+        - { $ref: '#/components/parameters/ordinal' }
+        - { $ref: '#/components/parameters/idempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AnswerRequest' }
+      responses:
+        '200':
+          description: Result and explanation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnswerFeedback' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /practice/sessions/{sessionId}/summary:
+    get:
+      tags: [practice]
+      operationId: getPracticeSummary
+      parameters:
+        - { $ref: '#/components/parameters/sessionId' }
+      responses:
+        '200':
+          description: Session summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PracticeSummary' }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /exams/attempts:
+    get:
+      tags: [exams]
+      operationId: listAttempts
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+      responses:
+        '200':
+          description: Attempt history, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/AttemptSummary' }
+                  nextCursor: { type: [string, 'null'] }
+    post:
+      tags: [exams]
+      operationId: startAttempt
+      x-requires: a current pass (402 payment_required otherwise)
+      description: >
+        Generates a mock exam from the active blueprint, validates it and starts
+        the clock. Fails with 409 when the user already has an active attempt
+        and with 503 problem type exam-generation-failed when no compliant exam
+        can be built.
+      parameters:
+        - { $ref: '#/components/parameters/idempotencyKey' }
+      responses:
+        '201':
+          description: Attempt started
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttemptStatus' }
+        '402': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /exams/attempts/{attemptId}:
+    get:
+      tags: [exams]
+      operationId: getAttempt
+      description: Current state as the server sees it. Clients re-sync their countdown from this.
+      parameters:
+        - { $ref: '#/components/parameters/attemptId' }
+      responses:
+        '200':
+          description: Attempt state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttemptStatus' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /exams/attempts/{attemptId}/sections/{sectionIndex}/questions:
+    get:
+      tags: [exams]
+      operationId: getSectionQuestions
+      description: Questions of the open section only. A locked or closed section answers 409.
+      parameters:
+        - { $ref: '#/components/parameters/attemptId' }
+        - { $ref: '#/components/parameters/sectionIndex' }
+      responses:
+        '200':
+          description: Questions without keys, plus case-study scenarios used in the section
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SectionQuestions' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /exams/attempts/{attemptId}/answers/{ordinal}:
+    put:
+      tags: [exams]
+      operationId: saveAnswer
+      description: >
+        Saves, changes or clears an answer and optionally sets the flag. A save
+        whose clientSeq is not newer than the stored one is acknowledged and
+        ignored. Rejected with 409 on a break, after the deadline, or for a
+        question outside the open section.
+      parameters:
+        - { $ref: '#/components/parameters/attemptId' }
+        - { $ref: '#/components/parameters/ordinal' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaveAnswerRequest' }
+      responses:
+        '200':
+          description: Saved state of this answer and the time left
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SaveAnswerResponse' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /exams/attempts/{attemptId}/sections/{sectionIndex}/review:
+    get:
+      tags: [exams]
+      operationId: getSectionReview
+      parameters:
+        - { $ref: '#/components/parameters/attemptId' }
+        - { $ref: '#/components/parameters/sectionIndex' }
+      responses:
+        '200':
+          description: Answered, unanswered and flagged counts
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SectionReview' }
+  /exams/attempts/{attemptId}/sections/{sectionIndex}/close:
+    post:
+      tags: [exams]
+      operationId: closeSection
+      description: Locks the section for good and starts its break, if it has one.
+      parameters:
+        - { $ref: '#/components/parameters/attemptId' }
+        - { $ref: '#/components/parameters/sectionIndex' }
+        - { $ref: '#/components/parameters/idempotencyKey' }
+      responses:
+        '200':
+          description: New attempt state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttemptStatus' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /exams/attempts/{attemptId}/resume:
+    post:
+      tags: [exams]
+      operationId: resumeFromBreak
+      parameters:
+        - { $ref: '#/components/parameters/attemptId' }
+      responses:
+        '200':
+          description: New attempt state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttemptStatus' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /exams/attempts/{attemptId}/submit:
+    post:
+      tags: [exams]
+      operationId: submitAttempt
+      parameters:
+        - { $ref: '#/components/parameters/attemptId' }
+        - { $ref: '#/components/parameters/idempotencyKey' }
+      responses:
+        '200':
+          description: Submitted and scored
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttemptResult' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /exams/attempts/{attemptId}/result:
+    get:
+      tags: [results]
+      operationId: getAttemptResult
+      parameters:
+        - { $ref: '#/components/parameters/attemptId' }
+      responses:
+        '200':
+          description: Result of a finished attempt
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttemptResult' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /exams/attempts/{attemptId}/review:
+    get:
+      tags: [results]
+      operationId: getAttemptReview
+      description: Available only after the attempt is submitted or expired.
+      parameters:
+        - { $ref: '#/components/parameters/attemptId' }
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - name: filter
+          in: query
+          schema: { type: string, enum: [all, incorrect, flagged, unanswered], default: all }
+      responses:
+        '200':
+          description: Questions with the candidate's answer, the key and the explanation
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ReviewedQuestion' }
+                  nextCursor: { type: [string, 'null'] }
+        '409': { $ref: '#/components/responses/Problem' }
+  /question-reports:
+    post:
+      tags: [results]
+      operationId: reportQuestion
+      description: Reports a problem with a question the candidate has already answered or reviewed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuestionReport' }
+      responses:
+        '202': { description: Report received }
+        '422': { $ref: '#/components/responses/Problem' }
+
+  /admin/questions:
+    get:
+      tags: [admin]
+      operationId: adminListQuestions
+      x-roles: [content_author, content_reviewer, administrator]
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - name: workflowState
+          in: query
+          schema: { $ref: '#/components/schemas/WorkflowState' }
+        - name: taskCode
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Question versions matching the filters
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/AdminQuestionVersion' }
+                  nextCursor: { type: [string, 'null'] }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      tags: [admin]
+      operationId: adminCreateQuestion
+      x-roles: [content_author, administrator]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminQuestionDraft' }
+      responses:
+        '201':
+          description: Draft created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminQuestionVersion' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /admin/question-versions/{versionId}/transitions:
+    post:
+      tags: [admin]
+      operationId: adminTransitionQuestion
+      x-roles: [content_author, content_reviewer, administrator]
+      description: >
+        Moves a version through the workflow: submit (author), approve or
+        return at a gate (a reviewer who is not the author), publish and
+        withdraw (administrator). Returning requires a comment.
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkflowTransition' }
+      responses:
+        '200':
+          description: Version in its new state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminQuestionVersion' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /admin/blueprints/{blueprintId}/dry-run:
+    post:
+      tags: [admin]
+      operationId: adminBlueprintDryRun
+      x-roles: [administrator]
+      description: Generates sample exams against the published bank and reports compliance. Required before activation.
+      parameters:
+        - name: blueprintId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Compliance report
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [attempted, valid, violations]
+                properties:
+                  attempted: { type: integer }
+                  valid: { type: integer }
+                  violations:
+                    type: array
+                    items: { type: string }
+        '403': { $ref: '#/components/responses/Problem' }
+
+  /auth/mfa/setup:
+    post:
+      tags: [auth]
+      operationId: startMfaSetup
+      description: Creates a pending authenticator secret. Required for every staff role.
+      responses:
+        '200':
+          description: Secret to add to an authenticator app
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MfaSetup' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /auth/mfa/enable:
+    post:
+      tags: [auth]
+      operationId: enableMfa
+      description: Confirms the pending secret with a current code. Sign in again to get a two-factor session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, pattern: '^[0-9]{6}$' }
+      responses:
+        '200':
+          description: Two-factor sign-in is on. The recovery codes are shown once.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecoveryCodes' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /admin/question-versions/{versionId}:
+    get:
+      tags: [admin]
+      operationId: adminGetQuestionVersion
+      x-roles: [content_author, content_reviewer, administrator]
+      parameters:
+        - { $ref: '#/components/parameters/versionId' }
+      responses:
+        '200':
+          description: The version with its key, explanation and last review
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminQuestionVersion' }
+        '404': { $ref: '#/components/responses/Problem' }
+    put:
+      tags: [admin]
+      operationId: adminUpdateDraft
+      x-roles: [content_author, administrator]
+      description: Replaces a draft. Only the author or an administrator, and only in the draft state.
+      parameters:
+        - { $ref: '#/components/parameters/versionId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminQuestionDraft' }
+      responses:
+        '200':
+          description: Updated draft
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminQuestionVersion' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /admin/questions/{questionId}/versions:
+    post:
+      tags: [admin]
+      operationId: adminNewQuestionVersion
+      x-roles: [content_author, administrator]
+      description: Starts the next version of a published or withdrawn question as a draft copy.
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201':
+          description: New draft version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminQuestionVersion' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /admin/imports:
+    post:
+      tags: [admin]
+      operationId: adminImportQuestions
+      x-roles: [content_author, administrator]
+      description: >
+        Validates up to 500 rows and reports each one. With commit true, valid
+        rows become drafts owned by the caller; invalid and duplicate rows are
+        never stored. The admin panel converts CSV and Excel files to rows.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ImportRequest' }
+      responses:
+        '200':
+          description: Row-by-row report
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportReport' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /admin/blueprints:
+    get:
+      tags: [admin]
+      operationId: adminListBlueprints
+      x-roles: [administrator]
+      responses:
+        '200':
+          description: All blueprint versions, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, code, version, status, effectiveFrom]
+                      properties:
+                        id: { type: string, format: uuid }
+                        code: { type: string }
+                        version: { type: integer }
+                        status: { type: string, enum: [draft, active, retired] }
+                        effectiveFrom: { type: string, format: date }
+    post:
+      tags: [admin]
+      operationId: adminImportBlueprint
+      x-roles: [administrator]
+      description: Stores a blueprint document as a draft version.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '201':
+          description: Draft blueprint stored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, status]
+                properties:
+                  id: { type: string, format: uuid }
+                  status: { type: string }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /admin/blueprints/{blueprintId}/activate:
+    post:
+      tags: [admin]
+      operationId: adminActivateBlueprint
+      x-roles: [administrator]
+      description: Runs 20 sample exams against the current bank and activates only if all are valid.
+      parameters:
+        - name: blueprintId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Blueprint active }
+        '409': { $ref: '#/components/responses/Problem' }
+  /admin/question-reports:
+    get:
+      tags: [admin]
+      operationId: adminListQuestionReports
+      x-roles: [content_author, content_reviewer, administrator]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [open, triaged, resolved], default: open }
+      responses:
+        '200':
+          description: Reports, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/QuestionReportView' } }
+
+  /auth/mfa/recovery-codes:
+    post:
+      tags: [auth]
+      operationId: regenerateRecoveryCodes
+      description: Replaces all recovery codes. Requires a two-factor session.
+      responses:
+        '200':
+          description: New codes, shown once
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecoveryCodes' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /admin/case-studies:
+    get:
+      tags: [admin]
+      operationId: adminListCaseStudies
+      x-roles: [content_author, content_reviewer, administrator]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [draft, published, withdrawn] }
+      responses:
+        '200':
+          description: Case studies
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, publicCode, title, status, questionCount]
+                      properties:
+                        id: { type: string, format: uuid }
+                        publicCode: { type: string }
+                        title: { type: string }
+                        status: { type: string }
+                        questionCount: { type: integer }
+    post:
+      tags: [admin]
+      operationId: adminCreateCaseStudy
+      x-roles: [content_author, administrator]
+      description: Creates a draft case study. Questions join it by sending its id as caseStudyId when they are created.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CaseStudyDraft' }
+      responses:
+        '201':
+          description: Draft case study
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCaseStudy' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /admin/case-studies/{caseId}:
+    get:
+      tags: [admin]
+      operationId: adminGetCaseStudy
+      x-roles: [content_author, content_reviewer, administrator]
+      parameters:
+        - { $ref: '#/components/parameters/caseId' }
+      responses:
+        '200':
+          description: Case study with its questions
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCaseStudy' }
+        '404': { $ref: '#/components/responses/Problem' }
+    put:
+      tags: [admin]
+      operationId: adminUpdateCaseStudy
+      x-roles: [content_author, administrator]
+      description: Only drafts can be edited. A published case study is withdrawn and rewritten.
+      parameters:
+        - { $ref: '#/components/parameters/caseId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CaseStudyDraft' }
+      responses:
+        '200':
+          description: Updated case study
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCaseStudy' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /admin/case-studies/{caseId}/publish:
+    post:
+      tags: [admin]
+      operationId: adminPublishCaseStudy
+      x-roles: [administrator]
+      description: Requires 2 to 10 questions, every one already published.
+      parameters:
+        - { $ref: '#/components/parameters/caseId' }
+      responses:
+        '200':
+          description: Published case study
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCaseStudy' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /admin/case-studies/{caseId}/withdraw:
+    post:
+      tags: [admin]
+      operationId: adminWithdrawCaseStudy
+      x-roles: [administrator]
+      description: Removes the whole set from new exams.
+      parameters:
+        - { $ref: '#/components/parameters/caseId' }
+      responses:
+        '200':
+          description: Withdrawn case study
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCaseStudy' }
+        '409': { $ref: '#/components/responses/Problem' }
+
+  /exhibits/{exhibitId}:
+    get:
+      tags: [results]
+      operationId: getExhibitImage
+      security: []
+      description: >
+        Image of an exhibit. Reachable only through the signed, expiring address
+        that comes with a question; any other request answers 404.
+      parameters:
+        - name: exhibitId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - { name: exp, in: query, required: true, schema: { type: integer } }
+        - { name: sig, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The image
+          content:
+            image/png: {}
+            image/jpeg: {}
+            image/webp: {}
+        '404': { $ref: '#/components/responses/Problem' }
+  /admin/exhibits:
+    post:
+      tags: [admin]
+      operationId: adminCreateExhibit
+      x-roles: [content_author, administrator]
+      description: Stores an image (PNG, JPEG or WebP, at most 1 MiB; SVG is refused) or a table, each with alternative text.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExhibitUpload' }
+      responses:
+        '201':
+          description: Stored exhibit
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminExhibit' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /admin/users:
+    get:
+      tags: [admin]
+      operationId: adminFindUsers
+      x-roles: [administrator]
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 } }
+      responses:
+        '200':
+          description: Up to 50 accounts whose email contains the query
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AdminUser' } }
+  /admin/users/{userId}/roles:
+    put:
+      tags: [admin]
+      operationId: adminSetRoles
+      x-roles: [administrator]
+      description: Replaces a user's roles and ends their sessions. Administrators cannot remove their own administrator role.
+      parameters:
+        - { $ref: '#/components/parameters/userId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roles]
+              properties:
+                roles:
+                  type: array
+                  minItems: 1
+                  items: { type: string, enum: [student, content_author, content_reviewer, administrator] }
+      responses:
+        '200':
+          description: The user with the new roles
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminUser' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /admin/users/{userId}/mfa-reset:
+    post:
+      tags: [admin]
+      operationId: adminResetMfa
+      x-roles: [administrator]
+      description: Removes two-factor sign-in and recovery codes and ends all sessions. The person enrols again at next sign-in. Not allowed on yourself.
+      parameters:
+        - { $ref: '#/components/parameters/userId' }
+      responses:
+        '204': { description: Reset done }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /site:
+    get:
+      tags: [system]
+      operationId: siteInfo
+      security: []
+      description: Public links the apps show (terms of use, privacy policy, support address), from the server's settings.
+      responses:
+        '200':
+          description: Site links; empty strings when not set
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [termsUrl, privacyUrl, supportEmail]
+                additionalProperties: false
+                properties:
+                  termsUrl: { type: string }
+                  privacyUrl: { type: string }
+                  supportEmail: { type: string }
+  /health:
+    get:
+      tags: [system]
+      operationId: health
+      security: []
+      description: For load balancers and monitoring. 503 when the database does not answer within 2 seconds.
+      responses:
+        '200':
+          description: Up
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+        '503':
+          description: Database unreachable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+  /plans:
+    get:
+      tags: [access]
+      operationId: listPlans
+      security: []
+      description: Active plans with the price set by an administrator for the region. A plan without a price for that region has price null; the client then hides it or shows that it is not on sale there.
+      parameters:
+        - { name: region, in: query, schema: { type: string, enum: [EG, GULF, INTL], default: INTL } }
+      responses:
+        '200':
+          description: Plans
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlanList' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /me/access:
+    get:
+      tags: [access]
+      operationId: getAccess
+      description: What this account may use now. Staff accounts are always entitled, so they can check content.
+      responses:
+        '200':
+          description: Access
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Access' }
+  /me/redeem:
+    post:
+      tags: [access]
+      operationId: redeemAccessCode
+      description: Redeems an access code, for example one handed out on a training course. Case, spaces and dashes are ignored. Rate limited. Errors code_invalid, code_used, code_expired.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              additionalProperties: false
+              properties:
+                code: { type: string, maxLength: 40 }
+      responses:
+        '200':
+          description: Access after redemption
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Access' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /billing/purchases:
+    post:
+      tags: [access]
+      operationId: confirmStorePurchase
+      description: Sends an App Store or Google Play purchase for server-side verification with the store. Each store transaction grants one pass, however often it is sent. Returns 503 store_billing_not_configured until store credentials are set up.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [platform, productId, purchaseToken]
+              additionalProperties: false
+              properties:
+                platform: { type: string, enum: [apple, google] }
+                productId: { type: string, maxLength: 200 }
+                purchaseToken: { type: string, maxLength: 20000 }
+      responses:
+        '200':
+          description: Access after the purchase
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Access' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /admin/imports/spreadsheet:
+    post:
+      tags: [admin]
+      operationId: adminReadSpreadsheet
+      x-roles: [content_author, administrator]
+      description: Reads the worksheets of an Excel (.xlsx) file into rows of text, so the panel can map columns as it does for CSV. Stores nothing. Password-protected, damaged and oversized files are refused with a reason.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dataBase64]
+              additionalProperties: false
+              properties:
+                dataBase64: { type: string }
+      responses:
+        '200':
+          description: Rows of the first sheet, blank rows removed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rows, sheets]
+                additionalProperties: false
+                properties:
+                  rows: { type: array, description: The first sheet., items: { type: array, items: { type: string } } }
+                  sheets:
+                    type: array
+                    description: Up to 10 sheets in workbook order, for example a Case studies sheet next to the questions.
+                    items:
+                      type: object
+                      required: [name, rows]
+                      properties:
+                        name: { type: string }
+                        rows: { type: array, items: { type: array, items: { type: string } } }
+        '422': { $ref: '#/components/responses/Problem' }
+  /admin/audit:
+    get:
+      tags: [admin]
+      operationId: adminAuditLog
+      x-roles: [administrator]
+      description: The append-only audit trail, newest first. Filter by action prefix (such as question, user, access, plan) and by the email of the person who acted.
+      parameters:
+        - { name: action, in: query, schema: { type: string, pattern: '^[a-z_.]{1,60}$' } }
+        - { name: actor, in: query, schema: { type: string, format: email } }
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        '200':
+          description: One page of entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, at, actor, action, entityType, entityId]
+                      properties:
+                        id: { type: integer }
+                        at: { type: string, format: date-time }
+                        actor: { type: [string, 'null'] }
+                        action: { type: string }
+                        entityType: { type: string }
+                        entityId: { type: string }
+                        before: {}
+                        after: {}
+                  nextCursor: { type: [string, 'null'] }
+        '422': { $ref: '#/components/responses/Problem' }
+  /admin/plans:
+    get:
+      tags: [admin]
+      operationId: adminListPlans
+      x-roles: [administrator]
+      responses:
+        '200':
+          description: All plans with their prices per region
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPlanList' }
+  /admin/plans/{planCode}/prices/{region}:
+    put:
+      tags: [admin]
+      operationId: adminSetPlanPrice
+      x-roles: [administrator]
+      description: Sets or changes the price of a pass in one region. Amounts are in the smallest currency unit. Audited.
+      parameters:
+        - { name: planCode, in: path, required: true, schema: { type: string } }
+        - { name: region, in: path, required: true, schema: { type: string, enum: [EG, GULF, INTL] } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currency, amountMinor]
+              additionalProperties: false
+              properties:
+                currency: { type: string, pattern: '^[A-Za-z]{3}$' }
+                amountMinor: { type: integer, minimum: 0 }
+                storeProductId: { type: [string, 'null'] }
+      responses:
+        '200':
+          description: All plans after the change
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPlanList' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /admin/access-codes:
+    post:
+      tags: [admin]
+      operationId: adminCreateAccessCodes
+      x-roles: [administrator]
+      description: Creates a batch of single-use access codes. The codes are returned once, in this response; only their hashes are kept.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planCode, count, days, label]
+              additionalProperties: false
+              properties:
+                planCode: { type: string }
+                count: { type: integer, minimum: 1, maximum: 500 }
+                days: { type: integer, minimum: 1, maximum: 365 }
+                label: { type: string, minLength: 3, maxLength: 100 }
+                expiresAt: { type: [string, 'null'], format: date-time }
+      responses:
+        '201':
+          description: The new codes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [label, planCode, days, codes]
+                additionalProperties: false
+                properties:
+                  label: { type: string }
+                  planCode: { type: string }
+                  days: { type: integer }
+                  codes: { type: array, items: { type: string } }
+        '422': { $ref: '#/components/responses/Problem' }
+  /admin/users/{userId}/grant:
+    post:
+      tags: [admin]
+      operationId: adminGrantAccess
+      x-roles: [administrator]
+      description: Gives a person a pass, for example a refund replacement or a partner account. Stacks on any current pass. Audited.
+      parameters:
+        - { $ref: '#/components/parameters/userId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planCode, days]
+              additionalProperties: false
+              properties:
+                planCode: { type: string }
+                days: { type: integer, minimum: 1, maximum: 365 }
+                note: { type: string, maxLength: 500 }
+      responses:
+        '200':
+          description: The person's access now
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entitled, planCode, endsAt, practiceUsedToday]
+                properties:
+                  entitled: { type: boolean }
+                  planCode: { type: string }
+                  endsAt: { type: [string, 'null'], format: date-time }
+                  practiceUsedToday: { type: integer }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    sessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    attemptId:
+      name: attemptId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ordinal:
+      name: ordinal
+      in: path
+      required: true
+      description: Position of the question in the session or attempt, starting at 1.
+      schema: { type: integer, minimum: 1 }
+    sectionIndex:
+      name: sectionIndex
+      in: path
+      required: true
+      schema: { type: integer, minimum: 0 }
+    cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+    limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    userId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    caseId:
+      name: caseId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    versionId:
+      name: versionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    idempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 64 }
+  responses:
+    Problem:
+      description: Error in RFC 9457 problem-details format
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+  schemas:
+    Health:
+      type: object
+      required: [status, database, databaseMs]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        database: { type: string, enum: [ok, unreachable] }
+        databaseMs: { type: integer }
+    Price:
+      type: object
+      required: [currency, amountMinor, storeProductId]
+      additionalProperties: false
+      properties:
+        currency: { type: string }
+        amountMinor: { type: integer, description: Smallest currency unit, such as piastres or cents. }
+        storeProductId: { type: [string, 'null'] }
+    Plan:
+      type: object
+      required: [code, name, kind, durationDays, price]
+      additionalProperties: false
+      properties:
+        code: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [free, pass] }
+        durationDays: { type: [integer, 'null'] }
+        price:
+          oneOf:
+            - { $ref: '#/components/schemas/Price' }
+            - { type: 'null' }
+    PlanList:
+      type: object
+      required: [region, items]
+      additionalProperties: false
+      properties:
+        region: { type: string, enum: [EG, GULF, INTL] }
+        items: { type: array, items: { $ref: '#/components/schemas/Plan' } }
+    AdminPlanList:
+      type: object
+      required: [items]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [code, name, kind, durationDays, active, prices]
+            additionalProperties: false
+            properties:
+              code: { type: string }
+              name: { type: string }
+              kind: { type: string, enum: [free, pass] }
+              durationDays: { type: [integer, 'null'] }
+              active: { type: boolean }
+              prices:
+                type: array
+                items:
+                  type: object
+                  required: [region, currency, amountMinor, storeProductId]
+                  additionalProperties: false
+                  properties:
+                    region: { type: string, enum: [EG, GULF, INTL] }
+                    currency: { type: string }
+                    amountMinor: { type: integer }
+                    storeProductId: { type: [string, 'null'] }
+    Access:
+      type: object
+      required: [entitled, planCode, endsAt, freeDailyPractice, practiceUsedToday, practiceLeftToday]
+      additionalProperties: false
+      properties:
+        entitled: { type: boolean, description: True with a current pass, and always for staff. }
+        planCode: { type: string }
+        endsAt: { type: [string, 'null'], format: date-time, description: When the last stacked pass ends. }
+        freeDailyPractice: { type: integer, description: Server setting; practice answers a day without a pass. }
+        practiceUsedToday: { type: integer }
+        practiceLeftToday: { type: [integer, 'null'], description: Null when entitled. }
+    Problem:
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        code:
+          type: string
+          description: Stable machine-readable code, for example section_locked or on_break.
+        errors:
+          type: array
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: { type: string }
+              message: { type: string }
+    Language:
+      type: string
+      enum: [en, ar]
+    Approach:
+      type: string
+      enum: [predictive, agile, hybrid]
+    Difficulty:
+      type: string
+      enum: [easy, medium, hard]
+    RegisterRequest:
+      type: object
+      required: [email, password, acceptTerms]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 10, maxLength: 128 }
+        language: { $ref: '#/components/schemas/Language' }
+        acceptTerms: { type: boolean, const: true }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+        otp:
+          type: string
+          pattern: '^([0-9]{6}|[a-zA-Z2-7]{4}-[a-zA-Z2-7]{4})$'
+          description: Required when two-factor sign-in is on. A six-digit code, or one unused recovery code.
+        deviceLabel: { type: string, maxLength: 80 }
+    TokenPair:
+      type: object
+      required: [accessToken, refreshToken, expiresInSeconds]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresInSeconds: { type: integer }
+    Profile:
+      type: object
+      required: [id, email, language, roles]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: [string, 'null'] }
+        countryCode: { type: [string, 'null'], minLength: 2, maxLength: 2 }
+        language: { $ref: '#/components/schemas/Language' }
+        explanationLanguage: { $ref: '#/components/schemas/Language' }
+        examTargetDate: { type: [string, 'null'], format: date }
+        weeklyStudyHours: { type: [integer, 'null'], minimum: 0, maximum: 100 }
+        roles:
+          type: array
+          items: { type: string }
+    ProfileUpdate:
+      type: object
+      properties:
+        displayName: { type: string, maxLength: 80 }
+        countryCode: { type: string, minLength: 2, maxLength: 2 }
+        language: { $ref: '#/components/schemas/Language' }
+        explanationLanguage: { $ref: '#/components/schemas/Language' }
+        examTargetDate: { type: [string, 'null'], format: date }
+        weeklyStudyHours: { type: integer, minimum: 0, maximum: 100 }
+    Tally:
+      type: object
+      required: [key, total, answered, correct, percent]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        total: { type: integer }
+        answered: { type: integer }
+        correct: { type: integer }
+        percent: { type: number }
+        medianTimeMs: { type: [integer, 'null'] }
+    Dashboard:
+      type: object
+      required: [questionsCompleted, accuracyPercent, mocksCompleted, streakDays]
+      properties:
+        daysToExam: { type: [integer, 'null'] }
+        questionsCompleted: { type: integer }
+        accuracyPercent: { type: [number, 'null'] }
+        mocksCompleted: { type: integer }
+        streakDays: { type: integer }
+        strongestDomain: { oneOf: [{ $ref: '#/components/schemas/Tally' }, { type: 'null' }] }
+        weakestDomain: { oneOf: [{ $ref: '#/components/schemas/Tally' }, { type: 'null' }] }
+        recommendation:
+          oneOf:
+            - $ref: '#/components/schemas/Recommendation'
+            - type: 'null'
+        recentScores:
+          type: array
+          items:
+            type: object
+            required: [date, percent]
+            properties:
+              date: { type: string, format: date }
+              percent: { type: number }
+    Recommendation:
+      type: object
+      required: [title, reason, practiceRequest]
+      properties:
+        title: { type: string }
+        reason: { type: string }
+        practiceRequest: { $ref: '#/components/schemas/PracticeSessionRequest' }
+    BlueprintSummary:
+      type: object
+      required: [code, version, totalQuestions, durationMinutes, domains, sections]
+      properties:
+        code: { type: string }
+        version: { type: integer }
+        totalQuestions: { type: integer }
+        durationMinutes: { type: integer }
+        domains:
+          type: array
+          items:
+            type: object
+            required: [code, name, weightPct, tasks]
+            properties:
+              code: { type: string }
+              name: { type: string }
+              weightPct: { type: number }
+              tasks:
+                type: array
+                items:
+                  type: object
+                  required: [code, name]
+                  properties:
+                    code: { type: string }
+                    name: { type: string }
+        sections:
+          type: array
+          items:
+            type: object
+            required: [kind, questionCount, breakAfterMinutes]
+            properties:
+              kind: { type: string, enum: [case, independent] }
+              questionCount: { type: integer }
+              breakAfterMinutes: { type: integer }
+    PracticeSessionRequest:
+      type: object
+      required: [mode, questionCount]
+      properties:
+        mode: { type: string, enum: [quick, focused, weak_areas, timed, incorrect_only] }
+        questionCount: { type: integer, minimum: 1, maximum: 100 }
+        domainCodes: { type: array, items: { type: string } }
+        taskCodes: { type: array, items: { type: string } }
+        approaches: { type: array, items: { $ref: '#/components/schemas/Approach' } }
+        difficulties: { type: array, items: { $ref: '#/components/schemas/Difficulty' } }
+        types: { type: array, items: { type: string } }
+    PracticeSession:
+      type: object
+      required: [id, questionCount, mode]
+      properties:
+        id: { type: string, format: uuid }
+        mode: { type: string }
+        questionCount: { type: integer }
+        timeLimitSeconds: { type: [integer, 'null'] }
+    CandidateOption:
+      type: object
+      additionalProperties: false
+      required: [id, text]
+      properties:
+        id: { type: string }
+        text: { type: string }
+    CandidateQuestion:
+      type: object
+      additionalProperties: false
+      description: A question as a candidate may see it before answering. Closed schema by design.
+      required: [ordinal, type, stem, selectCount, options]
+      properties:
+        ordinal: { type: integer }
+        type: { type: string }
+        stem: { type: string }
+        stemLanguage: { $ref: '#/components/schemas/Language' }
+        graphic: { type: boolean }
+        exhibits:
+          type: array
+          items: { $ref: '#/components/schemas/CandidateExhibit' }
+        caseKey:
+          type: [string, 'null']
+          description: Key into the caseStudies map of the same response. Not a database id.
+        taskName:
+          type: [string, 'null']
+          description: Shown in practice mode only; null in a mock exam.
+        selectCount: { type: integer, minimum: 1 }
+        options:
+          type: array
+          minItems: 2
+          items: { $ref: '#/components/schemas/CandidateOption' }
+    CaseStudyView:
+      type: object
+      additionalProperties: false
+      required: [title, scenario, firstOrdinal, lastOrdinal]
+      properties:
+        title: { type: string }
+        scenario: { type: string }
+        exhibits:
+          type: array
+          items: { $ref: '#/components/schemas/CandidateExhibit' }
+        firstOrdinal: { type: integer }
+        lastOrdinal: { type: integer }
+    SectionQuestions:
+      type: object
+      additionalProperties: false
+      required: [sectionIndex, questions, caseStudies, savedAnswers]
+      properties:
+        sectionIndex: { type: integer }
+        questions:
+          type: array
+          items: { $ref: '#/components/schemas/CandidateQuestion' }
+        caseStudies:
+          type: object
+          additionalProperties: { $ref: '#/components/schemas/CaseStudyView' }
+        savedAnswers:
+          type: array
+          description: The candidate's own saved state, for resuming after a restart.
+          items: { $ref: '#/components/schemas/SavedAnswerView' }
+    SavedAnswerView:
+      type: object
+      additionalProperties: false
+      required: [ordinal, selectedOptionIds, flagged, clientSeq]
+      properties:
+        ordinal: { type: integer }
+        selectedOptionIds: { type: array, items: { type: string } }
+        flagged: { type: boolean }
+        clientSeq: { type: integer }
+    AnswerRequest:
+      type: object
+      required: [selectedOptionIds]
+      properties:
+        selectedOptionIds: { type: array, items: { type: string }, minItems: 1 }
+        timeSpentMs: { type: integer, minimum: 0 }
+    SaveAnswerRequest:
+      type: object
+      required: [selectedOptionIds, clientSeq]
+      properties:
+        selectedOptionIds:
+          type: array
+          description: Empty array clears the answer.
+          items: { type: string }
+        flagged: { type: boolean }
+        clientSeq: { type: integer, minimum: 1 }
+        timeSpentMs: { type: integer, minimum: 0 }
+    SaveAnswerResponse:
+      type: object
+      additionalProperties: false
+      required: [saved, remainingMs]
+      properties:
+        saved: { $ref: '#/components/schemas/SavedAnswerView' }
+        staleIgnored: { type: boolean }
+        remainingMs: { type: integer }
+    AttemptStatus:
+      type: object
+      additionalProperties: false
+      required: [id, status, currentSection, sections, remainingMs, serverTime]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [in_progress, on_break, submitted, expired] }
+        currentSection: { type: integer }
+        sections:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [state, kind, questionCount, firstOrdinal]
+            properties:
+              state: { type: string, enum: [locked, open, closed] }
+              kind: { type: string, enum: [case, independent] }
+              questionCount: { type: integer }
+              firstOrdinal: { type: integer }
+        remainingMs: { type: integer }
+        breakRemainingMs: { type: [integer, 'null'] }
+        serverTime: { type: string, format: date-time }
+    AttemptSummary:
+      type: object
+      required: [id, status, startedAt]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: [string, 'null'], format: date-time }
+        scorePercent: { type: [number, 'null'] }
+    SectionReview:
+      type: object
+      required: [total, answered, unanswered, flagged]
+      properties:
+        total: { type: integer }
+        answered: { type: integer }
+        unanswered: { type: array, items: { type: integer } }
+        flagged: { type: array, items: { type: integer } }
+    AttemptResult:
+      type: object
+      required: [overall, byDomain, byTask, byApproach, disclaimer]
+      properties:
+        overall: { $ref: '#/components/schemas/Tally' }
+        byDomain: { type: array, items: { $ref: '#/components/schemas/Tally' } }
+        byTask: { type: array, items: { $ref: '#/components/schemas/Tally' } }
+        byApproach: { type: array, items: { $ref: '#/components/schemas/Tally' } }
+        byDifficulty: { type: array, items: { $ref: '#/components/schemas/Tally' } }
+        byType: { type: array, items: { $ref: '#/components/schemas/Tally' } }
+        timeUsedMs: { type: integer }
+        disclaimer:
+          type: string
+          description: States that the score is an educational estimate and not a prediction of the official result.
+    PracticeSummary:
+      type: object
+      required: [questionCount, overall, byTask, disclaimer]
+      properties:
+        questionCount: { type: integer }
+        overall: { $ref: '#/components/schemas/Tally' }
+        byTask: { type: array, items: { $ref: '#/components/schemas/Tally' } }
+        disclaimer: { type: string }
+    Explanation:
+      type: object
+      required: [language, whyCorrect, options]
+      properties:
+        language: { $ref: '#/components/schemas/Language' }
+        whyCorrect: { type: string }
+        options:
+          type: array
+          items:
+            type: object
+            required: [id, isCorrect]
+            properties:
+              id: { type: string }
+              isCorrect: { type: boolean }
+              rationale: { type: string }
+        mindset: { type: string }
+        keyConcept: { type: string }
+        learningObjective: { type: string }
+        domainName: { type: string }
+        taskName: { type: string }
+        references:
+          type: array
+          items:
+            type: object
+            required: [title, sourceType]
+            properties:
+              title: { type: string }
+              section: { type: string }
+              sourceType: { type: string, enum: [official_pmi, original, third_party] }
+    AnswerFeedback:
+      type: object
+      required: [correct, correctOptionIds, explanation, reportToken]
+      properties:
+        correct: { type: boolean }
+        correctOptionIds: { type: array, items: { type: string } }
+        explanation: { $ref: '#/components/schemas/Explanation' }
+        reportToken:
+          type: string
+          description: Opaque token for reporting this question; not a question id.
+    ReviewedQuestion:
+      type: object
+      required: [question, selectedOptionIds, flagged, feedback]
+      properties:
+        question: { $ref: '#/components/schemas/CandidateQuestion' }
+        selectedOptionIds: { type: array, items: { type: string } }
+        flagged: { type: boolean }
+        feedback: { $ref: '#/components/schemas/AnswerFeedback' }
+    QuestionReport:
+      type: object
+      required: [reportToken, reason]
+      properties:
+        reportToken: { type: string }
+        reason: { type: string, enum: [wrong_answer, ambiguous, typo, outdated, other] }
+        comment: { type: string, maxLength: 2000 }
+    WorkflowState:
+      type: string
+      enum: [draft, submitted, expert_review, language_qa, approved, published, withdrawn]
+    AdminOption:
+      type: object
+      required: [text, isCorrect]
+      properties:
+        text: { type: string }
+        isCorrect: { type: boolean }
+        rationale: { type: string }
+    AdminQuestionDraft:
+      type: object
+      required: [taskCode, approach, difficulty, type, stem, options]
+      properties:
+        taskCode: { type: string }
+        approach: { $ref: '#/components/schemas/Approach' }
+        difficulty: { $ref: '#/components/schemas/Difficulty' }
+        type: { type: string }
+        graphic: { type: boolean }
+        caseStudyId: { type: [string, 'null'], format: uuid }
+        language: { $ref: '#/components/schemas/Language' }
+        stem: { type: string }
+        options:
+          type: array
+          minItems: 2
+          items: { $ref: '#/components/schemas/AdminOption' }
+        aiAssisted: { type: boolean }
+        exhibitIds:
+          type: array
+          maxItems: 3
+          items: { type: string, format: uuid }
+        explanation: { $ref: '#/components/schemas/AdminExplanation' }
+    AdminExplanation:
+      type: object
+      required: [whyCorrect]
+      properties:
+        whyCorrect: { type: string, maxLength: 4000 }
+        mindset: { type: [string, 'null'] }
+        keyConcept: { type: [string, 'null'] }
+        learningObjective: { type: [string, 'null'] }
+    AdminQuestionVersion:
+      allOf:
+        - $ref: '#/components/schemas/AdminQuestionDraft'
+        - type: object
+          required: [id, questionId, publicCode, versionNo, workflowState, authorId]
+          properties:
+            id: { type: string, format: uuid }
+            questionId: { type: string, format: uuid }
+            publicCode: { type: string }
+            versionNo: { type: integer }
+            workflowState: { $ref: '#/components/schemas/WorkflowState' }
+            aiAssisted: { type: boolean }
+            authorId: { type: string, format: uuid }
+            publishedAt: { type: [string, 'null'], format: date-time }
+            caseOrdinal: { type: [integer, 'null'] }
+            lastReview:
+              type: [object, 'null']
+              properties:
+                gate: { type: string }
+                decision: { type: string, enum: [approved, returned] }
+                comment: { type: [string, 'null'] }
+                at: { type: string, format: date-time }
+    WorkflowTransition:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [submit, approve, return, publish, withdraw] }
+        comment: { type: string }
+        originalityDeclared: { type: boolean }
+        checklist:
+          type: object
+          description: The eight review checks, each true or false.
+          additionalProperties: { type: boolean }
+    MfaSetup:
+      type: object
+      required: [secret, otpauthUri]
+      properties:
+        secret: { type: string, description: Base32 secret to type into an authenticator app }
+        otpauthUri: { type: string, description: The same secret as a link or QR-code payload }
+    ImportRequest:
+      type: object
+      required: [rows]
+      properties:
+        commit: { type: boolean, default: false }
+        rows:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: '#/components/schemas/AdminQuestionDraft' }
+    ImportReport:
+      type: object
+      required: [summary, rows, committed]
+      properties:
+        summary:
+          type: object
+          required: [rows, valid, invalid, duplicates, committed]
+          properties:
+            rows: { type: integer }
+            valid: { type: integer }
+            invalid: { type: integer }
+            duplicates: { type: integer }
+            committed: { type: integer }
+        rows:
+          type: array
+          items:
+            type: object
+            required: [row, status, errors]
+            properties:
+              row: { type: integer }
+              status: { type: string, enum: [valid, invalid, duplicate] }
+              errors:
+                type: array
+                items:
+                  type: object
+                  required: [field, message]
+                  properties:
+                    field: { type: string }
+                    message: { type: string }
+        committed:
+          type: array
+          items:
+            type: object
+            required: [row, versionId, publicCode]
+            properties:
+              row: { type: integer }
+              versionId: { type: string, format: uuid }
+              publicCode: { type: string }
+    QuestionReportView:
+      type: object
+      required: [id, publicCode, versionNo, reason, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        publicCode: { type: string }
+        versionNo: { type: integer }
+        reason: { type: string }
+        comment: { type: [string, 'null'] }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+    RecoveryCodes:
+      type: object
+      required: [recoveryCodes]
+      properties:
+        recoveryCodes:
+          type: array
+          minItems: 10
+          maxItems: 10
+          items: { type: string, pattern: '^[a-z2-7]{4}-[a-z2-7]{4}$' }
+    CaseStudyDraft:
+      type: object
+      required: [title, scenario]
+      properties:
+        title: { type: string, minLength: 3, maxLength: 200 }
+        scenario: { type: string, minLength: 100, maxLength: 6000 }
+        language: { $ref: '#/components/schemas/Language' }
+        exhibitIds:
+          type: array
+          maxItems: 5
+          items: { type: string, format: uuid }
+    AdminCaseStudy:
+      type: object
+      required: [id, publicCode, title, scenario, language, status, createdBy, questions]
+      properties:
+        id: { type: string, format: uuid }
+        publicCode: { type: string }
+        title: { type: string }
+        scenario: { type: string }
+        language: { $ref: '#/components/schemas/Language' }
+        status: { type: string, enum: [draft, published, withdrawn] }
+        createdBy: { type: string, format: uuid }
+        exhibits:
+          type: array
+          items: { $ref: '#/components/schemas/AdminExhibit' }
+        questions:
+          type: array
+          items:
+            type: object
+            required: [versionId, questionId, publicCode, caseOrdinal, workflowState, stem]
+            properties:
+              versionId: { type: string, format: uuid }
+              questionId: { type: string, format: uuid }
+              publicCode: { type: string }
+              caseOrdinal: { type: integer }
+              workflowState: { type: string }
+              stem: { type: string }
+    ExhibitTable:
+      type: object
+      additionalProperties: false
+      required: [header, rows]
+      properties:
+        header: { type: array, minItems: 1, maxItems: 12, items: { type: string, maxLength: 100 } }
+        rows:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items: { type: array, items: { type: string, maxLength: 200 } }
+    CandidateExhibit:
+      type: object
+      additionalProperties: false
+      description: An image (url, signed and expiring) or a table (inline).
+      required: [kind, altText]
+      properties:
+        kind: { type: string, enum: [image, table] }
+        altText: { type: string }
+        url: { type: string, description: Present for images. }
+        table: { $ref: '#/components/schemas/ExhibitTable' }
+    ExhibitUpload:
+      type: object
+      required: [kind, altText]
+      properties:
+        kind: { type: string, enum: [image, table] }
+        altText: { type: string, minLength: 3, maxLength: 500 }
+        mimeType: { type: string, enum: [image/png, image/jpeg, image/webp] }
+        dataBase64: { type: string, description: The image file, base64-encoded. }
+        table: { $ref: '#/components/schemas/ExhibitTable' }
+    AdminExhibit:
+      type: object
+      required: [id, kind, altText]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [image, table] }
+        altText: { type: string }
+        url: { type: string }
+        table: { $ref: '#/components/schemas/ExhibitTable' }
+    AdminUser:
+      type: object
+      required: [id, email, status, mfaEnabled, roles]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        status: { type: string }
+        mfaEnabled: { type: boolean }
+        roles: { type: array, items: { type: string } }

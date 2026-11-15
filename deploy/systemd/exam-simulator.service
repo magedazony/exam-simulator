@@ -1,0 +1,34 @@
+# For a server without Docker: Node.js 22.18+ and PostgreSQL 16 installed,
+# the code in /srv/exam-simulator, settings in /etc/exam-simulator.env
+# (same variables as deploy/.env.example, plus PGHOST), and Caddy or nginx
+# in front for HTTPS with TRUST_PROXY_HOPS=1. See DEPLOY.md.
+[Unit]
+Description=Exam Simulator API and web apps
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=exam
+Group=exam
+WorkingDirectory=/srv/exam-simulator
+EnvironmentFile=/etc/exam-simulator.env
+ExecStartPre=/usr/bin/node scripts/migrate.ts
+ExecStart=/usr/bin/node packages/api/src/server.ts
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryMax=768M
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,20 @@
+# Caddy obtains and renews the HTTPS certificate for DOMAIN automatically.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+	header {
+		-Server
+		Referrer-Policy no-referrer
+	}
+	# Bodies above the application's own 2 MiB limit are refused here already.
+	request_body {
+		max_size 3MB
+	}
+	reverse_proxy app:8080 {
+		health_uri /api/v1/health
+		health_interval 30s
+	}
+}

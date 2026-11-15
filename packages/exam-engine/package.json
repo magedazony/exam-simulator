@@ -1,0 +1,13 @@
+{
+  "name": "@pmp-sim/exam-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Blueprint-driven exam generation, validation, scoring and answer-key protection. No runtime dependencies.",
+  "exports": "./src/index.ts",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "test": "node --test test/engine.test.ts test/session.test.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

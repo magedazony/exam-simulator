@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <rect width="1024" height="500" fill="#1b4a78"/>
+  <g transform="translate(120 130) scale(0.47)">
+    <circle cx="256" cy="256" r="150" fill="none" stroke="#86b8ea" stroke-width="28" stroke-linecap="round" stroke-dasharray="700 300" transform="rotate(-90 256 256)"/>
+    <path d="M188 262 l46 46 l92 -104" fill="none" stroke="#fff" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="400" y="200" fill="#fff" font-family="IBM Plex Sans, Segoe UI, DejaVu Sans, sans-serif" font-size="52" font-weight="700">Exam Simulator</text>
+  <text x="400" y="258" fill="#d7e6f5" font-family="IBM Plex Sans, Segoe UI, DejaVu Sans, sans-serif" font-size="28">PMP practice and full mock exams</text>
+  <text x="400" y="312" fill="#d7e6f5" font-family="Noto Sans Arabic, DejaVu Sans, sans-serif" font-size="28">تدريب واختبارات تجريبية كاملة لـ PMP</text>
+  <text x="400" y="380" fill="#86b8ea" font-family="IBM Plex Sans, Segoe UI, DejaVu Sans, sans-serif" font-size="20">Arabic · English · July 2026 exam outline</text>
+</svg>

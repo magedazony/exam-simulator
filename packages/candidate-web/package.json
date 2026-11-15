@@ -1,0 +1,11 @@
+{
+  "name": "@pmp-sim/candidate-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Candidate web app: one HTML page served by the API at /app. Browser test needs Playwright and Chrome.",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "test": "node --test test/ui.test.ts"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@pmp-sim/admin-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Admin panel for the question bank: one HTML page served by the API at /admin. Browser test needs Playwright and Chrome.",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "test": "node --test test/ui.test.ts"
+  }
+}

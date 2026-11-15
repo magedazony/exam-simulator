@@ -1,0 +1,66 @@
+plugins {
+    id 'com.android.application'
+}
+
+def host = project.property('siteHost')
+def launchUrl = "https://${host}${project.property('launchPath')}"
+
+android {
+    namespace 'app.examsim.twa'
+    // Google Play: new apps and updates must target Android 16 (API 36) from 31 August 2026.
+    compileSdk 36
+
+    defaultConfig {
+        applicationId project.property('appId')
+        minSdk 24
+        targetSdk 36
+        versionCode Integer.parseInt(project.property('versionCode'))
+        versionName project.property('versionName')
+
+        resValue 'string', 'appName', project.property('appName')
+        resValue 'string', 'launcherName', project.property('appName')
+        resValue 'string', 'launchUrl', launchUrl
+        resValue 'string', 'hostName', host
+        resValue 'string', 'providerAuthority', "${project.property('appId')}.fileprovider"
+        // Digital Asset Links: this app may open the site full screen; the site
+        // confirms it back with /.well-known/assetlinks.json (server setting
+        // ANDROID_PACKAGE and ANDROID_CERT_SHA256).
+        resValue 'string', 'assetStatements',
+            "[{ \\\"relation\\\": [\\\"delegate_permission/common.handle_all_urls\\\"], \\\"target\\\": { \\\"namespace\\\": \\\"web\\\", \\\"site\\\": \\\"https://${host}\\\" } }]"
+        manifestPlaceholders = [hostName: host]
+    }
+
+    signingConfigs {
+        // The upload key. Google Play re-signs the app with its own app signing key.
+        release {
+            def props = new Properties()
+            def f = rootProject.file('keystore.properties')
+            if (f.exists()) {
+                f.withInputStream { props.load(it) }
+                storeFile file(props['storeFile'])
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (rootProject.file('keystore.properties').exists()) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation "com.google.androidbrowserhelper:androidbrowserhelper:${project.property('browserHelperVersion')}"
+    implementation "com.google.androidbrowserhelper:billing:${project.property('billingHelperVersion')}"
+}

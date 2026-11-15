@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Exam Simulator</title>
+<meta name="theme-color" content="#1b4a78">
+<meta name="description" content="PMP exam practice and full mock exams, in Arabic and English.">
+<link rel="manifest" href="/app/manifest.webmanifest">
+<link rel="icon" href="/assets/favicon-32.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+/* Layout idea: one calm column for study screens; the exam screen shows only the question, timer and controls. */
+:root {
+  --bg: #f4f6f9; --surface: #ffffff; --border: #d5dbe3; --text: #121a26; --muted: #505c6c;
+  --primary: #1b4a78; --primary-soft: #e3edf7; --on-primary: #ffffff;
+  --good: #17694a; --good-soft: #e1f3ea; --bad: #a3281c; --bad-soft: #fbe6e3; --warn: #8a5a00; --warn-soft: #fbefd2;
+  --font: "IBM Plex Sans", "IBM Plex Sans Arabic", "Segoe UI", Tahoma, system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1319; --surface: #18202a; --border: #2c3846; --text: #eef1f5; --muted: #a3afbd;
+    --primary: #86b8ea; --primary-soft: #1c2f44; --on-primary: #0b1620;
+    --good: #63cf98; --good-soft: #15301f; --bad: #f29186; --bad-soft: #3a1b18; --warn: #e6b955; --warn-soft: #35290f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1319; --surface: #18202a; --border: #2c3846; --text: #eef1f5; --muted: #a3afbd;
+  --primary: #86b8ea; --primary-soft: #1c2f44; --on-primary: #0b1620;
+  --good: #63cf98; --good-soft: #15301f; --bad: #f29186; --bad-soft: #3a1b18; --warn: #e6b955; --warn-soft: #35290f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 var(--font); }
+[dir="rtl"] body { line-height: 1.7; }
+#app { max-width: 760px; min-height: 100%; margin: 0 auto; display: flex; flex-direction: column; }
+header.top { display: flex; align-items: center; gap: 8px; padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top)); flex-wrap: wrap; }
+body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); padding-bottom: env(safe-area-inset-bottom); }
+#netbar { position: sticky; top: 0; z-index: 5; background: var(--warn-soft); color: var(--warn); text-align: center; padding: 6px 12px; font-size: 14px; }
+#netbar[hidden] { display: none; }
+header.top .brand { font-weight: 600; font-size: 17px; flex: 1; }
+nav.tabs { display: flex; gap: 4px; padding: 0 12px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+nav.tabs a { color: var(--muted); text-decoration: none; padding: 10px 12px; font-weight: 500; border-bottom: 3px solid transparent; white-space: nowrap; }
+nav.tabs a[aria-current="page"] { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+@media (max-width: 480px) { nav.tabs { padding: 0 4px; gap: 0; } nav.tabs a { padding: 10px 9px; } }
+main { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+h1 { font-size: 22px; margin: 0; text-wrap: balance; }
+h2 { font-size: 17px; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+.muted { color: var(--muted); font-size: 14px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.card.accent { border-color: var(--primary); background: var(--primary-soft); }
+.big { font-size: 26px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+label.inline { flex-direction: row; align-items: center; gap: 8px; font-weight: 500; color: var(--text); font-size: 15px; }
+input, select, textarea { font: inherit; font-weight: 400; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; min-height: 44px; }
+input[type="checkbox"] { min-height: 0; width: 18px; height: 18px; }
+button, .btn { font: inherit; font-weight: 600; font-size: 15px; min-height: 44px; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+button.primary, .btn.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+button.small { min-height: 38px; padding: 6px 12px; font-size: 14px; font-weight: 500; }
+button.danger { border-color: var(--bad); color: var(--bad); }
+button[aria-pressed="true"] { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.msg { padding: 10px 14px; border-radius: 8px; }
+.msg.err { background: var(--bad-soft); color: var(--bad); }
+.msg.ok { background: var(--good-soft); color: var(--good); }
+.msg.info { background: var(--primary-soft); color: var(--text); }
+.msg a { color: var(--primary); font-weight: 600; }
+.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.price { color: var(--primary); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.card > .btn { align-self: flex-start; }
+.note { font-size: 13.5px; color: var(--muted); border-inline-start: 3px solid var(--warn); padding-inline-start: 10px; }
+/* Question content is written in English and always reads left to right. */
+.content { direction: ltr; text-align: left; }
+.stem { white-space: pre-wrap; }
+.opts { display: flex; flex-direction: column; gap: 8px; }
+.opt { display: flex; gap: 10px; align-items: flex-start; text-align: left; font: inherit; line-height: 1.45; padding: 12px 14px; min-height: 48px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; width: 100%; font-weight: 400; justify-content: flex-start; }
+.opt .mark { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--muted); display: grid; place-items: center; font-size: 13px; font-weight: 600; }
+.opt.multi .mark { border-radius: 5px; }
+.opt[aria-checked="true"] { border-color: var(--primary); background: var(--primary-soft); }
+.opt[aria-checked="true"] .mark { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.opt.is-right { border-color: var(--good); background: var(--good-soft); }
+.opt.is-wrong { border-color: var(--bad); background: var(--bad-soft); }
+.opt .why { display: block; font-size: 14px; color: var(--muted); margin-top: 4px; }
+.verdict { font-weight: 600; padding: 10px 14px; border-radius: 8px; }
+.verdict.ok { background: var(--good-soft); color: var(--good); }
+.verdict.no { background: var(--bad-soft); color: var(--bad); }
+.tag { display: inline-block; font-size: 12.5px; font-weight: 500; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; }
+.examhead { display: flex; align-items: center; gap: 10px; font-size: 14px; flex-wrap: wrap; }
+.examhead .grow { flex: 1; }
+.timer { font-weight: 600; font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+.timer.low { color: var(--bad); }
+.progress { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.progress > i { display: block; height: 100%; background: var(--primary); }
+details.case { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+details.case summary { cursor: pointer; font-weight: 600; font-size: 14.5px; }
+.exhibit { display: flex; flex-direction: column; gap: 4px; }
+.exhibit img { align-self: flex-start; max-width: 100%; max-height: 420px; height: auto; object-fit: contain; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+.exhibit .wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: start; }
+th { background: var(--bg); font-weight: 600; }
+.foot { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 6px; direction: ltr; }
+.cell { min-height: 42px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; position: relative; padding: 0; }
+.cell.done { background: var(--primary-soft); border-color: var(--primary); }
+.cell.flag::after { content: "⚑"; position: absolute; top: 0; right: 4px; font-size: 11px; color: var(--warn); }
+.cell.current { outline: 2px solid var(--text); }
+.bar { display: grid; grid-template-columns: minmax(110px, 36%) 1fr 64px; gap: 8px; align-items: center; font-size: 14px; }
+.bar .track { height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
+.bar .track i { display: block; height: 100%; background: var(--primary); border-radius: 5px; }
+.bar .num { text-align: end; font-variant-numeric: tabular-nums; font-weight: 600; direction: ltr; }
+.auth { width: min(420px, 100%); margin: 24px auto; }
+.links { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; }
+a { color: var(--primary); }
+.saving { font-size: 13px; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .progress > i, .bar .track i { transition: width .2s ease-out; } }
+</style>
+</head>
+<body>
+<div id="netbar" role="status" hidden></div><div id="app"></div>
+<script>
+"use strict";
+// Candidate web client. Talks only to the same-origin API. Tokens are kept
+// in memory: after a reload the candidate signs in again and an unfinished
+// exam resumes where the server left it.
+const API = "/api/v1";
+const S = { lang: "en", access: null, refresh: null, me: null, blueprint: null, flash: null, practice: null, exam: null, timers: [] };
+
+const T = {
+  en: {
+    brand: "Exam Simulator", home: "Home", practice: "Practice", mock: "Mock exam", stats: "Stats", settings: "Settings", signOut: "Sign out", dark: "Dark", light: "Light",
+    notice: "Independent study tool. Not affiliated with or endorsed by PMI. PMP is a registered mark of the Project Management Institute, Inc.",
+    signIn: "Sign in", register: "Create account", email: "Email", password: "Password", newPassword: "New password", forgot: "Forgot password?", haveAccount: "I already have an account", noAccount: "Create an account",
+    acceptTerms: "I accept the terms of use and the privacy policy", termsLink: "Terms of use", buy: "Buy", bought: "Thank you. Your pass is active.", playNote: "Payment is handled by Google Play. Passes do not renew automatically.", install: "Install the app", installText: "Add the app to your home screen to open it like any other app.", iosInstall: "On iPhone or iPad: tap Share, then Add to Home Screen.", offlineBar: "You are offline. Practice and exams need a connection.", myData: "Your data", myDataText: "Download everything we store about you: profile, answers, mock exams, reports and access.", download: "Download my data", privacyLink: "Privacy policy", support: "Help:", pwHint: "At least 10 characters.", checkEmail: "Check your email for a link to confirm your address.", verified: "Your email is confirmed. You can sign in now.",
+    resetSent: "If an account exists for this email, we sent a link to reset the password.", resetDone: "Password changed. Sign in with the new password.", resetTitle: "Choose a new password", sendLink: "Send reset link",
+    welcome: "Set up your study plan", examDate: "Exam date (optional)", hours: "Study hours per week", explLang: "Language for explanations", save: "Save", skip: "Skip for now",
+    readiness: "Readiness", noBand: "Not enough data yet", bandRule: "A readiness band appears after one full mock exam and 300 practice questions. It is an educational estimate, never a guarantee of passing.",
+    daysLeft: (n) => (n === 1 ? "1 day to your exam" : n + " days to your exam"), today: "Recommended today", recFirst: "Start with 10 practice questions", recWeak: (d) => "Practise your weakest domain: " + d, start: "Start",
+    answered: "Questions answered", accuracy: "Accuracy", mocksDone: "Mock exams", streak: "Day streak", weakest: "Weakest domain", strongest: "Strongest domain", recent: "Recent mock scores",
+    pTitle: "Practice", pIntro: "Answer one question at a time. The explanation appears after each answer.", mode: "Mode", modes: { quick: "Quick: mixed questions", focused: "Focused: choose domains and approaches", weak_areas: "My weak areas", incorrect_only: "Questions I got wrong", timed: "Timed (80 seconds a question)" },
+    domains: "Domains", approaches: "Approaches", count: "Number of questions", any: "Any", startPractice: "Start practice", noMatch: "No questions match these choices. Choose fewer filters.",
+    ofq: (a, b) => "Question " + a + " of " + b, choose: (n) => "Choose " + n, check: "Check answer", next: "Next question", finish: "See summary", correct: "Correct", incorrect: "Not correct",
+    why: "Why", mindset: "Mindset", concept: "Key concept", task: "Task", report: "Report a problem with this question", reportReason: "What is wrong?", reasons: { wrong_answer: "The answer is wrong", ambiguous: "More than one answer fits", typo: "Typo or wording", outdated: "Out of date", other: "Something else" }, send: "Send", reported: "Thank you. Our content team will review it.",
+    summary: "Session summary", again: "Practise again", timeLeft: "Time left",
+    mTitle: "Mock exam", mIntro: "180 questions in 240 minutes. The exam opens with case studies, and has two 10-minute breaks. When a section closes it cannot be opened again. The exam clock stops during a break.",
+    device: "For the best experience use a tablet or a computer.", begin: "Begin mock exam", resume: "Resume exam", history: "Your mock exams", started: "Started", score: "Score", status: { in_progress: "In progress", on_break: "On break", submitted: "Submitted", expired: "Time ran out" }, view: "View",
+    secCase: "Case studies", secInd: "Questions", section: (n) => "Section " + n, scenario: "Scenario", prev: "Previous", flag: "Flag", navigator: "Navigator", reviewBtn: "Review section", clear: "Clear answer", saved: "Saved", savingNow: "Saving…", offline: "Connection lost. Your answers will be saved when it returns.",
+    reviewTitle: "Review this section", unanswered: "Unanswered", flagged: "Flagged", backToQ: "Back to questions", closeSection: "Close section and start break", submitExam: "Submit exam", lockWarn: "After this, the questions in this section are locked.", submitWarn: "You cannot change any answer after submitting.",
+    breakTitle: "Break", breakText: "The exam clock is paused. The previous section is locked.", resumeNow: "Resume now",
+    result: "Result", expiredMsg: "Time ran out. The answers you saved were submitted.", byDomain: "By domain", byApproach: "By approach", byTask: "By task", reviewAnswers: "Review answers", filterAll: "All", filterWrong: "Incorrect", filterFlagged: "Flagged", filterBlank: "Unanswered", yours: "Your answer", none: "none", more: "Show more",
+    statsTitle: "Your results", noStats: "Answer some questions and your results appear here.", estimate: "Educational estimate. It is not a prediction or guarantee of the official exam result.",
+    language: "Interface language", saved2: "Saved.", deleteAccount: "Delete my account", deleteWarn: "This ends all your sessions and removes your account.", confirmDelete: "Yes, delete my account",
+    predictive: "Predictive", agile: "Agile", hybrid: "Hybrid", serverDown: "Cannot reach the server. Check your connection and try again.",
+    plan: "Your plan", planFree: "Free plan", planPass: "Full access", until: (d) => "Until " + d, freeLeft: (n, max) => n + " of " + max + " free practice questions left today",
+    freeOut: "You have used today's free practice questions. They come back tomorrow, or unlock full access.", mockLocked: "Full mock exams are part of full access.", seePlans: "See plans",
+    plansTitle: "Plans", region: "Prices for", regions: { EG: "Egypt", GULF: "Gulf countries", INTL: "Other countries" }, days: (n) => n + " days", notOnSale: "Not on sale in this region yet",
+    freeDesc: "Daily practice questions with explanations", passDesc: "Unlimited practice, full mock exams and complete results",
+    buyNote: "Purchases will be available in the mobile app through the App Store and Google Play. They are not open yet.",
+    redeemTitle: "Have an access code?", redeemHint: "For example a code from your training course.", code: "Access code", redeem: "Redeem", redeemed: "Code accepted. You have full access.",
+  },
+  ar: {
+    brand: "محاكي الاختبار", home: "الرئيسية", practice: "تدريب", mock: "اختبار تجريبي", stats: "النتائج", settings: "الإعدادات", signOut: "تسجيل الخروج", dark: "داكن", light: "فاتح",
+    notice: "أداة دراسة مستقلة، غير تابعة لـ PMI وغير معتمدة منه. PMP علامة مسجّلة لمعهد إدارة المشروعات.",
+    signIn: "تسجيل الدخول", register: "إنشاء حساب", email: "البريد الإلكتروني", password: "كلمة المرور", newPassword: "كلمة المرور الجديدة", forgot: "نسيت كلمة المرور؟", haveAccount: "لدي حساب بالفعل", noAccount: "إنشاء حساب جديد",
+    acceptTerms: "أوافق على شروط الاستخدام وسياسة الخصوصية", termsLink: "شروط الاستخدام", buy: "شراء", bought: "شكراً لك. باقتك مفعّلة الآن.", playNote: "يتم الدفع عن طريق Google Play. الباقات لا تتجدد تلقائياً.", install: "ثبّت التطبيق", installText: "أضف التطبيق إلى الشاشة الرئيسية لتفتحه مثل أي تطبيق آخر.", iosInstall: "على iPhone أو iPad: اضغط مشاركة، ثم إضافة إلى الشاشة الرئيسية.", offlineBar: "أنت غير متصل. التدريب والاختبارات تحتاج اتصالاً.", myData: "بياناتك", myDataText: "نزّل كل ما نحفظه عنك: الملف الشخصي والإجابات والاختبارات التجريبية والبلاغات والوصول.", download: "تنزيل بياناتي", privacyLink: "سياسة الخصوصية", support: "المساعدة:", pwHint: "10 أحرف على الأقل.", checkEmail: "راجع بريدك الإلكتروني لتأكيد عنوانك عبر الرابط المرسل.", verified: "تم تأكيد بريدك. يمكنك تسجيل الدخول الآن.",
+    resetSent: "إذا كان هناك حساب بهذا البريد، فقد أرسلنا رابطاً لإعادة تعيين كلمة المرور.", resetDone: "تم تغيير كلمة المرور. سجّل الدخول بالكلمة الجديدة.", resetTitle: "اختر كلمة مرور جديدة", sendLink: "أرسل رابط إعادة التعيين",
+    welcome: "جهّز خطة دراستك", examDate: "موعد الاختبار (اختياري)", hours: "ساعات الدراسة أسبوعياً", explLang: "لغة الشرح", save: "حفظ", skip: "لاحقاً",
+    readiness: "الجاهزية", noBand: "لا توجد بيانات كافية بعد", bandRule: "يظهر مستوى الجاهزية بعد اختبار تجريبي كامل و300 سؤال تدريب. هو تقدير تعليمي وليس ضماناً للنجاح.",
+    daysLeft: (n) => "باقٍ " + n + " يوماً على اختبارك", today: "المقترح اليوم", recFirst: "ابدأ بـ 10 أسئلة تدريب", recWeak: (d) => "تدرّب على أضعف مجال لديك: " + d, start: "ابدأ",
+    answered: "أسئلة تمت الإجابة عنها", accuracy: "الدقة", mocksDone: "اختبارات تجريبية", streak: "أيام متتالية", weakest: "أضعف مجال", strongest: "أقوى مجال", recent: "آخر نتائج الاختبارات",
+    pTitle: "تدريب", pIntro: "أجب عن سؤال واحد في كل مرة. يظهر الشرح بعد كل إجابة.", mode: "النوع", modes: { quick: "سريع: أسئلة متنوعة", focused: "مركّز: اختر المجالات والمناهج", weak_areas: "نقاط ضعفي", incorrect_only: "الأسئلة التي أخطأت فيها", timed: "بوقت محدد (80 ثانية للسؤال)" },
+    domains: "المجالات", approaches: "المناهج", count: "عدد الأسئلة", any: "الكل", startPractice: "ابدأ التدريب", noMatch: "لا توجد أسئلة بهذه الاختيارات. قلّل عوامل التصفية.",
+    ofq: (a, b) => "السؤال " + a + " من " + b, choose: (n) => "اختر " + n, check: "تحقق من الإجابة", next: "السؤال التالي", finish: "عرض الملخص", correct: "إجابة صحيحة", incorrect: "إجابة غير صحيحة",
+    why: "لماذا", mindset: "طريقة التفكير", concept: "المفهوم الأساسي", task: "المهمة", report: "أبلغ عن مشكلة في هذا السؤال", reportReason: "ما المشكلة؟", reasons: { wrong_answer: "الإجابة خاطئة", ambiguous: "أكثر من إجابة مناسبة", typo: "خطأ في الكتابة أو الصياغة", outdated: "معلومة قديمة", other: "شيء آخر" }, send: "إرسال", reported: "شكراً لك. سيراجعه فريق المحتوى.",
+    summary: "ملخص الجلسة", again: "تدرّب مرة أخرى", timeLeft: "الوقت المتبقي",
+    mTitle: "اختبار تجريبي", mIntro: "180 سؤالاً في 240 دقيقة. يبدأ الاختبار بدراسات الحالة، وفيه استراحتان مدة كل منهما 10 دقائق. القسم المغلق لا يُعاد فتحه. تتوقف ساعة الاختبار أثناء الاستراحة.",
+    device: "للحصول على أفضل تجربة استخدم جهازاً لوحياً أو كمبيوتر.", begin: "ابدأ الاختبار التجريبي", resume: "استكمل الاختبار", history: "اختباراتك التجريبية", started: "البداية", score: "النتيجة", status: { in_progress: "جارٍ", on_break: "استراحة", submitted: "تم التسليم", expired: "انتهى الوقت" }, view: "عرض",
+    secCase: "دراسات الحالة", secInd: "الأسئلة", section: (n) => "القسم " + n, scenario: "السيناريو", prev: "السابق", flag: "علامة", navigator: "التنقل", reviewBtn: "مراجعة القسم", clear: "مسح الإجابة", saved: "تم الحفظ", savingNow: "جارٍ الحفظ…", offline: "انقطع الاتصال. سيتم حفظ إجاباتك عند عودته.",
+    reviewTitle: "مراجعة هذا القسم", unanswered: "بدون إجابة", flagged: "عليها علامة", backToQ: "العودة إلى الأسئلة", closeSection: "أغلق القسم وابدأ الاستراحة", submitExam: "تسليم الاختبار", lockWarn: "بعد هذه الخطوة تُقفل أسئلة هذا القسم.", submitWarn: "لا يمكن تغيير أي إجابة بعد التسليم.",
+    breakTitle: "استراحة", breakText: "ساعة الاختبار متوقفة. القسم السابق أصبح مقفلاً.", resumeNow: "استأنف الآن",
+    result: "النتيجة", expiredMsg: "انتهى الوقت. تم تسليم الإجابات المحفوظة.", byDomain: "حسب المجال", byApproach: "حسب المنهج", byTask: "حسب المهمة", reviewAnswers: "مراجعة الإجابات", filterAll: "الكل", filterWrong: "الخاطئة", filterFlagged: "عليها علامة", filterBlank: "بدون إجابة", yours: "إجابتك", none: "لا شيء", more: "عرض المزيد",
+    statsTitle: "نتائجك", noStats: "أجب عن بعض الأسئلة لتظهر نتائجك هنا.", estimate: "تقدير تعليمي. ليس توقعاً ولا ضماناً لنتيجة الاختبار الرسمي.",
+    language: "لغة الواجهة", saved2: "تم الحفظ.", deleteAccount: "حذف حسابي", deleteWarn: "سيؤدي ذلك إلى إنهاء كل جلساتك وحذف حسابك.", confirmDelete: "نعم، احذف حسابي",
+    predictive: "Predictive", agile: "Agile", hybrid: "Hybrid", serverDown: "تعذّر الوصول إلى الخادم. تحقق من الاتصال وحاول مرة أخرى.",
+    plan: "خطتك", planFree: "الخطة المجانية", planPass: "وصول كامل", until: (d) => "حتى " + d, freeLeft: (n, max) => "متبقٍ " + n + " من " + max + " سؤال تدريب مجاني اليوم",
+    freeOut: "استخدمت أسئلة التدريب المجانية لليوم. تتجدد غداً، أو افتح الوصول الكامل.", mockLocked: "الاختبارات التجريبية الكاملة ضمن الوصول الكامل.", seePlans: "عرض الخطط",
+    plansTitle: "الخطط", region: "الأسعار في", regions: { EG: "مصر", GULF: "دول الخليج", INTL: "دول أخرى" }, days: (n) => n + " يوماً", notOnSale: "غير متاحة للبيع في هذه المنطقة بعد",
+    freeDesc: "أسئلة تدريب يومية مع الشرح", passDesc: "تدريب بلا حدود واختبارات تجريبية كاملة ونتائج تفصيلية",
+    buyNote: "سيكون الشراء متاحاً في تطبيق الموبايل عبر App Store وGoogle Play. لم يُفتح بعد.",
+    redeemTitle: "معك كود وصول؟", redeemHint: "مثل كود من الكورس التدريبي.", code: "كود الوصول", redeem: "تفعيل", redeemed: "تم قبول الكود. لديك وصول كامل الآن.",
+  },
+};
+const ERR_AR = { invalid_credentials: "البريد الإلكتروني أو كلمة المرور غير صحيحة", email_not_verified: "أكّد بريدك الإلكتروني قبل تسجيل الدخول", email_taken: "يوجد حساب بهذا البريد بالفعل", rate_limited: "محاولات كثيرة. حاول بعد دقيقة", active_attempt_exists: "أنهِ اختبارك الحالي أولاً", validation_failed: "البيانات غير صحيحة",
+  code_invalid: "هذا الكود غير صحيح", code_used: "هذا الكود مستخدم من قبل", code_expired: "انتهت صلاحية هذا الكود", payment_required: "الاختبار الكامل يحتاج وصولاً كاملاً", daily_limit_reached: "استخدمت أسئلة التدريب المجانية لليوم" };
+const money = (p) => { const f = new Intl.NumberFormat(S.lang === "ar" ? "ar-EG" : "en-GB", { style: "currency", currency: p.currency }); return f.format(p.amountMinor / 10 ** f.resolvedOptions().maximumFractionDigits); };
+const dateText = (iso) => new Date(iso).toLocaleDateString(S.lang === "ar" ? "ar-EG" : "en-GB", { day: "numeric", month: "long", year: "numeric" });
+const t = (k, ...a) => { const v = T[S.lang][k]; return typeof v === "function" ? v(...a) : v; };
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ":" : "") + String(m).padStart(2, "0") + ":" + String(x).padStart(2, "0"); };
+const domainName = (code) => (S.blueprint?.domains.find((d) => d.code === code)?.name) || code;
+const taskName = (code) => { for (const d of S.blueprint?.domains || []) { const x = d.tasks.find((t2) => t2.code === code); if (x) return x.name; } return code; };
+
+class ApiError extends Error {
+  constructor(status, body) { super(body.title || "Request failed"); this.status = status; this.code = body.code; this.errors = body.errors || []; }
+  text() { if (S.lang === "ar" && ERR_AR[this.code]) return ERR_AR[this.code]; return this.errors.length ? this.message + ": " + this.errors.map((e) => e.message).join("; ") : this.message; }
+}
+const errText = (e) => (e instanceof ApiError ? e.text() : t("serverDown"));
+async function raw(method, path, body, token) {
+  const headers = { "accept-language": S.lang };
+  if (token) headers.authorization = "Bearer " + token;
+  if (body !== undefined) headers["content-type"] = "application/json";
+  const r = await fetch(API + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  const text = await r.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!r.ok) throw new ApiError(r.status, data);
+  return data;
+}
+async function api(method, path, body) {
+  try { return await raw(method, path, body, S.access); }
+  catch (e) {
+    if (!(e instanceof ApiError) || e.status !== 401 || !S.refresh) throw e;
+    const tk = await raw("POST", "/auth/refresh", { refreshToken: S.refresh });
+    S.access = tk.accessToken; S.refresh = tk.refreshToken;
+    return raw(method, path, body, S.access);
+  }
+}
+function clearTimers() { S.timers.forEach(clearInterval); S.timers = []; }
+function flash(kind, text) { S.flash = { kind, text }; }
+function setLang(lang) { S.lang = lang; document.documentElement.lang = lang; document.documentElement.dir = lang === "ar" ? "rtl" : "ltr"; document.title = t("brand"); }
+
+// ------------------------------------------------------------ shell
+
+// Paints only if no newer render started while this screen was loading, so a
+// slow earlier response never replaces the screen the person has moved to.
+function paint(seq, body, opts) { if (seq === S.seq) shell(body, opts); }
+function shell(body, opts = {}) {
+  const route = (location.hash.slice(1) || "home").split(/[/?]/)[0];
+  const msg = S.flash ? `<p class="msg ${S.flash.kind}" role="status">${esc(S.flash.text)}</p>` : "";
+  S.flash = null;
+  const dark = getComputedStyle(document.documentElement).colorScheme.includes("dark");
+  const tabs = [["home", t("home")], ["practice", t("practice")], ["mock", t("mock")], ["stats", t("stats")], ["settings", t("settings")]];
+  $("#app").innerHTML = `<header class="top"><span class="brand">${t("brand")}</span>
+      <button class="small" data-act="lang">${S.lang === "en" ? "العربية" : "English"}</button><button class="small" data-act="theme">${dark ? t("light") : t("dark")}</button>
+      ${S.access && !opts.exam ? `<button class="small" data-act="signout">${t("signOut")}</button>` : ""}</header>
+    ${S.access && !opts.exam ? `<nav class="tabs" aria-label="Sections">${tabs.map(([id, n]) => `<a href="#${id}"${route === id ? ' aria-current="page"' : ""}>${n}</a>`).join("")}</nav>` : ""}
+    <main>${msg}${body}</main>`;
+}
+document.addEventListener("click", async (e) => {
+  const el = e.target.closest("[data-act]"); if (!el) return;
+  const act = el.dataset.act;
+  if (act === "lang") { setLang(S.lang === "en" ? "ar" : "en"); if (S.access && S.me) { try { await api("PATCH", "/me", { language: S.lang }); } catch {} } render(); }
+  if (act === "theme") { const r = document.documentElement; r.dataset.theme = getComputedStyle(r).colorScheme.includes("dark") ? "light" : "dark"; render(); }
+  if (act === "signout") { try { await api("POST", "/auth/logout"); } catch {} S.access = S.refresh = S.me = null; S.exam = S.practice = null; clearTimers(); location.hash = "#signin"; render(); }
+});
+
+function questionHtml(q, selected, reveal, feedback) {
+  const multi = q.type === "multiple";
+  const exhibits = (q.exhibits || []).map(exhibitHtml).join("");
+  const opts = q.options.map((o, i) => {
+    const on = selected.includes(o.id);
+    const fb = feedback ? feedback.explanation.options.find((x) => x.id === o.id) : null;
+    const cls = reveal ? (fb && fb.isCorrect ? " is-right" : on ? " is-wrong" : "") : "";
+    return `<button class="opt${multi ? " multi" : ""}${cls}" role="${multi ? "checkbox" : "radio"}" aria-checked="${on}" data-opt="${esc(o.id)}"${reveal ? " disabled" : ""}><span class="mark">${"ABCDEF"[i]}</span><span>${esc(o.text)}${reveal && fb && fb.rationale ? `<span class="why">${fb.isCorrect ? "✓ " : on ? "✗ " : ""}${esc(fb.rationale)}</span>` : ""}</span></button>`;
+  }).join("");
+  return `<div class="content"><p class="stem">${esc(q.stem)}</p>${exhibits}${multi ? `<p class="muted">${t("choose", q.selectCount)}</p>` : ""}<div class="opts" role="${multi ? "group" : "radiogroup"}">${opts}</div></div>`;
+}
+function exhibitHtml(e) {
+  if (e.kind === "image") return `<div class="exhibit"><img src="${esc(e.url)}" alt="${esc(e.altText)}"></div>`;
+  return `<div class="exhibit"><div class="wrap"><table aria-label="${esc(e.altText)}"><thead><tr>${e.table.header.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${e.table.rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`;
+}
+function feedbackHtml(q, selected, fb) {
+  const ex = fb.explanation;
+  return `<p class="verdict ${fb.correct ? "ok" : "no"}">${fb.correct ? t("correct") : t("incorrect")}</p>${questionHtml(q, selected, true, fb)}
+    <div class="card"><h2>${t("why")}</h2><p class="content">${esc(ex.whyCorrect)}</p>${ex.mindset ? `<p><strong>${t("mindset")}:</strong> <span class="content">${esc(ex.mindset)}</span></p>` : ""}${ex.keyConcept ? `<p><strong>${t("concept")}:</strong> <span class="content">${esc(ex.keyConcept)}</span></p>` : ""}
+    <div class="row"><span class="tag">${esc(ex.domainName || "")}</span><span class="tag">${t("task")}: ${esc(ex.taskName || "")}</span></div></div>
+    <details class="case"><summary>${t("report")}</summary><div class="card" style="margin-top:8px"><label>${t("reportReason")}<select class="rep-reason">${Object.entries(T[S.lang].reasons).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label><textarea class="rep-comment" rows="2"></textarea><button class="small rep-send" data-token="${esc(fb.reportToken)}">${t("send")}</button></div></details>`;
+}
+function bindReport() {
+  document.querySelectorAll(".rep-send").forEach((b) => (b.onclick = async () => {
+    const box = b.closest(".card");
+    try { await api("POST", "/question-reports", { reportToken: b.dataset.token, reason: $(".rep-reason", box).value, ...($(".rep-comment", box).value.trim() ? { comment: $(".rep-comment", box).value.trim() } : {}) }); box.innerHTML = `<p class="msg ok">${t("reported")}</p>`; }
+    catch (e) { box.insertAdjacentHTML("beforeend", `<p class="msg err">${esc(errText(e))}</p>`); }
+  }));
+}
+function bars(rows, label) {
+  return rows.map((r) => `<div class="bar"><span>${esc(label(r.key))}</span><span class="track"><i style="width:${Math.round(r.percent)}%"></i></span><span class="num">${r.correct}/${r.total}</span></div>`).join("");
+}
+
+// ------------------------------------------------------------ account screens
+
+function authView(kind) {
+  const params = new URLSearchParams(location.hash.split("?")[1] || "");
+  const forms = {
+    signin: `<h1>${t("signIn")}</h1><label>${t("email")}<input id="email" type="email" autocomplete="username" required></label><label>${t("password")}<input id="password" type="password" autocomplete="current-password" required></label>
+      <button class="primary" type="submit">${t("signIn")}</button><div class="links"><a href="#register">${t("noAccount")}</a><a href="#forgot">${t("forgot")}</a></div>`,
+    register: `<h1>${t("register")}</h1><label>${t("email")}<input id="email" type="email" autocomplete="username" required></label><label>${t("password")}<input id="password" type="password" autocomplete="new-password" minlength="10" required><span class="muted">${t("pwHint")}</span></label>
+      <label class="inline"><input type="checkbox" id="terms"> ${t("acceptTerms")}</label>${S.site && (S.site.termsUrl || S.site.privacyUrl) ? `<div class="links">${S.site.termsUrl ? `<a href="${esc(S.site.termsUrl)}" target="_blank" rel="noopener" id="terms-link">${t("termsLink")}</a>` : ""}${S.site.privacyUrl ? `<a href="${esc(S.site.privacyUrl)}" target="_blank" rel="noopener" id="privacy-link">${t("privacyLink")}</a>` : ""}</div>` : ""}<button class="primary" type="submit">${t("register")}</button><div class="links"><a href="#signin">${t("haveAccount")}</a></div>`,
+    forgot: `<h1>${t("forgot")}</h1><label>${t("email")}<input id="email" type="email" required></label><button class="primary" type="submit">${t("sendLink")}</button><div class="links"><a href="#signin">${t("signIn")}</a></div>`,
+    reset: `<h1>${t("resetTitle")}</h1><label>${t("newPassword")}<input id="password" type="password" autocomplete="new-password" minlength="10" required><span class="muted">${t("pwHint")}</span></label><button class="primary" type="submit">${t("save")}</button>`,
+  };
+  shell(`<form class="card auth" id="auth">${forms[kind]}<div id="msg"></div></form><p class="note">${t("notice")}</p>`);
+  $("#auth").onsubmit = async (ev) => {
+    ev.preventDefault();
+    const show = (k, text) => ($("#msg").innerHTML = `<p class="msg ${k}">${esc(text)}</p>`);
+    try {
+      if (kind === "signin") {
+        const tk = await raw("POST", "/auth/login", { email: $("#email").value.trim(), password: $("#password").value });
+        S.access = tk.accessToken; S.refresh = tk.refreshToken;
+        await afterSignIn();
+      } else if (kind === "register") {
+        if (!$("#terms").checked) return show("err", t("acceptTerms"));
+        await raw("POST", "/auth/register", { email: $("#email").value.trim(), password: $("#password").value, acceptTerms: true, language: S.lang });
+        show("ok", t("checkEmail"));
+      } else if (kind === "forgot") {
+        await raw("POST", "/auth/password/reset-request", { email: $("#email").value.trim() });
+        show("ok", t("resetSent"));
+      } else if (kind === "reset") {
+        await raw("POST", "/auth/password/reset", { token: params.get("token"), newPassword: $("#password").value });
+        flash("ok", t("resetDone")); location.hash = "#signin";
+      }
+    } catch (e) { show("err", errText(e)); }
+  };
+}
+async function verifyEmail() {
+  const token = new URLSearchParams(location.hash.split("?")[1] || "").get("token");
+  try { await raw("POST", "/auth/verify-email", { token }); flash("ok", t("verified")); }
+  catch (e) { flash("err", errText(e)); }
+  location.hash = "#signin";
+}
+async function afterSignIn() {
+  S.me = await api("GET", "/me");
+  setLang(S.me.language === "ar" ? "ar" : "en");
+  S.blueprint = await api("GET", "/blueprints/active");
+  settlePlayPurchases();
+  location.hash = S.me.examTargetDate === null && S.me.weeklyStudyHours === null ? "#welcome" : "#home";
+  if (location.hash === "#home") render();
+}
+
+function welcomeView() {
+  shell(`<form class="card" id="welcome"><h1>${t("welcome")}</h1><label>${t("examDate")}<input type="date" id="date"></label><label>${t("hours")}<input type="number" id="hours" min="0" max="100" value="8"></label>
+    <label>${t("explLang")}<select id="expl"><option value="en">English</option><option value="ar"${S.lang === "ar" ? " selected" : ""}>العربية</option></select></label>
+    <div class="row"><button class="primary" type="submit">${t("save")}</button><a class="btn" href="#home">${t("skip")}</a></div><div id="msg"></div></form>`);
+  $("#welcome").onsubmit = async (ev) => {
+    ev.preventDefault();
+    try {
+      const body = { weeklyStudyHours: Number($("#hours").value), explanationLanguage: $("#expl").value };
+      if ($("#date").value) body.examTargetDate = $("#date").value;
+      S.me = await api("PATCH", "/me", body); location.hash = "#home";
+    } catch (e) { $("#msg").innerHTML = `<p class="msg err">${esc(errText(e))}</p>`; }
+  };
+}
+
+// ------------------------------------------------------------ study screens
+
+async function homeView() {
+  const seq = S.seq; // a newer screen started meanwhile → do not paint this one
+  const d = await api("GET", "/me/dashboard");
+  const weak = d.weakestDomain;
+  paint(seq, `${d.daysToExam !== null && d.daysToExam >= 0 ? `<p class="muted">${t("daysLeft", d.daysToExam)}</p>` : ""}
+    <div class="card"><span class="muted">${t("readiness")}</span><span class="big">${t("noBand")}</span><span class="muted">${t("bandRule")}</span></div>
+    <div class="card accent"><span class="muted">${t("today")}</span><h2>${weak ? esc(t("recWeak", domainName(weak.key))) : t("recFirst")}</h2><button class="primary" id="go">${t("start")}</button></div>
+    <div class="tiles"><div class="card"><span class="muted">${t("answered")}</span><span class="big">${d.questionsCompleted}</span></div><div class="card"><span class="muted">${t("accuracy")}</span><span class="big">${d.accuracyPercent === null ? "–" : d.accuracyPercent + "%"}</span></div><div class="card"><span class="muted">${t("mocksDone")}</span><span class="big">${d.mocksCompleted}</span></div><div class="card"><span class="muted">${t("streak")}</span><span class="big">${d.streakDays}</span></div></div>
+    ${weak && d.strongestDomain ? `<div class="tiles"><div class="card"><span class="muted">${t("weakest")}</span><strong>${esc(domainName(weak.key))} · ${weak.percent}%</strong></div><div class="card"><span class="muted">${t("strongest")}</span><strong>${esc(domainName(d.strongestDomain.key))} · ${d.strongestDomain.percent}%</strong></div></div>` : ""}
+    ${d.recentScores.length ? `<div class="card"><h2>${t("recent")}</h2>${d.recentScores.map((s) => `<div class="bar"><span>${esc(s.date)}</span><span class="track"><i style="width:${s.percent}%"></i></span><span class="num">${s.percent}%</span></div>`).join("")}</div>` : ""}
+    <p class="note">${t("notice")}</p>`);
+  $("#go").onclick = () => startPractice(weak ? { mode: "focused", questionCount: 10, domainCodes: [weak.key] } : { mode: "quick", questionCount: 10 });
+}
+
+async function practiceSetupView() {
+  const seq = S.seq; // a newer screen started meanwhile → do not paint this one
+  const doms = S.blueprint.domains;
+  const acc = await api("GET", "/me/access");
+  const out = !acc.entitled && acc.practiceLeftToday === 0;
+  const allowance = acc.entitled ? "" : `<p class="msg ${out ? "err" : "info"}" id="allowance">${out ? t("freeOut") : esc(t("freeLeft", acc.practiceLeftToday, acc.freeDailyPractice))} <a href="#plan">${t("seePlans")}</a></p>`;
+  paint(seq, `<h1>${t("pTitle")}</h1><p class="muted">${t("pIntro")}</p>${allowance}<form class="card" id="setup">
+    <label>${t("mode")}<select id="mode">${Object.entries(T[S.lang].modes).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>
+    <fieldset id="filters" style="border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:10px"><div><span class="muted">${t("domains")}</span><div class="row">${doms.map((d) => `<label class="inline"><input type="checkbox" class="f-dom" value="${d.code}"> ${esc(d.name)}</label>`).join("")}</div></div>
+    <div><span class="muted">${t("approaches")}</span><div class="row">${["predictive", "agile", "hybrid"].map((a) => `<label class="inline"><input type="checkbox" class="f-app" value="${a}"> ${t(a)}</label>`).join("")}</div></div></fieldset>
+    <label>${t("count")}<select id="count">${[5, 10, 20, 50].map((n) => `<option${n === 10 ? " selected" : ""}>${n}</option>`).join("")}</select></label>
+    <button class="primary" type="submit"${out ? " disabled" : ""}>${t("startPractice")}</button><div id="msg"></div></form>`);
+  const sync = () => { $("#filters").disabled = $("#mode").value !== "focused"; };
+  $("#mode").onchange = sync; sync();
+  $("#setup").onsubmit = (ev) => {
+    ev.preventDefault();
+    const req = { mode: $("#mode").value, questionCount: Number($("#count").value) };
+    if (req.mode === "focused") {
+      const dc = [...document.querySelectorAll(".f-dom:checked")].map((x) => x.value), ap = [...document.querySelectorAll(".f-app:checked")].map((x) => x.value);
+      if (dc.length) req.domainCodes = dc; if (ap.length) req.approaches = ap;
+    }
+    startPractice(req);
+  };
+}
+async function startPractice(req) {
+  try {
+    const s = await api("POST", "/practice/sessions", req);
+    S.practice = { session: s, i: 1, q: null, sel: [], fb: null, started: Date.now(), deadline: s.timeLimitSeconds ? Date.now() + s.timeLimitSeconds * 1000 : null };
+    location.hash = "#practice/run"; render();
+  } catch (e) { flash("err", e.code === "no_questions_match" ? t("noMatch") : e.code === "daily_limit_reached" ? t("freeOut") : errText(e)); location.hash = "#practice"; render(); }
+}
+async function practiceRunView() {
+  const seq = S.seq; // a newer screen started meanwhile → do not paint this one
+  const p = S.practice;
+  if (!p) { location.hash = "#practice"; return; }
+  if (p.i > p.session.questionCount || (p.deadline && Date.now() > p.deadline && !p.fb)) {
+    const sum = await api("GET", `/practice/sessions/${p.session.id}/summary`);
+    paint(seq, `<h1>${t("summary")}</h1><div class="card"><span class="big">${sum.overall.correct} / ${sum.overall.total}</span><span class="muted">${esc(sum.disclaimer)}</span></div>
+      ${sum.byTask.length ? `<div class="card"><h2>${t("byTask")}</h2>${bars(sum.byTask, taskName)}</div>` : ""}<a class="btn primary" href="#practice">${t("again")}</a>`);
+    S.practice = null; return;
+  }
+  if (!p.q) { p.q = await api("GET", `/practice/sessions/${p.session.id}/questions/${p.i}`); p.started = Date.now(); }
+  const head = `<div class="examhead"><span class="grow">${t("ofq", p.i, p.session.questionCount)}</span>${p.q.taskName ? `<span class="tag">${esc(p.q.taskName)}</span>` : ""}${p.deadline ? `<span class="timer" id="ptimer">${fmt(p.deadline - Date.now())}</span>` : ""}</div><div class="progress"><i style="width:${Math.round(((p.i - 1) / p.session.questionCount) * 100)}%"></i></div>`;
+  if (p.fb) {
+    paint(seq, head + feedbackHtml(p.q, p.sel, p.fb) + `<button class="primary" id="next">${p.i < p.session.questionCount ? t("next") : t("finish")}</button>`);
+    bindReport();
+    $("#next").onclick = () => { p.i++; p.q = null; p.sel = []; p.fb = null; render(); };
+  } else {
+    paint(seq, head + questionHtml(p.q, p.sel, false) + `<button class="primary" id="check"${p.sel.length ? "" : " disabled"}>${t("check")}</button><div id="msg"></div>`);
+    bindOptions(p.q, p.sel, (sel) => { p.sel = sel; $("#check").disabled = sel.length === 0; });
+    $("#check").onclick = async () => {
+      try { p.fb = await api("POST", `/practice/sessions/${p.session.id}/questions/${p.i}/answer`, { selectedOptionIds: p.sel, timeSpentMs: Date.now() - p.started }); render(); }
+      catch (e) { $("#msg").innerHTML = `<p class="msg err">${esc(errText(e))}</p>`; }
+    };
+  }
+  if (p.deadline) S.timers.push(setInterval(() => { const el = $("#ptimer"); if (el) { el.textContent = fmt(p.deadline - Date.now()); el.classList.toggle("low", p.deadline - Date.now() < 60000); } if (Date.now() > p.deadline && !p.fb) render(); }, 1000));
+}
+// Option buttons: single choice replaces, multiple response toggles up to the number to choose.
+function bindOptions(q, initial, onChange) {
+  let sel = initial.slice();
+  document.querySelectorAll(".opt[data-opt]").forEach((b) => (b.onclick = () => {
+    const id = b.dataset.opt;
+    if (q.type === "single") sel = [id];
+    else if (sel.includes(id)) sel = sel.filter((x) => x !== id);
+    else if (sel.length < q.selectCount) sel = [...sel, id];
+    document.querySelectorAll(".opt[data-opt]").forEach((o) => o.setAttribute("aria-checked", String(sel.includes(o.dataset.opt))));
+    onChange(sel);
+  }));
+}
+
+// ------------------------------------------------------------ mock exam
+
+async function mockHomeView() {
+  const seq = S.seq; // a newer screen started meanwhile → do not paint this one
+  const [list, acc] = await Promise.all([api("GET", "/exams/attempts"), api("GET", "/me/access")]);
+  const active = list.items.find((a) => a.status === "in_progress" || a.status === "on_break");
+  const done = list.items.filter((a) => a !== active);
+  paint(seq, `<h1>${t("mTitle")}</h1><div class="card"><p>${t("mIntro")}</p><p class="note">${t("device")}</p>
+    ${active ? `<button class="primary" id="resume">${t("resume")}</button>` : acc.entitled ? `<button class="primary" id="begin">${t("begin")}</button>` : `<p class="msg info" id="locked">${t("mockLocked")}</p><a class="btn primary" href="#plan">${t("seePlans")}</a>`}</div><div id="msg"></div>
+    ${done.length ? `<div class="card"><h2>${t("history")}</h2>${done.map((a) => `<div class="row" style="justify-content:space-between;align-items:center"><span>${esc(new Date(a.startedAt).toLocaleDateString(S.lang === "ar" ? "ar-EG" : "en-GB"))} · ${t("status")[a.status]}${a.scorePercent !== null ? " · " + a.scorePercent + "%" : ""}</span><a class="btn small" href="#result/${a.id}">${t("view")}</a></div>`).join("")}</div>` : ""}`);
+  if (active) $("#resume").onclick = () => openExam(active.id);
+  else if (acc.entitled) $("#begin").onclick = async () => { try { const st = await api("POST", "/exams/attempts"); openExam(st.id, st); } catch (e) { $("#msg").innerHTML = `<p class="msg err">${esc(errText(e))}</p>`; } };
+}
+
+async function openExam(id, status) {
+  clearTimers();
+  const st = status || (await api("GET", "/exams/attempts/" + id));
+  S.exam = { id, status: st, synced: Date.now(), section: null, i: 0, answers: {}, flags: new Set(), seq: 1, pending: new Map(), mode: "question", offline: false };
+  if (st.status === "submitted" || st.status === "expired") { location.hash = "#result/" + id; return; }
+  location.hash = "#exam"; await loadSection(); render();
+}
+async function loadSection() {
+  const ex = S.exam;
+  if (ex.status.status !== "in_progress") return;
+  const sec = await api("GET", `/exams/attempts/${ex.id}/sections/${ex.status.currentSection}/questions`);
+  ex.section = sec; ex.i = 0; ex.answers = {}; ex.flags = new Set();
+  for (const a of sec.savedAnswers) { ex.answers[a.ordinal] = a.selectedOptionIds; if (a.flagged) ex.flags.add(a.ordinal); ex.seq = Math.max(ex.seq, a.clientSeq + 1); }
+}
+const remaining = () => { const ex = S.exam; return ex.status.status === "on_break" ? ex.status.remainingMs : ex.status.remainingMs - (Date.now() - ex.synced); };
+function syncStatus(st) { S.exam.status = st; S.exam.synced = Date.now(); }
+async function refreshStatus() { syncStatus(await api("GET", "/exams/attempts/" + S.exam.id)); }
+
+// Every change is saved at once; failures retry every 3 seconds until the server confirms.
+async function save(ordinal) {
+  const ex = S.exam;
+  const body = { selectedOptionIds: ex.answers[ordinal] || [], flagged: ex.flags.has(ordinal), clientSeq: ex.seq++ };
+  ex.pending.set(ordinal, body); paintSaving();
+  try {
+    const r = await api("PUT", `/exams/attempts/${ex.id}/answers/${ordinal}`, body);
+    if (ex.pending.get(ordinal) === body) ex.pending.delete(ordinal);
+    ex.offline = false; ex.status.remainingMs = r.remainingMs; ex.synced = Date.now();
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 409) { await refreshStatus(); ex.pending.clear(); return render(); }
+    ex.offline = true;
+    setTimeout(() => { if (S.exam === ex && ex.pending.get(ordinal) === body) { ex.pending.delete(ordinal); save(ordinal); } }, 3000);
+  }
+  paintSaving();
+}
+function paintSaving() {
+  const el = $("#saving"); if (!el) return;
+  const ex = S.exam;
+  el.textContent = ex.offline ? t("offline") : ex.pending.size ? t("savingNow") : (ex.answers[current()?.ordinal] || []).length ? "✓ " + t("saved") : "";
+}
+const current = () => S.exam.section?.questions[S.exam.i];
+
+async function examView() {
+  const seq = S.seq; // a newer screen started meanwhile → do not paint this one
+  const ex = S.exam;
+  if (!ex) { location.hash = "#mock"; return; }
+  if (remaining() <= 0 && ex.status.status === "in_progress") await refreshStatus();
+  const st = ex.status;
+  if (st.status === "submitted" || st.status === "expired") { if (st.status === "expired") flash("err", t("expiredMsg")); location.hash = "#result/" + ex.id; return; }
+  const timer = `<span class="timer${remaining() < 300000 ? " low" : ""}" id="timer" aria-label="${t("timeLeft")}">${fmt(remaining())}</span>`;
+  const sections = st.sections;
+  const last = st.currentSection === sections.length - 1;
+
+  if (st.status === "on_break") {
+    const ends = Date.now() + (st.breakRemainingMs || 0);
+    paint(seq, `<h1>${t("breakTitle")}</h1><div class="card"><span class="big timer" id="btimer">${fmt(ends - Date.now())}</span><p>${t("breakText")}</p><p class="muted">${t("timeLeft")}: ${timer}</p></div><button class="primary" id="resume">${t("resumeNow")}</button>`, { exam: true });
+    $("#resume").onclick = async () => { syncStatus(await api("POST", `/exams/attempts/${ex.id}/resume`)); await loadSection(); render(); };
+    S.timers.push(setInterval(async () => { const left = ends - Date.now(); const b = $("#btimer"); if (b) b.textContent = fmt(left); if (left <= 0) { clearTimers(); await refreshStatus(); await loadSection(); render(); } }, 500));
+    return;
+  }
+  if (!ex.section || ex.section.sectionIndex !== st.currentSection) await loadSection();
+  const qs = ex.section.questions;
+
+  if (ex.mode === "review") {
+    // Let answers still being saved reach the server before counting.
+    for (let i = 0; ex.pending.size && i < 40; i++) await new Promise((r) => setTimeout(r, 150));
+    const rv = await api("GET", `/exams/attempts/${ex.id}/sections/${st.currentSection}/review`);
+    paint(seq, `<div class="examhead"><strong class="grow">${t("reviewTitle")}</strong>${timer}</div>${gridHtml(qs)}
+      <div class="tiles"><div class="card"><span class="muted">${t("unanswered")}</span><span class="big">${rv.unanswered.length}</span></div><div class="card"><span class="muted">${t("flagged")}</span><span class="big">${rv.flagged.length}</span></div></div>
+      <p class="note">${last ? t("submitWarn") : t("lockWarn")}</p><button class="primary" id="close">${last ? t("submitExam") : t("closeSection")}</button><button id="back">${t("backToQ")}</button>`, { exam: true });
+    bindGrid(qs);
+    $("#back").onclick = () => { ex.mode = "question"; render(); };
+    $("#close").onclick = async () => {
+      try {
+        if (last) { await api("POST", `/exams/attempts/${ex.id}/submit`); location.hash = "#result/" + ex.id; }
+        else { syncStatus(await api("POST", `/exams/attempts/${ex.id}/sections/${st.currentSection}/close`)); ex.mode = "question"; ex.section = null; render(); }
+      } catch (e) { flash("err", errText(e)); render(); }
+    };
+    startClock(); return;
+  }
+  if (ex.mode === "nav") {
+    paint(seq, `<div class="examhead"><strong class="grow">${t("navigator")}</strong>${timer}</div>${gridHtml(qs)}<button id="back">${t("backToQ")}</button>`, { exam: true });
+    bindGrid(qs); $("#back").onclick = () => { ex.mode = "question"; render(); };
+    startClock(); return;
+  }
+
+  const q = qs[ex.i];
+  const sel = ex.answers[q.ordinal] || [];
+  const cs = q.caseKey ? ex.section.caseStudies[q.caseKey] : null;
+  paint(seq, `<div class="examhead"><span class="grow">${t("section", st.currentSection + 1)} · ${sections[st.currentSection].kind === "case" ? t("secCase") : t("secInd")} · ${t("ofq", q.ordinal, 180)}</span>${timer}</div>
+    <div class="progress"><i style="width:${Math.round((q.ordinal / 180) * 100)}%"></i></div>
+    ${cs ? `<details class="case"${q.ordinal === cs.firstOrdinal ? " open" : ""}><summary>${t("scenario")}: <span class="content">${esc(cs.title)}</span></summary><div class="content" style="margin-top:8px"><p class="stem">${esc(cs.scenario)}</p>${(cs.exhibits || []).map(exhibitHtml).join("")}</div></details>` : ""}
+    ${questionHtml(q, sel, false)}
+    <div class="examhead"><button class="small" id="clear"${sel.length ? "" : " disabled"}>${t("clear")}</button><span class="grow"></span><span class="saving" id="saving" aria-live="polite"></span></div>
+    <div class="foot"><button class="small" id="prev"${ex.i === 0 ? " disabled" : ""}>${t("prev")}</button><button class="small" id="flag" aria-pressed="${ex.flags.has(q.ordinal)}">${t("flag")}</button><button class="small" id="navb">${t("navigator")}</button><button class="small primary" id="next">${ex.i === qs.length - 1 ? t("reviewBtn") : t("next")}</button></div>`, { exam: true });
+  paintSaving();
+  bindOptions(q, sel, (s) => { ex.answers[q.ordinal] = s; $("#clear").disabled = s.length === 0; save(q.ordinal); });
+  $("#clear").onclick = () => { ex.answers[q.ordinal] = []; save(q.ordinal); render(); };
+  $("#flag").onclick = () => { if (ex.flags.has(q.ordinal)) ex.flags.delete(q.ordinal); else ex.flags.add(q.ordinal); save(q.ordinal); $("#flag").setAttribute("aria-pressed", String(ex.flags.has(q.ordinal))); };
+  $("#prev").onclick = () => { ex.i--; render(); window.scrollTo(0, 0); };
+  $("#next").onclick = () => { if (ex.i === qs.length - 1) ex.mode = "review"; else ex.i++; render(); window.scrollTo(0, 0); };
+  $("#navb").onclick = () => { ex.mode = "nav"; render(); };
+  startClock();
+}
+function gridHtml(qs) {
+  const ex = S.exam;
+  return `<div class="grid">${qs.map((q, i) => `<button class="cell${(ex.answers[q.ordinal] || []).length ? " done" : ""}${ex.flags.has(q.ordinal) ? " flag" : ""}${i === ex.i ? " current" : ""}" data-go="${i}" aria-label="${q.ordinal}">${q.ordinal}</button>`).join("")}</div>`;
+}
+function bindGrid() { document.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { S.exam.i = Number(b.dataset.go); S.exam.mode = "question"; render(); })); }
+function startClock() {
+  S.timers.push(setInterval(async () => {
+    const el = $("#timer"); const left = remaining();
+    if (el) { el.textContent = fmt(left); el.classList.toggle("low", left < 300000); }
+    if (left <= 0) { clearTimers(); await refreshStatus(); render(); }
+  }, 500));
+}
+
+async function resultView(id) {
+  const seq = S.seq; // a newer screen started meanwhile → do not paint this one
+  const r = await api("GET", `/exams/attempts/${id}/result`);
+  S.exam = null;
+  paint(seq, `<h1>${t("result")}</h1><div class="card"><span class="big">${r.overall.correct} / ${r.overall.total} · ${r.overall.percent}%</span><span class="muted">${esc(r.disclaimer)}</span></div>
+    <div class="card"><h2>${t("byDomain")}</h2>${bars(r.byDomain, domainName)}</div><div class="card"><h2>${t("byApproach")}</h2>${bars(r.byApproach, (k) => t(k))}</div>
+    <a class="btn primary" href="#answers/${id}">${t("reviewAnswers")}</a>`);
+}
+async function answersView(id) {
+  const seq = S.seq; // a newer screen started meanwhile → do not paint this one
+  const params = new URLSearchParams(location.hash.split("?")[1] || "");
+  const filter = params.get("filter") || "all";
+  let cursor = null, items = [];
+  const load = async () => { const r = await api("GET", `/exams/attempts/${id}/review?filter=${filter}&limit=10${cursor ? "&cursor=" + cursor : ""}`); items = items.concat(r.items); cursor = r.nextCursor; };
+  await load();
+  const draw = () => {
+    paint(seq, `<h1>${t("reviewAnswers")}</h1><div class="row">${[["all", t("filterAll")], ["incorrect", t("filterWrong")], ["flagged", t("filterFlagged")], ["unanswered", t("filterBlank")]].map(([k, n]) => `<a class="btn small${k === filter ? " primary" : ""}" href="#answers/${id}?filter=${k}">${n}</a>`).join("")}</div>
+      ${items.map((it) => `<div class="card"><span class="muted">${t("ofq", it.question.ordinal, 180)}${it.flagged ? " · ⚑" : ""}</span>${it.selectedOptionIds.length ? "" : `<p class="muted">${t("yours")}: ${t("none")}</p>`}${feedbackHtml(it.question, it.selectedOptionIds, it.feedback)}</div>`).join("") || `<p class="muted">–</p>`}
+      ${cursor ? `<button id="more">${t("more")}</button>` : ""}`);
+    bindReport();
+    if (cursor) $("#more").onclick = async () => { await load(); draw(); };
+  };
+  draw();
+}
+
+async function statsView() {
+  const seq = S.seq; // a newer screen started meanwhile → do not paint this one
+  const [dom, app] = await Promise.all([api("GET", "/me/analytics?dimension=domain"), api("GET", "/me/analytics?dimension=approach")]);
+  if (!dom.rows.length) return paint(seq, `<h1>${t("statsTitle")}</h1><p class="muted">${t("noStats")}</p>`);
+  const task = await api("GET", "/me/analytics?dimension=task");
+  const weakest = task.rows.filter((r) => r.total >= 3).sort((a, b) => a.percent - b.percent).slice(0, 8);
+  paint(seq, `<h1>${t("statsTitle")}</h1><div class="card"><h2>${t("byDomain")}</h2>${bars(dom.rows, domainName)}</div><div class="card"><h2>${t("byApproach")}</h2>${bars(app.rows, (k) => t(k))}</div>
+    ${weakest.length ? `<div class="card"><h2>${t("byTask")}</h2>${bars(weakest, taskName)}</div>` : ""}<p class="muted">${t("estimate")}</p>`);
+}
+
+function settingsView() {
+  const me = S.me;
+  shell(`<h1>${t("settings")}</h1><form class="card" id="prefs"><label>${t("language")}<select id="lang"><option value="en">English</option><option value="ar"${S.lang === "ar" ? " selected" : ""}>العربية</option></select></label>
+    <label>${t("explLang")}<select id="expl"><option value="en">English</option><option value="ar"${me.explanationLanguage === "ar" ? " selected" : ""}>العربية</option></select></label>
+    <label>${t("examDate")}<input type="date" id="date" value="${esc(me.examTargetDate || "")}"></label><label>${t("hours")}<input type="number" id="hours" min="0" max="100" value="${esc(me.weeklyStudyHours ?? "")}"></label>
+    <button class="primary" type="submit">${t("save")}</button></form>
+    <div class="card"><h2>${t("plan")}</h2><a class="btn" href="#plan">${t("seePlans")}</a></div>${S.site && (S.site.supportEmail || S.site.termsUrl) ? `<p class="muted">${S.site.supportEmail ? `${t("support")} <a href="mailto:${esc(S.site.supportEmail)}" dir="ltr">${esc(S.site.supportEmail)}</a> · ` : ""}${S.site.termsUrl ? `<a href="${esc(S.site.termsUrl)}" target="_blank" rel="noopener">${t("termsLink")}</a> · ` : ""}${S.site.privacyUrl ? `<a href="${esc(S.site.privacyUrl)}" target="_blank" rel="noopener">${t("privacyLink")}</a>` : ""}</p>` : ""}
+    ${installCard()}
+    <div class="card"><h2>${t("myData")}</h2><p class="muted">${t("myDataText")}</p><button id="export">${t("download")}</button></div>
+    <details class="case"><summary>${t("deleteAccount")}</summary><div class="card" style="margin-top:8px"><p>${t("deleteWarn")}</p><button class="danger" id="del">${t("confirmDelete")}</button></div></details>
+    <p class="note">${t("notice")}</p>`);
+  $("#prefs").onsubmit = async (ev) => {
+    ev.preventDefault();
+    try {
+      const body = { language: $("#lang").value, explanationLanguage: $("#expl").value, examTargetDate: $("#date").value || null };
+      if ($("#hours").value !== "") body.weeklyStudyHours = Number($("#hours").value);
+      S.me = await api("PATCH", "/me", body); setLang(S.me.language); flash("ok", t("saved2")); render();
+    } catch (e) { flash("err", errText(e)); render(); }
+  };
+  $("#export").onclick = async () => {
+    // Fetched with the access token, then handed to the browser as a file.
+    const r = await fetch(API + "/me/export", { headers: { authorization: "Bearer " + S.access } });
+    if (!r.ok) { flash("err", t("serverDown")); return render(); }
+    const url = URL.createObjectURL(await r.blob());
+    const a = document.createElement("a");
+    a.href = url; a.download = "my-exam-simulator-data.json"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  $("#del").onclick = async () => { try { await api("DELETE", "/me"); } catch {} S.access = S.refresh = S.me = null; location.hash = "#signin"; render(); };
+}
+
+// ------------------------------------------------------------ plan and access
+
+// ------------------------------------------------------------ Google Play Billing (inside the Android app)
+
+// In the Android app (a Trusted Web Activity installed from Google Play),
+// passes are bought through Google Play Billing, as Play requires for digital
+// goods. Elsewhere this returns null and the web plan screen is shown.
+async function playBilling() {
+  if (S.play !== undefined) return S.play;
+  S.play = null;
+  if ("getDigitalGoodsService" in window) {
+    try { S.play = await window.getDigitalGoodsService("https://play.google.com/billing"); } catch { S.play = null; }
+  }
+  return S.play;
+}
+/** Sends purchases the server has not completed yet (for example after a lost connection). */
+async function settlePlayPurchases() {
+  const play = await playBilling();
+  if (!play || !S.access) return;
+  try {
+    for (const p of await play.listPurchases()) {
+      try { await api("POST", "/billing/purchases", { platform: "google", productId: p.itemId, purchaseToken: p.purchaseToken }); } catch {}
+    }
+  } catch {}
+}
+async function buyOnPlay(sku) {
+  const request = new PaymentRequest([{ supportedMethods: "https://play.google.com/billing", data: { sku } }],
+    { total: { label: "Total", amount: { currency: "USD", value: "0" } } }); // required by the API, ignored by Google Play
+  const response = await request.show();
+  try {
+    await api("POST", "/billing/purchases", { platform: "google", productId: sku, purchaseToken: response.details.purchaseToken });
+    await response.complete("success");
+    return true;
+  } catch (e) {
+    await response.complete(e.code === "store_completion_failed" ? "success" : "fail");
+    if (e.code === "store_completion_failed") return true; // the pass is active; completion is retried later
+    throw e;
+  }
+}
+
+async function planView() {
+  const seq = S.seq; // a newer screen started meanwhile → do not paint this one
+  const play = await playBilling();
+  const region = S.region || (S.lang === "ar" ? "EG" : "INTL");
+  const [acc, plans] = await Promise.all([api("GET", "/me/access"), api("GET", "/plans?region=" + region)]);
+  // Google Play product ids may be stored on any region's price row.
+  let playItems = new Map();
+  if (play) {
+    const lists = await Promise.all(["EG", "GULF", "INTL"].map((r) => api("GET", "/plans?region=" + r)));
+    const skuByPlan = new Map();
+    for (const list of lists) for (const p of list.items) if (p.price?.storeProductId && !skuByPlan.has(p.code)) skuByPlan.set(p.code, p.price.storeProductId);
+    try {
+      const details = skuByPlan.size ? await play.getDetails([...skuByPlan.values()]) : [];
+      for (const [code, sku] of skuByPlan) { const d = details.find((x) => x.itemId === sku); if (d) playItems.set(code, { sku, price: d.price }); }
+    } catch { playItems = new Map(); }
+  }
+  const status = acc.entitled
+    ? `<span class="big">${t("planPass")}</span>${acc.endsAt ? `<span class="muted">${esc(t("until", dateText(acc.endsAt)))}</span>` : ""}`
+    : `<span class="big">${t("planFree")}</span><span class="muted">${esc(t("freeLeft", acc.practiceLeftToday, acc.freeDailyPractice))}</span>`;
+  const playPrice = (pr) => { try { return new Intl.NumberFormat(S.lang === "ar" ? "ar-EG" : "en-GB", { style: "currency", currency: pr.currency }).format(Number(pr.value)); } catch { return pr.value + " " + pr.currency; } };
+  const card = (p) => {
+    const item = playItems.get(p.code);
+    const price = p.kind === "free" ? ""
+      : play ? (item ? `<span class="big price">${esc(playPrice(item.price))}</span><button class="primary" data-buy="${esc(item.sku)}">${t("buy")}</button>` : `<span class="muted">${t("notOnSale")}</span>`)
+      : p.price ? `<span class="big price">${esc(money(p.price))}</span>` : `<span class="muted">${t("notOnSale")}</span>`;
+    return `<div class="card plan" data-plan="${esc(p.code)}"><h2>${esc(p.kind === "free" ? t("planFree") : t("planPass") + " · " + t("days", p.durationDays))}</h2>
+    <span class="muted">${p.kind === "free" ? t("freeDesc") : t("passDesc")}</span>${price}</div>`;
+  };
+  paint(seq, `<h1>${t("plan")}</h1><div class="card accent" id="status">${status}</div><div id="buymsg"></div>
+    <form class="card" id="redeem"><h2>${t("redeemTitle")}</h2><span class="muted">${t("redeemHint")}</span>
+      <label>${t("code")}<input id="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" required placeholder="XXXX-XXXX-XXXX" dir="ltr"></label>
+      <button class="primary" type="submit">${t("redeem")}</button><div id="rmsg"></div></form>
+    <h2>${t("plansTitle")}</h2>
+    ${play ? "" : `<label>${t("region")}<select id="region">${Object.entries(T[S.lang].regions).map(([k, v]) => `<option value="${k}"${k === region ? " selected" : ""}>${v}</option>`).join("")}</select></label>`}
+    <div class="plans">${plans.items.map(card).join("")}</div>
+    ${play ? `<p class="note">${t("playNote")}</p>` : `<p class="note">${t("buyNote")}</p>`}<p class="note">${t("notice")}</p>`);
+  if ($("#region")) $("#region").onchange = () => { S.region = $("#region").value; render(); };
+  document.querySelectorAll("[data-buy]").forEach((b) => (b.onclick = async () => {
+    b.disabled = true;
+    try { if (await buyOnPlay(b.dataset.buy)) { flash("ok", t("bought")); render(); } }
+    catch (e) { if (e && e.name !== "AbortError") $("#buymsg").innerHTML = `<p class="msg err" role="alert">${esc(errText(e))}</p>`; b.disabled = false; }
+  }));
+  $("#redeem").onsubmit = async (ev) => {
+    ev.preventDefault();
+    try { await api("POST", "/me/redeem", { code: $("#code").value }); flash("ok", t("redeemed")); render(); }
+    catch (e) { $("#rmsg").innerHTML = `<p class="msg err" role="alert">${esc(errText(e))}</p>`; }
+  };
+}
+
+// ------------------------------------------------------------ installable app
+
+// Chrome and Edge offer an install prompt; Safari on iOS needs Share → Add to Home Screen.
+const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); S.installPrompt = e; if ((location.hash || "").startsWith("#settings")) render(); });
+window.addEventListener("appinstalled", () => { S.installPrompt = null; });
+function installCard() {
+  if (standalone()) return "";
+  if (S.installPrompt) return `<div class="card"><h2>${t("install")}</h2><p class="muted">${t("installText")}</p><button id="install">${t("install")}</button></div>`;
+  if (isIos()) return `<div class="card"><h2>${t("install")}</h2><p class="muted">${t("iosInstall")}</p></div>`;
+  return "";
+}
+document.addEventListener("click", async (e) => {
+  if (!e.target.closest || !e.target.closest("#install") || !S.installPrompt) return;
+  S.installPrompt.prompt();
+  await S.installPrompt.userChoice.catch(() => null);
+  S.installPrompt = null;
+  render();
+});
+const paintNet = () => { const bar = $("#netbar"); bar.textContent = t("offlineBar"); bar.hidden = navigator.onLine; };
+window.addEventListener("online", paintNet);
+window.addEventListener("offline", paintNet);
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  navigator.serviceWorker.register("/sw.js", { scope: "/app" }).catch(() => {});
+}
+
+// ------------------------------------------------------------ router
+
+async function render() {
+  S.seq = (S.seq || 0) + 1;
+  clearTimers();
+  const [route, arg] = location.hash.slice(1).split("?")[0].split("/");
+  if (route === "verify") return verifyEmail();
+  if (!S.access) {
+    if (["register", "forgot", "reset"].includes(route)) return authView(route);
+    return authView("signin");
+  }
+  try {
+    if (route === "welcome") return welcomeView();
+    if (route === "practice") return arg === "run" ? await practiceRunView() : await practiceSetupView();
+    if (route === "plan") return await planView();
+    if (route === "mock") return await mockHomeView();
+    if (route === "exam") return await examView();
+    if (route === "result") return await resultView(arg);
+    if (route === "answers") return await answersView(arg);
+    if (route === "stats") return await statsView();
+    if (route === "settings") return settingsView();
+    return await homeView();
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) { S.access = null; return authView("signin"); }
+    shell(`<p class="msg err">${esc(errText(e))}</p>`);
+  }
+}
+window.addEventListener("hashchange", render);
+setLang((navigator.language || "en").toLowerCase().startsWith("ar") ? "ar" : "en");
+// Public links (terms, privacy, support) come from the server's settings.
+raw("GET", "/site").then((site) => { S.site = site; }, () => { S.site = null; }).finally(() => { paintNet(); render(); });
+</script>
+</body>
+</html>

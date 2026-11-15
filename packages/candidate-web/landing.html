@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{APP_NAME}} · Practice for the PMP exam</title>
+<meta name="description" content="Practice questions with explanations and full 180-question mock exams aligned to the July 2026 exam content outline, in Arabic and English. Independent study tool, not affiliated with PMI.">
+<meta name="theme-color" content="#1b4a78">
+<link rel="icon" href="/assets/favicon-32.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="manifest" href="/app/manifest.webmanifest">
+<meta property="og:title" content="{{APP_NAME}}">
+<meta property="og:description" content="PMP exam practice and full mock exams, in Arabic and English.">
+<meta property="og:image" content="{{PUBLIC_URL}}/assets/icon-512.png">
+<style>
+:root { --bg: #f4f6f9; --surface: #fff; --text: #121a26; --muted: #505c6c; --primary: #1b4a78; --soft: #e3edf7; --border: #d5dbe3; color-scheme: light dark; }
+@media (prefers-color-scheme: dark) { :root { --bg: #0e1319; --surface: #18202a; --text: #eef1f5; --muted: #a3afbd; --primary: #86b8ea; --soft: #1c2f44; --border: #2c3846; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; }
+header, main, footer { max-width: 960px; margin: 0 auto; padding: 20px; }
+header { display: flex; align-items: center; gap: 12px; }
+header img { width: 40px; height: 40px; border-radius: 10px; }
+header strong { flex: 1; font-size: 18px; }
+.btn { display: inline-flex; align-items: center; min-height: 44px; padding: 10px 18px; border-radius: 8px; font-weight: 600; text-decoration: none; border: 1px solid var(--border); color: var(--text); background: var(--surface); cursor: pointer; font: inherit; }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--surface); }
+.hero { padding: 40px 0 24px; }
+h1 { font-size: clamp(28px, 5vw, 42px); line-height: 1.2; margin: 0 0 12px; text-wrap: balance; }
+.lead { font-size: 18px; color: var(--muted); max-width: 640px; margin: 0 0 24px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin: 24px 0; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.card h2 { font-size: 17px; margin: 0 0 6px; }
+.card p { margin: 0; color: var(--muted); }
+.note { font-size: 14px; color: var(--muted); border-inline-start: 3px solid #8a5a00; padding-inline-start: 10px; }
+footer { display: flex; flex-wrap: wrap; gap: 16px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--border); }
+footer a { color: var(--muted); }
+[data-lang] { display: none; }
+html[lang="en"] [data-lang="en"], html[lang="ar"] [data-lang="ar"] { display: revert; }
+</style>
+</head>
+<body>
+<header>
+  <img src="/assets/icon-192.png" alt="">
+  <strong>{{APP_NAME}}</strong>
+  <button class="btn" id="lang" type="button">العربية</button>
+  <a class="btn primary" href="/app"><span data-lang="en">Open the app</span><span data-lang="ar">افتح التطبيق</span></a>
+</header>
+<main>
+  <section class="hero">
+    <h1 data-lang="en">Get ready for the PMP exam, one question at a time</h1>
+    <h1 data-lang="ar">استعد لاختبار PMP، سؤالاً بعد سؤال</h1>
+    <p class="lead" data-lang="en">Practice questions with clear explanations, and full mock exams that follow the July 2026 exam content outline: 180 questions, 240 minutes, case studies and two breaks. In Arabic and English.</p>
+    <p class="lead" data-lang="ar">أسئلة تدريب بشرح واضح، واختبارات تجريبية كاملة على مخطط محتوى الاختبار لشهر يوليو 2026: 180 سؤالاً في 240 دقيقة، مع دراسات حالة واستراحتين. بالعربية والإنجليزية.</p>
+    <a class="btn primary" href="/app#register"><span data-lang="en">Create a free account</span><span data-lang="ar">أنشئ حساباً مجانياً</span></a>
+  </section>
+  <section class="grid">
+    <div class="card"><h2 data-lang="en">Practice with explanations</h2><h2 data-lang="ar">تدريب مع الشرح</h2><p data-lang="en">After each answer: why it is right, why the others are not, and the mindset behind it.</p><p data-lang="ar">بعد كل إجابة: لماذا هي صحيحة، ولماذا غيرها خاطئ، وطريقة التفكير وراءها.</p></div>
+    <div class="card"><h2 data-lang="en">Full mock exams</h2><h2 data-lang="ar">اختبارات تجريبية كاملة</h2><p data-lang="en">Same length, sections and breaks as the real exam, with a server-side timer and autosave.</p><p data-lang="ar">بنفس طول الاختبار الحقيقي وأقسامه واستراحاته، مع مؤقت على الخادم وحفظ تلقائي.</p></div>
+    <div class="card"><h2 data-lang="en">See where you stand</h2><h2 data-lang="ar">اعرف مستواك</h2><p data-lang="en">Results by domain, task and approach (predictive, agile, hybrid) show what to study next.</p><p data-lang="ar">النتائج حسب المجال والمهمة والمنهج توضح ما تذاكره بعد ذلك.</p></div>
+    <div class="card"><h2 data-lang="en">Arabic and English</h2><h2 data-lang="ar">عربي وإنجليزي</h2><p data-lang="en">The whole app in either language, with explanations in the language you choose.</p><p data-lang="ar">التطبيق كله باللغتين، والشرح باللغة التي تختارها.</p></div>
+  </section>
+  <p class="note" data-lang="en">Independent study tool. Not affiliated with or endorsed by PMI. PMP is a registered mark of the Project Management Institute, Inc. Scores are educational estimates, never a guarantee of passing.</p>
+  <p class="note" data-lang="ar">أداة دراسة مستقلة، غير تابعة لـ PMI وغير معتمدة منه. PMP علامة مسجّلة لمعهد إدارة المشروعات. النتائج تقديرات تعليمية وليست ضماناً للنجاح.</p>
+</main>
+<footer>
+  <span>© {{YEAR}} {{APP_NAME}}</span>
+  {{TERMS_LINK}}
+  {{PRIVACY_LINK}}
+  {{SUPPORT_LINK}}
+</footer>
+<script>
+"use strict";
+const root = document.documentElement;
+const set = (l) => { root.lang = l; root.dir = l === "ar" ? "rtl" : "ltr"; document.getElementById("lang").textContent = l === "ar" ? "English" : "العربية"; };
+set((navigator.language || "en").toLowerCase().startsWith("ar") ? "ar" : "en");
+document.getElementById("lang").onclick = () => set(root.lang === "ar" ? "en" : "ar");
+</script>
+</body>
+</html>

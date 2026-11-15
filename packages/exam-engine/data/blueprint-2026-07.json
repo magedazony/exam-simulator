@@ -1,0 +1,75 @@
+{
+  "code": "PMP-ECO",
+  "version": 202607,
+  "effectiveFrom": "2026-07-09",
+  "totalQuestions": 180,
+  "durationMinutes": 240,
+  "domains": [
+    {
+      "id": "PEOPLE",
+      "name": "People",
+      "weightPct": 33,
+      "tasks": [
+        { "id": "PEOPLE-1", "name": "Develop a common vision" },
+        { "id": "PEOPLE-2", "name": "Manage conflicts" },
+        { "id": "PEOPLE-3", "name": "Lead the project team" },
+        { "id": "PEOPLE-4", "name": "Engage stakeholders" },
+        { "id": "PEOPLE-5", "name": "Align stakeholder expectations" },
+        { "id": "PEOPLE-6", "name": "Manage stakeholder expectations" },
+        { "id": "PEOPLE-7", "name": "Help ensure knowledge transfer" },
+        { "id": "PEOPLE-8", "name": "Plan and manage communication" }
+      ]
+    },
+    {
+      "id": "PROCESS",
+      "name": "Process",
+      "weightPct": 41,
+      "tasks": [
+        { "id": "PROCESS-1", "name": "Develop an integrated project management plan and plan delivery" },
+        { "id": "PROCESS-2", "name": "Develop and manage project scope" },
+        { "id": "PROCESS-3", "name": "Help ensure value-based delivery" },
+        { "id": "PROCESS-4", "name": "Plan and manage resources" },
+        { "id": "PROCESS-5", "name": "Plan and manage procurement" },
+        { "id": "PROCESS-6", "name": "Plan and manage finance" },
+        { "id": "PROCESS-7", "name": "Plan and optimize quality of products/deliverables" },
+        { "id": "PROCESS-8", "name": "Plan and manage schedule" },
+        { "id": "PROCESS-9", "name": "Evaluate project status" },
+        { "id": "PROCESS-10", "name": "Manage project closure" }
+      ]
+    },
+    {
+      "id": "BUSINESS",
+      "name": "Business Environment",
+      "weightPct": 26,
+      "tasks": [
+        { "id": "BUSINESS-1", "name": "Define and establish project governance" },
+        { "id": "BUSINESS-2", "name": "Plan and manage project compliance" },
+        { "id": "BUSINESS-3", "name": "Manage and control changes" },
+        { "id": "BUSINESS-4", "name": "Remove impediments and manage issues" },
+        { "id": "BUSINESS-5", "name": "Plan and manage risk" },
+        { "id": "BUSINESS-6", "name": "Continuous improvement" },
+        { "id": "BUSINESS-7", "name": "Support organizational change" },
+        { "id": "BUSINESS-8", "name": "Evaluate external business environment changes" }
+      ]
+    }
+  ],
+  "mixRules": [
+    { "dimension": "approach", "keys": ["predictive"], "targetPct": 40, "tolerancePct": 3, "source": "official" },
+    { "dimension": "approach", "keys": ["agile", "hybrid"], "targetPct": 60, "tolerancePct": 3, "source": "official" },
+    { "dimension": "approach", "keys": ["agile"], "targetPct": 30, "tolerancePct": 8, "source": "house" },
+    { "dimension": "approach", "keys": ["hybrid"], "targetPct": 30, "tolerancePct": 8, "source": "house" },
+    { "dimension": "difficulty", "keys": ["easy"], "targetPct": 20, "tolerancePct": 8, "source": "house" },
+    { "dimension": "difficulty", "keys": ["medium"], "targetPct": 50, "tolerancePct": 10, "source": "house" },
+    { "dimension": "difficulty", "keys": ["hard"], "targetPct": 30, "tolerancePct": 8, "source": "house" },
+    { "dimension": "type", "keys": ["multiple"], "targetPct": 10, "tolerancePct": 6, "source": "house" },
+    { "dimension": "graphic", "keys": ["yes"], "targetPct": 8, "tolerancePct": 6, "source": "house" }
+  ],
+  "minPerTask": 2,
+  "domainToleranceQuestions": 1,
+  "sections": [
+    { "kind": "case", "questionCount": 20, "breakAfterMinutes": 10 },
+    { "kind": "independent", "questionCount": 80, "breakAfterMinutes": 10 },
+    { "kind": "independent", "questionCount": 80, "breakAfterMinutes": 0 }
+  ],
+  "scoring": { "partialCredit": false }
+}

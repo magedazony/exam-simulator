@@ -1,0 +1,71 @@
+# Builds the Android app (APK) in the cloud, free, with no Android Studio.
+#
+# GitHub → Actions → "Build Android APK" → Run workflow → type your site
+# address → wait about 5 minutes → download "exam-simulator-apk" from the
+# run's Artifacts. See APK.md.
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      siteHost:
+        description: "Site address without https://, for example exam-simulator.onrender.com"
+        required: true
+      appName:
+        description: "Name under the icon"
+        default: "Exam Simulator"
+        required: true
+      appId:
+        description: "Package id (permanent once on Google Play), for example com.yourname.examsimulator"
+        default: "com.example.examsimulator"
+        required: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Android SDK platform 36
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
+      - name: Signing key
+        working-directory: android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            # Your own permanent key (repository secrets). Needed for Google Play.
+            echo "$KEYSTORE_BASE64" | base64 -d > upload.jks
+            PASS="$KEYSTORE_PASSWORD"
+            echo "Signed with your own key." >> "$GITHUB_STEP_SUMMARY"
+          else
+            # A throwaway key: fine for installing and trying, not for Google Play.
+            PASS="trial-key-password"
+            keytool -genkeypair -keystore upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$PASS" -keypass "$PASS" -dname "CN=Trial build"
+            echo "Signed with a one-time trial key (not for Google Play; every run makes a new key, so uninstall the old app before installing a new build)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          printf 'storeFile=../upload.jks\nstorePassword=%s\nkeyAlias=upload\nkeyPassword=%s\n' "$PASS" "$PASS" > keystore.properties
+          echo '### SHA-256 fingerprint (server setting ANDROID_CERT_SHA256)' >> "$GITHUB_STEP_SUMMARY"
+          keytool -list -v -keystore upload.jks -alias upload -storepass "$PASS" | grep 'SHA256:' | sed 's/.*SHA256: //' >> "$GITHUB_STEP_SUMMARY"
+      - name: Build
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease bundleRelease \
+            "-PsiteHost=${{ inputs.siteHost }}" "-PappName=${{ inputs.appName }}" "-PappId=${{ inputs.appId }}" \
+            "-PversionCode=${{ github.run_number }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exam-simulator-apk
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exam Simulator Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: one phone-width column; study screens teach, the exam screen shows only the question. */
+:root {
+  --bg: #f4f6f9; --surface: #ffffff; --border: #d5dbe3; --text: #121a26; --muted: #505c6c;
+  --primary: #1b4a78; --primary-soft: #e3edf7; --on-primary: #ffffff;
+  --good: #17694a; --good-soft: #e1f3ea; --bad: #a3281c; --bad-soft: #fbe6e3; --warn: #8a5a00; --warn-soft: #fbefd2;
+  --font: "IBM Plex Sans", "IBM Plex Sans Arabic", system-ui, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1319; --surface: #18202a; --border: #2c3846; --text: #eef1f5; --muted: #a3afbd;
+    --primary: #86b8ea; --primary-soft: #1c2f44; --on-primary: #0b1620;
+    --good: #63cf98; --good-soft: #15301f; --bad: #f29186; --bad-soft: #3a1b18; --warn: #e6b955; --warn-soft: #35290f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1319; --surface: #18202a; --border: #2c3846; --text: #eef1f5; --muted: #a3afbd;
+  --primary: #86b8ea; --primary-soft: #1c2f44; --on-primary: #0b1620;
+  --good: #63cf98; --good-soft: #15301f; --bad: #f29186; --bad-soft: #3a1b18; --warn: #e6b955; --warn-soft: #35290f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 16px; line-height: 1.5; }
+[dir="rtl"] body { line-height: 1.7; }
+#app { max-width: 460px; min-height: 100%; margin: 0 auto; display: flex; flex-direction: column; background: var(--bg); }
+header.top { display: flex; align-items: center; gap: 8px; padding: 12px 16px; }
+header.top h1 { font-size: 17px; font-weight: 600; margin: 0; flex: 1; text-wrap: balance; }
+main { flex: 1; padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+nav.tabs { position: sticky; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); border-top: 1px solid var(--border); }
+nav.tabs button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 14px; font-weight: 500; padding: 12px 4px 14px; min-height: 48px; cursor: pointer; border-top: 3px solid transparent; }
+nav.tabs button[aria-current="page"] { color: var(--primary); border-top-color: var(--primary); font-weight: 600; }
+h2 { font-size: 20px; font-weight: 600; margin: 4px 0 0; text-wrap: balance; }
+h3 { font-size: 16px; font-weight: 600; margin: 0; }
+p { margin: 0; }
+.muted { color: var(--muted); font-size: 14px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.card.accent { border-color: var(--primary); background: var(--primary-soft); }
+.big { font-size: 26px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; }
+.row > * { flex: 1 1 0; min-width: 96px; }
+.btn { font: inherit; font-weight: 600; font-size: 15px; min-height: 46px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.btn.small { min-height: 38px; padding: 6px 12px; font-size: 14px; font-weight: 500; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn[aria-pressed="true"] { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
+button:focus-visible, .opt:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.stem { direction: ltr; text-align: left; font-family: "IBM Plex Sans", system-ui, sans-serif; line-height: 1.5; }
+.opts { display: flex; flex-direction: column; gap: 8px; direction: ltr; }
+.opt { display: flex; gap: 10px; align-items: flex-start; text-align: left; font: inherit; font-family: "IBM Plex Sans", system-ui, sans-serif; line-height: 1.45; padding: 12px 14px; min-height: 48px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; width: 100%; }
+.opt .mark { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--muted); display: grid; place-items: center; font-size: 13px; font-weight: 600; }
+.opt[data-multi="1"] .mark { border-radius: 5px; }
+.opt[aria-checked="true"] { border-color: var(--primary); background: var(--primary-soft); }
+.opt[aria-checked="true"] .mark { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.opt.is-right { border-color: var(--good); background: var(--good-soft); }
+.opt.is-wrong { border-color: var(--bad); background: var(--bad-soft); }
+.opt .why { display: block; font-size: 14px; color: var(--muted); margin-top: 4px; }
+[dir="rtl"] .opt .why { direction: rtl; text-align: right; font-family: var(--font); }
+.tag { display: inline-block; font-size: 12.5px; font-weight: 500; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.verdict { font-weight: 600; padding: 10px 14px; border-radius: 8px; }
+.verdict.ok { background: var(--good-soft); color: var(--good); }
+.verdict.no { background: var(--bad-soft); color: var(--bad); }
+.examhead { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.examhead .grow { flex: 1; }
+.timer { font-weight: 600; font-variant-numeric: tabular-nums; direction: ltr; }
+.timer.low { color: var(--bad); }
+.progress { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.progress > i { display: block; height: 100%; background: var(--primary); }
+details.case { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+details.case summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.exhibit { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; direction: ltr; font-variant-numeric: tabular-nums; }
+th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+th { background: var(--bg); font-weight: 600; }
+.foot { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: auto; }
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; direction: ltr; }
+.cell { min-height: 42px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; position: relative; }
+.cell.done { background: var(--primary-soft); border-color: var(--primary); }
+.cell.flag::after { content: "⚑"; position: absolute; top: 0; right: 4px; font-size: 11px; color: var(--warn); }
+.cell.locked { opacity: .45; cursor: not-allowed; }
+.bar { display: grid; grid-template-columns: minmax(96px, 38%) 1fr 44px; gap: 8px; align-items: center; font-size: 14px; }
+.bar .track { height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
+.bar .track i { display: block; height: 100%; background: var(--primary); border-radius: 5px; }
+.bar .num { text-align: end; font-variant-numeric: tabular-nums; font-weight: 600; }
+.note { font-size: 13px; color: var(--muted); border-inline-start: 3px solid var(--warn); padding-inline-start: 10px; }
+@media (prefers-reduced-motion: no-preference) { .progress > i, .bar .track i { transition: width .2s ease-out; } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+"use strict";
+// Demo data: 7 original sample questions, drafted by AI and NOT yet reviewed by a certified expert.
+// Everything runs in this page; nothing is sent anywhere and nothing is saved.
+const Q = [
+ { id: "c1", caseId: "clinic", domain: "Process", task: "Plan and manage schedule", approach: "hybrid", type: "single",
+   stem: "What should the project manager do first about the data migration delay?",
+   opts: ["Inform the sponsor that go-live will slip by two weeks", "Analyze, with the vendor and the team, how the delay affects the critical path and the dependent app work", "Ask the vendor to add staff at the vendor's own cost", "Move the go-live date in the schedule baseline"], key: [1],
+   why: ["Reports an impact that has not been analyzed yet.", "Correct. The impact must be understood before any response or communication is chosen.", "A response chosen before the problem is understood, and it may not address the cause.", "Baselines change only through approved change control, never as a first reaction."],
+   whyAr: ["يبلّغ عن أثر لم يتم تحليله بعد.", "صحيح. يجب فهم الأثر أولاً قبل اختيار أي استجابة أو إبلاغ.", "استجابة قبل فهم المشكلة، وقد لا تعالج السبب.", "الـ baseline لا يتغيّر إلا عبر change control معتمد، وليس كرد فعل أول."],
+   mind: "Assess before you act or escalate.", mindAr: "حلّل أولاً، ثم تصرّف أو صعّد." },
+ { id: "c2", caseId: "clinic", domain: "Process", task: "Help ensure value-based delivery", approach: "agile", type: "single",
+   stem: "Velocity is below forecast and the go-live date is fixed. What is the best action for the mobile app scope?",
+   opts: ["Extend iterations to three weeks so more work fits in each one", "Work with the product owner to reprioritize the backlog so the highest-value features needed for go-live come first", "Add developers to the team immediately", "Ask the team to commit to the original forecast"], key: [1],
+   why: ["Changing iteration length does not add capacity and breaks the team's cadence.", "Correct. With time fixed, scope is the variable, and it is managed by value through the product owner.", "New members usually reduce velocity in the short term.", "Pressure does not change capacity and harms trust and quality."],
+   whyAr: ["تغيير طول الـ iteration لا يضيف طاقة ويكسر إيقاع الفريق.", "صحيح. الوقت ثابت، فالمتغيّر هو النطاق، ويُدار حسب القيمة مع الـ product owner.", "الأعضاء الجدد يقلّلون الـ velocity غالباً على المدى القصير.", "الضغط لا يغيّر الطاقة ويضر بالثقة والجودة."],
+   mind: "When the date is fixed, deliver the most valuable scope first.", mindAr: "إذا كان الموعد ثابتاً، سلّم الأعلى قيمة أولاً." },
+ { id: "q1", domain: "People", task: "Manage conflicts", approach: "agile", type: "single",
+   stem: "Two senior developers on an agile team disagree openly about the design approach for a feature planned for the next iteration. The disagreement is slowing the planning session. What should the project manager do first?",
+   opts: ["Decide on the design approach so planning can continue", "Ask the product owner to choose the approach with the highest business value", "Facilitate a focused discussion so the developers and the team can evaluate both approaches and agree on one", "Escalate the disagreement to the developers' functional manager"], key: [2],
+   why: ["Takes a technical decision away from the team that owns it.", "The product owner decides what is built and in which order, not how it is designed.", "Correct. The project manager helps the people involved resolve the conflict themselves.", "Escalation comes after the team has tried and failed to resolve it."],
+   whyAr: ["يسحب قراراً فنياً من الفريق المسؤول عنه.", "الـ product owner يحدد ماذا يُبنى وبأي ترتيب، وليس كيف يُصمَّم.", "صحيح. مدير المشروع يساعد أطراف الخلاف على حلّه بأنفسهم.", "التصعيد يأتي بعد أن يحاول الفريق ويفشل."],
+   mind: "Facilitate first. The team owns how the work is done.", mindAr: "يسّر النقاش أولاً. الفريق هو صاحب طريقة تنفيذ العمل." },
+ { id: "q2", domain: "Business Environment", task: "Manage and control changes", approach: "predictive", type: "single",
+   stem: "During execution of a predictive project, a key stakeholder asks a team member directly to add a small reporting feature. The team member says it would take only two days. What should the project manager do next?",
+   opts: ["Allow the work, because the effort is small", "Refuse the request, because the scope baseline is approved", "Assess the impact of the request with the team and process it through the project's change control procedure", "Add the feature now and update the scope baseline afterwards"], key: [2],
+   why: ["Small unapproved additions are how scope creep starts.", "Changes are not forbidden; they are evaluated and decided.", "Correct. Every change is assessed and then approved or rejected through change control.", "The baseline is updated after approval, not after the work."],
+   whyAr: ["الإضافات الصغيرة غير المعتمدة هي بداية الـ scope creep.", "التغيير ليس ممنوعاً؛ يتم تقييمه ثم البت فيه.", "صحيح. كل تغيير يُقيَّم ثم يُعتمد أو يُرفض عبر change control.", "الـ baseline يُحدَّث بعد الاعتماد، وليس بعد التنفيذ."],
+   mind: "No change is too small for the agreed process.", mindAr: "لا يوجد تغيير أصغر من أن يمر بالإجراء المتفق عليه." },
+ { id: "q3", domain: "Process", task: "Evaluate project status", approach: "predictive", type: "single", graphic: true,
+   stem: "Review the status data in the exhibit. Which statement describes the project?",
+   exhibit: [["Measure", "Value"], ["Planned value (PV)", "200,000"], ["Earned value (EV)", "180,000"], ["Actual cost (AC)", "225,000"]],
+   opts: ["Ahead of schedule and under budget", "Behind schedule and over budget", "Behind schedule and under budget", "Ahead of schedule and over budget"], key: [1],
+   why: ["Both indexes are below 1.", "Correct. SPI = 180,000 / 200,000 = 0.90 and CPI = 180,000 / 225,000 = 0.80.", "CPI of 0.80 means each unit spent earned only 0.80 of value: over budget.", "SPI of 0.90 means less work was done than planned: behind schedule."],
+   whyAr: ["المؤشران أقل من 1.", "صحيح. SPI = 180,000 / 200,000 = 0.90 و CPI = 180,000 / 225,000 = 0.80.", "CPI يساوي 0.80 أي أن كل وحدة أُنفقت حققت 0.80 فقط من القيمة: تجاوز للميزانية.", "SPI يساوي 0.90 أي أن العمل المنجز أقل من المخطط: تأخر عن الجدول."],
+   mind: "SPI = EV / PV and CPI = EV / AC. Below 1 is unfavorable.", mindAr: "SPI = EV / PV و CPI = EV / AC. أقل من 1 يعني وضعاً غير مواتٍ." },
+ { id: "q4", domain: "Business Environment", task: "Plan and manage risk", approach: "hybrid", type: "multiple",
+   stem: "A hybrid project has a fixed regulatory deadline. During an iteration review the team identifies a new risk: a third-party interface may not be ready in time. Which two actions should the project manager take?",
+   opts: ["Record the risk in the risk register and assign an owner", "Analyze its probability and impact with the team and plan a response", "Wait until the interface is confirmed late before acting", "Add contingency reserve to the budget immediately", "Remove the dependent features from the backlog"], key: [0, 1],
+   why: ["Correct. A newly identified risk is recorded and given an owner.", "Correct. Analysis comes before choosing a response.", "Waiting turns a risk into an issue.", "A response chosen before any analysis.", "A scope decision taken before analysis and without the product owner."],
+   whyAr: ["صحيح. الخطر الجديد يُسجَّل ويُعيَّن له مسؤول.", "صحيح. التحليل يسبق اختيار الاستجابة.", "الانتظار يحوّل الخطر إلى مشكلة قائمة.", "استجابة تم اختيارها قبل أي تحليل.", "قرار نطاق قبل التحليل وبدون الـ product owner."],
+   mind: "Identify, record, analyze, then respond.", mindAr: "حدّد، سجّل، حلّل، ثم استجب." },
+ { id: "q5", domain: "People", task: "Align stakeholder expectations", approach: "hybrid", type: "single",
+   stem: "A sponsor expects the full feature set in the first release. The product owner has planned incremental delivery, starting with a minimum viable product. The sponsor learns this in a status meeting and is upset. What is the best response from the project manager?",
+   opts: ["Promise the sponsor the full feature set to restore confidence", "Meet with the sponsor and the product owner to review the release plan and the value of each increment, and agree on expectations", "Ask the team to work overtime to deliver more in the first release", "Send the sponsor the approved roadmap document again"], key: [1],
+   why: ["A promise the plan cannot support.", "Correct. The gap in expectations is closed by direct conversation with the people who own the decision.", "Treats the symptom and puts the cost on the team.", "One-way communication that already failed once."],
+   whyAr: ["وعد لا تدعمه الخطة.", "صحيح. فجوة التوقعات تُغلق بحوار مباشر مع أصحاب القرار.", "يعالج العَرَض ويحمّل الفريق التكلفة.", "تواصل من طرف واحد سبق أن فشل."],
+   mind: "Misaligned expectations are solved by conversation, not documents.", mindAr: "اختلاف التوقعات يُحل بالحوار، لا بالمستندات." }
+];
+const CASES = { clinic: { title: "Clinic appointment system", text: "A regional clinic network is replacing its appointment system. Hardware installation and data migration follow a fixed plan, while the patient mobile app is developed in two-week iterations. Go-live is fixed, because the contract with the old vendor ends in four months. After iteration 3, velocity is lower than forecast, and the migration vendor reports a two-week delay in receiving data extracts from the clinics." } };
+const byId = Object.fromEntries(Q.map(q => [q.id, q]));
+const SECTIONS = [["c1", "c2"], ["q1", "q2", "q3", "q4", "q5"]];
+const ORDER = SECTIONS.flat();
+const MOCK_MS = 10 * 60000, BREAK_MS = 60000;
+
+const T = {
+ en: { title: "Exam Simulator Prototype", home: "Home", practice: "Practice", mock: "Mock", stats: "Stats", dark: "Dark", light: "Light",
+  notice: "Prototype with 7 sample questions drafted by AI and not yet reviewed by a certified expert. Independent study tool, not affiliated with or endorsed by PMI.",
+  readiness: "Readiness", noBand: "Not enough data yet", bandRule: "A readiness band appears after one full mock exam and 300 practice questions. It is an educational estimate, never a pass guarantee.",
+  today: "Recommended today", recStart: "5 practice questions", recWeak: "Practise your weakest domain", start: "Start", answered: "Answered", accuracy: "Accuracy", mocks: "Mocks",
+  pIntro: "Answer one question at a time and read the explanation after each answer.", pStart: "Start practice", check: "Check answer", next: "Next question", finish: "See summary",
+  choose: n => "Choose " + n, correct: "Correct", incorrect: "Not correct", mindset: "Mindset", task: "Task", summary: "Session summary", again: "Practise again", ofq: (a, b) => "Question " + a + " of " + b,
+  mIntro: "The real exam has 180 questions in 240 minutes, opens with a case-study section, and has two 10-minute breaks. This demo is a small copy: 7 questions, 10 minutes, one case section and one 1-minute break. A closed section cannot be reopened.",
+  mStart: "Begin mock exam", prev: "Previous", flag: "Flag", nav: "Navigator", nextq: "Next", review: "Review", timeLeft: "Time left", saved: "Saved", clear: "Clear answer",
+  secCase: "Case studies", secInd: "Questions", scenario: "Scenario", reviewT: "Review this section", unanswered: "Unanswered", flagged: "Flagged", closeSec: "Close section and start break", submit: "Submit exam", back: "Back to questions",
+  warnLock: "After you continue, this section is locked.", breakT: "Break", breakP: "The exam clock is paused. The previous section is now locked.", resume: "Resume now",
+  result: "Result", expired: "Time ran out. Your saved answers were submitted.", est: "Educational estimate. It is not a prediction or guarantee of the official exam result.", seeAns: "Review answers", done: "Done", yours: "Your answer", none: "none",
+  byDomain: "By domain", byApproach: "By approach", noStats: "Answer some questions and your results appear here.", locked: "locked", predictive: "Predictive", agile: "Agile", hybrid: "Hybrid" },
+ ar: { title: "نموذج محاكي الاختبار", home: "الرئيسية", practice: "تدريب", mock: "اختبار", stats: "إحصاءات", dark: "داكن", light: "فاتح",
+  notice: "نموذج تجريبي به 7 أسئلة نموذجية كتبها الذكاء الاصطناعي ولم يراجعها خبير معتمد بعد. أداة دراسة مستقلة، غير تابعة لـ PMI وغير معتمدة منه.",
+  readiness: "الجاهزية", noBand: "لا توجد بيانات كافية بعد", bandRule: "يظهر مستوى الجاهزية بعد اختبار تجريبي كامل و300 سؤال تدريب. هو تقدير تعليمي وليس ضماناً للنجاح.",
+  today: "المقترح اليوم", recStart: "5 أسئلة تدريب", recWeak: "تدرّب على أضعف مجال لديك", start: "ابدأ", answered: "تمت الإجابة", accuracy: "الدقة", mocks: "الاختبارات",
+  pIntro: "أجب عن سؤال واحد في كل مرة واقرأ الشرح بعد كل إجابة.", pStart: "ابدأ التدريب", check: "تحقق من الإجابة", next: "السؤال التالي", finish: "عرض الملخص",
+  choose: n => "اختر " + n, correct: "إجابة صحيحة", incorrect: "إجابة غير صحيحة", mindset: "طريقة التفكير", task: "المهمة", summary: "ملخص الجلسة", again: "تدرّب مرة أخرى", ofq: (a, b) => "السؤال " + a + " من " + b,
+  mIntro: "الاختبار الحقيقي 180 سؤالاً في 240 دقيقة، يبدأ بقسم دراسات الحالة، وفيه استراحتان مدة كل منهما 10 دقائق. هذا العرض نسخة مصغّرة: 7 أسئلة، 10 دقائق، قسم دراسة حالة واحد واستراحة دقيقة واحدة. القسم المغلق لا يُعاد فتحه.",
+  mStart: "ابدأ الاختبار التجريبي", prev: "السابق", flag: "علامة", nav: "التنقل", nextq: "التالي", review: "مراجعة", timeLeft: "الوقت المتبقي", saved: "تم الحفظ", clear: "مسح الإجابة",
+  secCase: "دراسات الحالة", secInd: "الأسئلة", scenario: "السيناريو", reviewT: "مراجعة هذا القسم", unanswered: "بدون إجابة", flagged: "عليها علامة", closeSec: "أغلق القسم وابدأ الاستراحة", submit: "تسليم الاختبار", back: "العودة إلى الأسئلة",
+  warnLock: "بعد المتابعة سيُقفل هذا القسم.", breakT: "استراحة", breakP: "ساعة الاختبار متوقفة. القسم السابق أصبح مقفلاً.", resume: "استأنف الآن",
+  result: "النتيجة", expired: "انتهى الوقت. تم تسليم إجاباتك المحفوظة.", est: "تقدير تعليمي. ليس توقعاً ولا ضماناً لنتيجة الاختبار الرسمي.", seeAns: "مراجعة الإجابات", done: "تم", yours: "إجابتك", none: "لا شيء",
+  byDomain: "حسب المجال", byApproach: "حسب المنهج", noStats: "أجب عن بعض الأسئلة لتظهر نتائجك هنا.", locked: "مقفل", predictive: "Predictive", agile: "Agile", hybrid: "Hybrid" }
+};
+
+const S = { lang: "en", tab: "home", log: [], mocksDone: 0, practice: null, mock: null };
+const t = k => T[S.lang][k];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const letter = i => "ABCDE"[i];
+const same = (a, b) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
+const fmt = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); };
+const pct = (c, n) => n ? Math.round(c * 100 / n) : 0;
+
+function optionsHtml(q, selected, reveal) {
+  const multi = q.type === "multiple";
+  const whys = S.lang === "ar" ? q.whyAr : q.why;
+  return '<div class="opts" role="' + (multi ? "group" : "radiogroup") + '">' + q.opts.map((o, i) => {
+    const on = selected.includes(i), right = q.key.includes(i);
+    const cls = reveal ? (right ? " is-right" : on ? " is-wrong" : "") : "";
+    return '<button class="opt' + cls + '" role="' + (multi ? "checkbox" : "radio") + '" aria-checked="' + on + '" data-multi="' + (multi ? 1 : 0) + '"' +
+      (reveal ? " disabled" : ' data-act="pick" data-i="' + i + '"') + '><span class="mark">' + letter(i) + '</span><span>' + esc(o) +
+      (reveal ? '<span class="why">' + (right ? "✓ " : on ? "✗ " : "") + esc(whys[i]) + "</span>" : "") + "</span></button>";
+  }).join("") + "</div>";
+}
+function stemHtml(q) {
+  let h = '<p class="stem" lang="en">' + esc(q.stem) + "</p>";
+  if (q.exhibit) h += '<div class="exhibit"><table><tr>' + q.exhibit[0].map(c => "<th>" + esc(c) + "</th>").join("") + "</tr>" +
+    q.exhibit.slice(1).map(r => "<tr>" + r.map(c => "<td>" + esc(c) + "</td>").join("") + "</tr>").join("") + "</table></div>";
+  if (q.type === "multiple") h += '<p class="muted">' + t("choose")(q.key.length) + "</p>";
+  return h;
+}
+function caseHtml(q, open) {
+  if (!q.caseId) return "";
+  const c = CASES[q.caseId];
+  return '<details class="case"' + (open ? " open" : "") + '><summary>' + t("scenario") + ": " + esc(c.title) + '</summary><p class="stem" lang="en" style="margin-top:8px">' + esc(c.text) + "</p></details>";
+}
+function explainHtml(q, selected) {
+  const ok = same(selected, q.key);
+  return '<p class="verdict ' + (ok ? "ok" : "no") + '">' + (ok ? t("correct") : t("incorrect")) + "</p>" + optionsHtml(q, selected, true) +
+    '<div class="card"><h3>' + t("mindset") + "</h3><p>" + esc(S.lang === "ar" ? q.mindAr : q.mind) + '</p><div class="tags"><span class="tag">' + esc(q.domain) + '</span><span class="tag">' + t("task") + ": " + esc(q.task) + '</span><span class="tag">' + t(q.approach) + "</span></div></div>";
+}
+function tally(key) {
+  const m = new Map();
+  for (const e of S.log) { const k = e[key]; const x = m.get(k) || { n: 0, c: 0 }; x.n++; if (e.ok) x.c++; m.set(k, x); }
+  return [...m.entries()];
+}
+function barsHtml(rows, label) {
+  return rows.map(([k, x]) => '<div class="bar"><span>' + esc(label ? label(k) : k) + '</span><span class="track"><i style="width:' + pct(x.c, x.n) + '%"></i></span><span class="num">' + x.c + "/" + x.n + "</span></div>").join("");
+}
+
+// ---------------------------------------------------------------- screens
+function home() {
+  const n = S.log.length, c = S.log.filter(e => e.ok).length;
+  const dom = tally("domain").filter(([, x]) => x.c < x.n).sort((a, b) => a[1].c / a[1].n - b[1].c / b[1].n)[0];
+  return '<p class="note">' + t("notice") + "</p>" +
+    '<div class="card"><span class="muted">' + t("readiness") + '</span><span class="big">' + t("noBand") + '</span><span class="muted">' + t("bandRule") + "</span></div>" +
+    '<div class="card accent"><span class="muted">' + t("today") + "</span><h3>" + (dom ? t("recWeak") + ": " + esc(dom[0]) : t("recStart")) + '</h3><button class="btn primary" data-act="practice-start">' + t("start") + "</button></div>" +
+    '<div class="row"><div class="card"><span class="muted">' + t("answered") + '</span><span class="big">' + n + '</span></div><div class="card"><span class="muted">' + t("accuracy") + '</span><span class="big">' + (n ? pct(c, n) + "%" : "–") + '</span></div><div class="card"><span class="muted">' + t("mocks") + '</span><span class="big">' + S.mocksDone + "</span></div></div>";
+}
+function practice() {
+  const p = S.practice;
+  if (!p) return "<h2>" + t("practice") + '</h2><p class="muted">' + t("pIntro") + '</p><button class="btn primary" data-act="practice-start">' + t("pStart") + "</button>";
+  if (p.i >= p.ids.length) {
+    const c = p.results.filter(Boolean).length;
+    return "<h2>" + t("summary") + '</h2><div class="card"><span class="big">' + c + " / " + p.ids.length + '</span><span class="muted">' + t("est") + '</span></div><button class="btn primary" data-act="practice-start">' + t("again") + "</button>";
+  }
+  const q = byId[p.ids[p.i]];
+  const head = '<div class="examhead"><span class="grow">' + t("ofq")(p.i + 1, p.ids.length) + '</span><span class="tag">' + esc(q.task) + '</span></div><div class="progress"><i style="width:' + pct(p.i, p.ids.length) + '%"></i></div>';
+  if (p.checked) return head + stemHtml(q) + explainHtml(q, p.sel) + '<button class="btn primary" data-act="practice-next">' + (p.i + 1 < p.ids.length ? t("next") : t("finish")) + "</button>";
+  return head + stemHtml(q) + optionsHtml(q, p.sel, false) + '<button class="btn primary" data-act="practice-check"' + (p.sel.length ? "" : " disabled") + ">" + t("check") + "</button>";
+}
+function mockRemaining(m) { return m.phase === "break" ? m.deadline - m.breakStart : m.deadline - Date.now(); }
+function mock() {
+  const m = S.mock;
+  if (!m) return "<h2>" + t("mock") + '</h2><p class="muted">' + t("mIntro") + '</p><button class="btn primary" data-act="mock-start">' + t("mStart") + "</button>";
+  const timer = '<span class="timer' + (mockRemaining(m) < 60000 ? " low" : "") + '" id="timer" aria-label="' + t("timeLeft") + '">' + fmt(mockRemaining(m)) + "</span>";
+  const ids = SECTIONS[m.sec];
+  if (m.phase === "break") return "<h2>" + t("breakT") + '</h2><div class="card"><span class="big timer" id="btimer">' + fmt(m.breakEnds - Date.now()) + '</span><span class="muted">' + t("breakP") + '</span></div><button class="btn primary" data-act="mock-resume">' + t("resume") + "</button>";
+  if (m.phase === "nav" || m.phase === "review") {
+    const un = ids.filter(id => !(m.ans[id] || []).length), fl = ids.filter(id => m.flags.has(id));
+    const grid = '<div class="grid">' + ORDER.map((id, i) => { const here = ids.includes(id); return '<button class="cell' + ((m.ans[id] || []).length ? " done" : "") + (m.flags.has(id) ? " flag" : "") + (here ? "" : " locked") + '"' + (here ? ' data-act="mock-go" data-id="' + id + '"' : ' disabled aria-label="' + (i + 1) + " " + t("locked") + '"') + ">" + (i + 1) + "</button>"; }).join("") + "</div>";
+    const last = m.sec === SECTIONS.length - 1;
+    return '<div class="examhead"><span class="grow"><strong>' + (m.phase === "review" ? t("reviewT") : t("nav")) + "</strong></span>" + timer + "</div>" + grid +
+      '<div class="row"><div class="card"><span class="muted">' + t("unanswered") + '</span><span class="big">' + un.length + '</span></div><div class="card"><span class="muted">' + t("flagged") + '</span><span class="big">' + fl.length + "</span></div></div>" +
+      (m.phase === "review" ? '<p class="note">' + t("warnLock") + '</p><button class="btn primary" data-act="mock-close">' + (last ? t("submit") : t("closeSec")) + "</button>" : "") +
+      '<button class="btn" data-act="mock-back">' + t("back") + "</button>";
+  }
+  if (m.phase === "result" || m.phase === "answers") {
+    const rows = ORDER.map(id => ({ q: byId[id], sel: m.ans[id] || [] }));
+    const c = rows.filter(r => same(r.sel, r.q.key)).length;
+    if (m.phase === "answers") return "<h2>" + t("seeAns") + "</h2>" + rows.map((r, i) => '<div class="card"><span class="muted">' + t("ofq")(i + 1, ORDER.length) + "</span>" + caseHtml(r.q, false) + stemHtml(r.q) + explainHtml(r.q, r.sel) + "</div>").join("") + '<button class="btn primary" data-act="mock-done">' + t("done") + "</button>";
+    const dm = new Map(); rows.forEach(r => { const x = dm.get(r.q.domain) || { n: 0, c: 0 }; x.n++; if (same(r.sel, r.q.key)) x.c++; dm.set(r.q.domain, x); });
+    return "<h2>" + t("result") + "</h2>" + (m.expired ? '<p class="note">' + t("expired") + "</p>" : "") +
+      '<div class="card"><span class="big">' + c + " / " + ORDER.length + " · " + pct(c, ORDER.length) + '%</span><span class="muted">' + t("est") + '</span></div><div class="card"><h3>' + t("byDomain") + "</h3>" + barsHtml([...dm.entries()]) + '</div><button class="btn primary" data-act="mock-answers">' + t("seeAns") + '</button><button class="btn" data-act="mock-done">' + t("done") + "</button>";
+  }
+  const q = byId[m.cur], pos = ORDER.indexOf(m.cur), sel = m.ans[m.cur] || [], inSec = ids.indexOf(m.cur);
+  return '<div class="examhead"><span class="grow">' + (m.sec === 0 ? t("secCase") : t("secInd")) + " · " + t("ofq")(pos + 1, ORDER.length) + "</span>" + timer + '</div><div class="progress"><i style="width:' + pct(pos + 1, ORDER.length) + '%"></i></div>' +
+    caseHtml(q, inSec === 0) + stemHtml(q) + optionsHtml(q, sel, false) +
+    '<div class="examhead"><button class="btn small" data-act="mock-clear"' + (sel.length ? "" : " disabled") + ">" + t("clear") + '</button><span class="grow"></span><span class="muted">' + (sel.length ? "✓ " + t("saved") : "") + "</span></div>" +
+    '<div class="foot"><button class="btn small" data-act="mock-prev"' + (inSec === 0 ? " disabled" : "") + ">" + t("prev") + '</button><button class="btn small" data-act="mock-flag" aria-pressed="' + m.flags.has(m.cur) + '">' + t("flag") + '</button><button class="btn small" data-act="mock-nav">' + t("nav") + '</button><button class="btn small primary" data-act="mock-next">' + (inSec === ids.length - 1 ? t("review") : t("nextq")) + "</button></div>";
+}
+function stats() {
+  if (!S.log.length) return "<h2>" + t("stats") + '</h2><p class="muted">' + t("noStats") + "</p>";
+  return "<h2>" + t("stats") + '</h2><div class="card"><h3>' + t("byDomain") + "</h3>" + barsHtml(tally("domain")) + '</div><div class="card"><h3>' + t("byApproach") + "</h3>" + barsHtml(tally("approach"), k => t(k)) + '</div><p class="muted">' + t("est") + "</p>";
+}
+
+function render() {
+  document.documentElement.lang = S.lang; document.documentElement.dir = S.lang === "ar" ? "rtl" : "ltr";
+  const inExam = S.tab === "mock" && S.mock && ["run", "nav", "review", "break"].includes(S.mock.phase);
+  const dark = getComputedStyle(document.documentElement).colorScheme.includes("dark");
+  const tabs = ["home", "practice", "mock", "stats"];
+  document.getElementById("app").innerHTML =
+    '<header class="top"><h1>' + t("title") + '</h1><button class="btn small" data-act="lang" aria-label="Language">' + (S.lang === "en" ? "العربية" : "English") + '</button><button class="btn small" data-act="theme">' + (dark ? t("light") : t("dark")) + "</button></header><main>" +
+    ({ home, practice, mock, stats }[S.tab])() + "</main>" +
+    (inExam ? "" : '<nav class="tabs" aria-label="Sections">' + tabs.map(x => '<button data-act="tab" data-tab="' + x + '"' + (S.tab === x ? ' aria-current="page"' : "") + ">" + t(x) + "</button>").join("") + "</nav>");
+}
+
+// ---------------------------------------------------------------- actions
+function record(q, sel) { S.log.push({ domain: q.domain, approach: q.approach, ok: same(sel, q.key) }); }
+function finishMock(expired) {
+  const m = S.mock; if (!m || m.phase === "result" || m.phase === "answers") return;
+  m.phase = "result"; m.expired = expired; S.mocksDone++;
+  ORDER.forEach(id => { if ((m.ans[id] || []).length) record(byId[id], m.ans[id]); });
+}
+function endBreak() { const m = S.mock; const used = Math.min(Date.now() - m.breakStart, BREAK_MS); m.deadline += used; m.sec++; m.cur = SECTIONS[m.sec][0]; m.phase = "run"; }
+const ACT = {
+  tab: el => { S.tab = el.dataset.tab; },
+  lang: () => { S.lang = S.lang === "en" ? "ar" : "en"; },
+  theme: () => { const r = document.documentElement; r.dataset.theme = getComputedStyle(r).colorScheme.includes("dark") ? "light" : "dark"; },
+  "practice-start": () => { S.tab = "practice"; S.practice = { ids: SECTIONS[1].slice(), i: 0, sel: [], checked: false, results: [] }; },
+  "practice-check": () => { const p = S.practice, q = byId[p.ids[p.i]]; p.checked = true; p.results.push(same(p.sel, q.key)); record(q, p.sel); },
+  "practice-next": () => { const p = S.practice; p.i++; p.sel = []; p.checked = false; },
+  pick: el => {
+    const i = Number(el.dataset.i), inMock = S.tab === "mock";
+    const q = inMock ? byId[S.mock.cur] : byId[S.practice.ids[S.practice.i]];
+    let sel = inMock ? (S.mock.ans[q.id] || []).slice() : S.practice.sel.slice();
+    if (q.type === "single") sel = [i];
+    else if (sel.includes(i)) sel = sel.filter(x => x !== i);
+    else if (sel.length < q.key.length) sel.push(i);
+    if (inMock) S.mock.ans[q.id] = sel; else S.practice.sel = sel;
+  },
+  "mock-start": () => { S.mock = { phase: "run", sec: 0, cur: SECTIONS[0][0], ans: {}, flags: new Set(), deadline: Date.now() + MOCK_MS, breakStart: 0, breakEnds: 0, expired: false }; },
+  "mock-clear": () => { S.mock.ans[S.mock.cur] = []; },
+  "mock-flag": () => { const f = S.mock.flags, id = S.mock.cur; if (f.has(id)) f.delete(id); else f.add(id); },
+  "mock-prev": () => { const m = S.mock, ids = SECTIONS[m.sec]; m.cur = ids[Math.max(0, ids.indexOf(m.cur) - 1)]; },
+  "mock-next": () => { const m = S.mock, ids = SECTIONS[m.sec], i = ids.indexOf(m.cur); if (i === ids.length - 1) m.phase = "review"; else m.cur = ids[i + 1]; },
+  "mock-nav": () => { S.mock.phase = "nav"; },
+  "mock-back": () => { S.mock.phase = "run"; },
+  "mock-go": el => { S.mock.cur = el.dataset.id; S.mock.phase = "run"; },
+  "mock-close": () => { const m = S.mock; if (m.sec === SECTIONS.length - 1) finishMock(false); else { m.phase = "break"; m.breakStart = Date.now(); m.breakEnds = m.breakStart + BREAK_MS; } },
+  "mock-resume": () => endBreak(),
+  "mock-answers": () => { S.mock.phase = "answers"; },
+  "mock-done": () => { S.mock = null; S.tab = "home"; }
+};
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]"); if (!el || el.disabled) return;
+  const keepScroll = ["pick", "mock-flag", "mock-clear", "theme", "lang"].includes(el.dataset.act), y = window.scrollY;
+  ACT[el.dataset.act](el); render();
+  window.scrollTo(0, keepScroll ? y : 0);
+});
+setInterval(() => {
+  const m = S.mock; if (!m) return;
+  if (m.phase === "break") { if (Date.now() >= m.breakEnds) { endBreak(); render(); } else { const b = document.getElementById("btimer"); if (b) b.textContent = fmt(m.breakEnds - Date.now()); } return; }
+  if (["run", "nav", "review"].includes(m.phase)) {
+    if (mockRemaining(m) <= 0) { finishMock(true); S.tab = "mock"; render(); return; }
+    const el = document.getElementById("timer"); if (el) { el.textContent = fmt(mockRemaining(m)); el.classList.toggle("low", mockRemaining(m) < 60000); }
+  }
+}, 500);
+render();
+</script>
+</body>
+</html>

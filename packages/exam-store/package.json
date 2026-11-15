@@ -1,0 +1,12 @@
+{
+  "name": "@pmp-sim/exam-store",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mock-exam application service and its PostgreSQL storage port. Integration tests need a database: see scripts/pg-temp.sh.",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "test": "node --test --test-concurrency=1 test/pg-wire.test.ts test/integration.test.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

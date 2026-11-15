@@ -1,0 +1,9 @@
+[Unit]
+Description=Exam Simulator database backup
+
+[Service]
+Type=oneshot
+User=exam
+EnvironmentFile=/etc/exam-simulator.env
+Environment=BACKUP_DIR=/var/backups/exam-simulator
+ExecStart=/srv/exam-simulator/scripts/backup.sh
