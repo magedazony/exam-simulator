@@ -1,0 +1,40 @@
+# Free trial deployment on Render (web service) with a free Neon database.
+# See FREE-HOSTING.md. Not for real candidates: the free service sleeps when
+# idle and this configuration runs in development mode (emails are printed
+# to the service log instead of sent).
+services:
+  - type: web
+    name: exam-simulator
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: MAIL_MODE
+        value: log
+      - key: TOKEN_SECRET
+        generateValue: true
+      - key: PGSSLMODE
+        value: verify-full
+      - key: PGPOOL_MAX
+        value: "5"
+      # Fill these in on Render (Environment): values from Neon and your choices.
+      - key: PGHOST
+        sync: false
+      - key: PGDATABASE
+        sync: false
+      - key: PGUSER
+        sync: false
+      - key: PGPASSWORD
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: DEMO_CONTENT
+        value: "1"

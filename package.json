@@ -1,0 +1,12 @@
+{
+  "name": "exam-simulator",
+  "private": true,
+  "type": "module",
+  "description": "PMP exam simulator: API, candidate web app and admin panel. Runs on Node.js 22.18+ with no runtime dependencies.",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "start": "node packages/api/src/server.ts",
+    "migrate": "node scripts/migrate.ts",
+    "create-admin": "node scripts/create-admin.ts"
+  }
+}
