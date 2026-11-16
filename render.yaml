@@ -9,6 +9,9 @@ services:
     plan: free
     healthCheckPath: /api/v1/health
     envVars:
+      # Trial mode: the Dockerfile defaults to production, which refuses DEMO_CONTENT.
+      - key: NODE_ENV
+        value: development
       - key: HOST
         value: 0.0.0.0
       - key: TRUST_PROXY_HOPS
