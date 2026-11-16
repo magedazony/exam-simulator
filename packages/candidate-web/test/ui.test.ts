@@ -290,6 +290,24 @@ describe('candidate app in a browser', { skip: configured ? false : 'PGDATABASE 
     await phone.close();
   });
 
+  it('shows the exam tips in English and in Arabic', async () => {
+    await page.goto(`${base}/app`);
+    await signIn();
+    await page.waitForSelector('nav a[href="#tips"]');
+    await page.click('nav a[href="#tips"]');
+    await page.waitForSelector('details.tips');
+    assert.ok((await page.locator('details.tips').count()) >= 6);
+    assert.match(await page.locator('details.tips[open] li').first().innerText(), /project manager/);
+    const startLang = await page.evaluate(() => document.documentElement.lang);
+    await page.click('[data-act="lang"]');
+    await page.waitForFunction((l) => document.documentElement.lang !== l, startLang);
+    const other = await page.locator('main h1').innerText();
+    assert.ok(['Exam tips', 'نصائح الامتحان'].includes(other));
+    await page.click('[data-act="lang"]');
+    await page.waitForFunction((l) => document.documentElement.lang === l, startLang);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true);
+  });
+
   it('downloads the candidate\'s own data from Settings', async () => {
     await page.goto(`${base}/app`);
     await signIn();
