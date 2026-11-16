@@ -21,8 +21,10 @@ COPY --chown=root:root packages/candidate-web/index.html packages/candidate-web/
 COPY --chown=root:root packages/candidate-web/assets packages/candidate-web/assets
 COPY --chown=root:root db/migrations db/migrations
 COPY --chown=root:root scripts/migrate.ts scripts/create-admin.ts scripts/start.ts scripts/
-# Synthetic demo bank: loaded only when DEMO_CONTENT=1 and never in production mode.
+# Demo bank (starter drafts): loaded only when DEMO_CONTENT=1 and never in production mode.
 COPY --chown=root:root db/seed db/seed
+COPY --chown=root:root scripts/lib/demo-bank.ts scripts/lib/demo-bank.ts
+COPY --chown=root:root content/starter-drafts.xlsx content/starter-drafts-2.xlsx content/
 COPY --chown=root:root package.json ./
 
 # The application files are read-only to the user that runs them.

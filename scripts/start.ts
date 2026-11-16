@@ -4,7 +4,7 @@
 //
 // Optional, for a first deployment or a trial site:
 //   ADMIN_EMAIL + ADMIN_PASSWORD   create the first administrator (or give an existing account the role)
-//   DEMO_CONTENT=1                 load the SYNTHETIC demo question bank and a demo student
+//   DEMO_CONTENT=1                 load the demo question bank (the unreviewed starter drafts) and a demo student
 //                                  (student@demo.local / demo student 2026). Refused when NODE_ENV=production.
 
 import { spawn, spawnSync } from 'node:child_process';
@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { PgPool, configFromEnv } from '../packages/exam-store/src/pg-wire.ts';
 import { ApiStore } from '../packages/api/src/api-store.ts';
 import { hashPassword } from '../packages/api/src/auth.ts';
+import { demoBankSql } from './lib/demo-bank.ts';
 
 const ROOT = new URL('../', import.meta.url);
 const script = (p: string) => fileURLToPath(new URL(p, ROOT));
@@ -20,6 +21,19 @@ const run = (p: string, args: string[] = [], env: NodeJS.ProcessEnv = process.en
   const r = spawnSync(process.execPath, [script(p), ...args], { env, stdio: 'inherit' });
   if (r.status !== 0) process.exit(r.status ?? 1);
 };
+
+const demo = process.env.DEMO_CONTENT === '1' && process.env.NODE_ENV !== 'production';
+if (demo) {
+  // A trial database that still holds the old placeholder bank ("Synthetic item …") is rebuilt
+  // from nothing: published questions cannot be edited in place. Demo databases only.
+  const db = new PgPool({ ...configFromEnv(), statementTimeoutMs: 0 }, { max: 1 });
+  const hasTable = (await db.run("SELECT to_regclass('public.question_versions') IS NOT NULL;")) === 't';
+  if (hasTable && (await db.run("SELECT EXISTS (SELECT 1 FROM question_versions WHERE stem LIKE 'Synthetic item %');")) === 't') {
+    console.log('demo database holds the placeholder bank: rebuilding it…');
+    await db.run('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+  }
+  await db.close();
+}
 
 run('scripts/migrate.ts');
 
@@ -35,8 +49,8 @@ if (process.env.DEMO_CONTENT === '1') {
   const db = new PgPool({ ...configFromEnv(), statementTimeoutMs: 0 }, { max: 1 });
   const store = new ApiStore(db);
   if ((await db.run('SELECT count(*) FROM questions;')) === '0') {
-    console.log('loading the synthetic demo question bank…');
-    await db.run(readFileSync(new URL('db/seed/synthetic_bank.sql', ROOT), 'utf8'));
+    console.log('loading the demo question bank (starter drafts)…');
+    await db.run(demoBankSql(ROOT));
   }
   if (!(await store.userByEmail('student@demo.local'))) {
     const now = new Date().toISOString();
