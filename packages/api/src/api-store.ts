@@ -82,6 +82,29 @@ export class ApiStore extends PsqlStore {
     return out === '' ? null : (JSON.parse(out) as T);
   }
 
+  /** Run a parameterised query and return all rows as typed objects.
+   *  Uses PostgreSQL's json_agg so the wire client only needs to handle
+   *  a single text result, consistent with the rest of the store. */
+  async query<T>(sql: string, params: (string | number | boolean | null)[] = []): Promise<T[]> {
+    // Substitute $1, $2 … with the literal values from params.
+    // This is intentionally simple: values are escaped with lit.* helpers
+    // from the caller or are plain identifiers. Never call this with
+    // untrusted string parameters; use lit.text() first.
+    let parameterised = sql;
+    for (let i = params.length; i >= 1; i--) {
+      const v = params[i - 1];
+      let escaped: string;
+      if (v === null) escaped = 'NULL';
+      else if (typeof v === 'boolean') escaped = v ? 'TRUE' : 'FALSE';
+      else if (typeof v === 'number') escaped = String(v);
+      else escaped = "'" + String(v).replace(/'/g, "''") + "'";
+      parameterised = parameterised.replaceAll('$' + i, escaped);
+    }
+    const wrapped = `SELECT coalesce(json_agg(t), '[]'::json) AS r FROM (${parameterised}) t;`;
+    const out = await this.run(wrapped);
+    return (out === '' ? [] : JSON.parse(out)) as T[];
+  }
+
   // ---------------------------------------------------------------- accounts
 
   async createUser(email: string, passwordHash: string, language: string): Promise<string> {

@@ -1085,6 +1085,33 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     return { status: 200, body: data };
   });
 
+  // ------------------------------------------------------------ certificates
+
+  // GET /me/certificates — list certificates for the signed-in user
+  add('GET', '/me/certificates', async (c) => {
+    const rows = await store.query<{
+      id: string; token: string; score_percent: number; passed: boolean;
+      issued_at: string; revoked_at: string | null; attempt_id: string;
+    }>(
+      `SELECT id, token, score_percent, passed, issued_at, revoked_at, attempt_id
+         FROM certificates WHERE user_id = $1 ORDER BY issued_at DESC LIMIT 50`,
+      [c.claims.sub],
+    );
+    return { status: 200, body: { items: rows } };
+  });
+
+  // GET /verify/:token — public certificate verification (no auth required)
+  add('GET', '/verify/:token', async (c) => {
+    const token = c.params.token ?? '';
+    if (!/^[0-9a-f]{32}$/.test(token)) throw notFound();
+    const rows = await store.query<{
+      id: string; user_display: string; score_percent: number;
+      passed: boolean; issued_at: string; revoked: boolean;
+    }>(`SELECT * FROM public_certificate($1)`, [token]);
+    if (!rows.length) throw notFound();
+    return { status: 200, body: rows[0] };
+  }, { auth: false });
+
   // Exhibit images, reachable only through a signed address that has not expired.
   add('GET', '/exhibits/:exhibitId', async (c) => {
     const id = c.params.exhibitId ?? '';
@@ -1252,6 +1279,7 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
       req.method !== 'GET' ? undefined
       : path === '/admin' || path === '/admin/' ? deps.adminPage
       : path === '/app' || path === '/app/' ? deps.candidatePage
+      : path?.startsWith('/verify-cert/') ? deps.candidatePage
       : undefined;
     if (page) {
       res.writeHead(200, {

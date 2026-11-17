@@ -586,11 +586,47 @@ function startClock() {
 
 async function resultView(id) {
   const seq = S.seq; // a newer screen started meanwhile → do not paint this one
-  const r = await api("GET", `/exams/attempts/${id}/result`);
+  const [r, certs] = await Promise.all([
+    api("GET", `/exams/attempts/${id}/result`),
+    api("GET", "/me/certificates").catch(() => ({ items: [] })),
+  ]);
   S.exam = null;
-  paint(seq, `<h1>${t("result")}</h1><div class="card"><span class="big">${r.overall.correct} / ${r.overall.total} · ${r.overall.percent}%</span><span class="muted">${esc(r.disclaimer)}</span></div>
+  const cert = (certs.items || []).find((c) => c.attempt_id === id);
+  const certBadge = cert && cert.passed
+    ? `<div class="card" style="border-color:var(--good);background:var(--good-soft)">
+        <h2 style="color:var(--good)">${S.lang === "ar" ? "🏅 اجتزت الاختبار!" : "🏅 You passed!"}</h2>
+        <p>${S.lang === "ar" ? "يمكنك مشاركة شهادتك عبر الرابط التالي:" : "Share your certificate:"}</p>
+        <div class="row"><input dir="ltr" readonly value="${esc(location.origin + "/verify/" + cert.token)}" style="flex:1;font-size:13px" onclick="this.select()">
+        <button onclick="navigator.clipboard?.writeText('${esc(location.origin + "/verify/" + cert.token)}');this.textContent='✓'">${S.lang === "ar" ? "نسخ" : "Copy"}</button></div>
+      </div>`
+    : "";
+  paint(seq, `<h1>${t("result")}</h1>${certBadge}<div class="card"><span class="big">${r.overall.correct} / ${r.overall.total} · ${r.overall.percent}%</span><span class="muted">${esc(r.disclaimer)}</span></div>
     <div class="card"><h2>${t("byDomain")}</h2>${bars(r.byDomain, domainName)}</div><div class="card"><h2>${t("byApproach")}</h2>${bars(r.byApproach, (k) => t(k))}</div>
     <a class="btn primary" href="#answers/${id}">${t("reviewAnswers")}</a>`);
+}
+
+async function verifyCertificate(token) {
+  // Public page — no sign-in needed. Fetches /verify/:token unauthenticated.
+  const seq = S.seq;
+  let data;
+  try { data = await raw("GET", "/verify/" + encodeURIComponent(token)); } catch { data = null; }
+  if (!data) {
+    shell(`<div class="card"><h2>❌ ${S.lang === "ar" ? "الشهادة غير موجودة" : "Certificate not found"}</h2><p class="muted">${S.lang === "ar" ? "تحقق من الرابط أو اطلب من صاحب الشهادة إعادة إرساله." : "Check the link or ask the holder to resend it."}</p></div>`);
+    return;
+  }
+  const badge = data.revoked
+    ? `<div class="card" style="border-color:var(--bad);background:var(--bad-soft)"><h2 style="color:var(--bad)">❌ ${S.lang === "ar" ? "شهادة ملغاة" : "Revoked certificate"}</h2></div>`
+    : data.passed
+    ? `<div class="card" style="border-color:var(--good);background:var(--good-soft)"><h2 style="color:var(--good)">🏅 ${S.lang === "ar" ? "اجتاز الاختبار" : "Passed the mock exam"}</h2></div>`
+    : `<div class="card"><h2>${S.lang === "ar" ? "شهادة أداء" : "Performance certificate"}</h2></div>`;
+  const dateStr = new Date(data.issued_at).toLocaleDateString(S.lang === "ar" ? "ar-EG" : "en-GB", { year: "numeric", month: "long", day: "numeric" });
+  paint(seq, `<h1>${S.lang === "ar" ? "التحقق من الشهادة" : "Certificate verification"}</h1>${badge}
+    <div class="card">
+      <div class="row"><span class="muted">${S.lang === "ar" ? "المتقدم" : "Candidate"}:</span><strong>${esc(data.user_display)}</strong></div>
+      <div class="row"><span class="muted">${S.lang === "ar" ? "النتيجة" : "Score"}:</span><strong>${data.score_percent}%</strong></div>
+      <div class="row"><span class="muted">${S.lang === "ar" ? "تاريخ الإصدار" : "Issued"}:</span><span>${esc(dateStr)}</span></div>
+    </div>
+    <p class="note">${S.lang === "ar" ? "هذه الشهادة صادرة عن محاكي PMP Master ولا تعادل شهادة PMP الرسمية من PMI." : "This certificate is from PMP Master Simulator and is not equivalent to the official PMI PMP credential."}</p>`);
 }
 async function answersView(id) {
   const seq = S.seq; // a newer screen started meanwhile → do not paint this one
@@ -844,6 +880,7 @@ async function render() {
   clearTimers();
   const [route, arg] = location.hash.slice(1).split("?")[0].split("/");
   if (route === "verify") return verifyEmail();
+  if (route === "verify-cert") return await verifyCertificate(arg);
   if (!S.access) {
     if (["register", "forgot", "reset"].includes(route)) return authView(route);
     return authView("signin");
@@ -867,6 +904,11 @@ async function render() {
 }
 window.addEventListener("hashchange", render);
 setLang((navigator.language || "en").toLowerCase().startsWith("ar") ? "ar" : "en");
+// If loaded from a path like /verify-cert/<token>, redirect to #verify-cert/<token> (server serves index.html for those paths)
+(function redirectVerifyCert() {
+  const m = location.pathname.match(/^\/verify-cert\/([0-9a-f]{32})$/i);
+  if (m) { history.replaceState(null, "", location.origin + "/app"); location.hash = "#verify-cert/" + m[1]; }
+})();
 // Public links (terms, privacy, support) come from the server's settings.
 raw("GET", "/site").then((site) => { S.site = site; }, () => { S.site = null; }).finally(() => { paintNet(); render(); });
 </script>
