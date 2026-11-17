@@ -254,7 +254,7 @@ function shell(body, opts = {}) {
   const msg = S.flash ? `<p class="msg ${S.flash.kind}" role="status">${esc(S.flash.text)}</p>` : "";
   S.flash = null;
   const dark = getComputedStyle(document.documentElement).colorScheme.includes("dark");
-  const tabs = [["home", t("home")], ["practice", t("practice")], ["mock", t("mock")], ["stats", t("stats")], ["analytics", t("analytics")], ["study-plan", t("studyPlanTab")], ["bookmarks", t("bookmarks")], ["tips", t("tips")], ["settings", t("settings")]];
+  const tabs = [["home", t("home")], ["practice", t("practice")], ["mock", t("mock")], ["case-studies", S.lang === "ar" ? "دراسات الحالة" : "Cases"], ["stats", t("stats")], ["analytics", t("analytics")], ["study-plan", t("studyPlanTab")], ["bookmarks", t("bookmarks")], ["tips", t("tips")], ["settings", t("settings")]];
   const unread = S.unreadCount > 0 ? `<span style="background:var(--bad);color:#fff;border-radius:9999px;font-size:11px;padding:0 5px;min-width:17px;text-align:center;vertical-align:middle">${S.unreadCount > 9 ? "9+" : S.unreadCount}</span>` : "";
   $("#app").innerHTML = `<header class="top"><span class="brand">${t("brand")}</span>
       <button class="small" data-act="lang">${S.lang === "en" ? "العربية" : "English"}</button><button class="small" data-act="theme">${dark ? t("light") : t("dark")}</button>
@@ -536,12 +536,36 @@ async function practiceRunView() {
     bindReport();
     $("#next").onclick = () => { p.i++; p.q = null; p.sel = []; p.fb = null; render(); };
   } else {
-    paint(seq, head + questionHtml(p.q, p.sel, false) + `<button class="primary" id="check"${p.sel.length ? "" : " disabled"}>${t("check")}</button><div id="msg"></div>`);
+    const hintTypes = S.lang === "ar"
+      ? { general: "تلميح عام", approach: "المنهج", eliminate: "استبعاد", explain: "تفسير" }
+      : { general: "General hint", approach: "Approach", eliminate: "Eliminate", explain: "Explain" };
+    const hintBar = p.q.id ? `<div id="hintbar" style="margin-top:4px"><details><summary style="cursor:pointer;color:var(--primary);font-size:14px;font-weight:600">🧠 ${S.lang === "ar" ? "مساعدة المدرب" : "Coach help"}</summary><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${Object.entries(hintTypes).map(([k,v]) => `<button class="btn small" data-hint="${k}">${esc(v)}</button>`).join("")}</div><div id="hintout" style="margin-top:8px"></div></details></div>` : "";
+    paint(seq, head + questionHtml(p.q, p.sel, false) + hintBar + `<button class="primary" id="check"${p.sel.length ? "" : " disabled"}>${t("check")}</button><div id="msg"></div>`);
     bindOptions(p.q, p.sel, (sel) => { p.sel = sel; $("#check").disabled = sel.length === 0; });
     $("#check").onclick = async () => {
-      try { p.fb = await api("POST", `/practice/sessions/${p.session.id}/questions/${p.i}/answer`, { selectedOptionIds: p.sel, timeSpentMs: Date.now() - p.started }); render(); }
-      catch (e) { $("#msg").innerHTML = `<p class="msg err">${esc(errText(e))}</p>`; }
+      try {
+        p.fb = await api("POST", `/practice/sessions/${p.session.id}/questions/${p.i}/answer`, { selectedOptionIds: p.sel, timeSpentMs: Date.now() - p.started });
+        // For adaptive sessions, also record the response for the algorithm
+        if (p.adaptive && p.q.id && p.q.taskCode) {
+          const correct = p.fb.correct === true;
+          api("POST", "/practice/adaptive/response", { questionId: p.q.id, taskId: p.q.taskCode, correct, source: "adaptive" }).catch(() => {});
+        }
+        render();
+      } catch (e) { $("#msg").innerHTML = `<p class="msg err">${esc(errText(e))}</p>`; }
     };
+    // AI coach hints
+    document.querySelectorAll("[data-hint]").forEach((b) => (b.onclick = async () => {
+      const hintout = $("#hintout"); if (!hintout) return;
+      hintout.innerHTML = `<p class="muted" style="font-size:13px">⏳</p>`;
+      try {
+        const res = await api("POST", "/coach/hint", { questionId: p.q.id, hintType: b.dataset.hint });
+        const quota = res.usedToday !== undefined ? `<span class="muted" style="font-size:11px">${res.usedToday}/3 ${S.lang === "ar" ? "تلميحات اليوم" : "hints today"}</span>` : "";
+        hintout.innerHTML = `<div class="msg info" style="font-size:14px">${esc(res.hint || "")}</div>${quota}`;
+      } catch (e) {
+        const msg = e?.status === 429 ? (S.lang === "ar" ? "استنفدت تلميحاتك اليوم" : "Daily hint limit reached") : errText(e);
+        hintout.innerHTML = `<p class="msg err" style="font-size:13px">${esc(msg)}</p>`;
+      }
+    }));
   }
   if (p.deadline) S.timers.push(setInterval(() => { const el = $("#ptimer"); if (el) { el.textContent = fmt(p.deadline - Date.now()); el.classList.toggle("low", p.deadline - Date.now() < 60000); } if (Date.now() > p.deadline && !p.fb) render(); }, 1000));
 }
@@ -857,7 +881,10 @@ function settingsView() {
     <button class="primary" type="submit">${t("save")}</button></form>
     <div class="card"><h2>${t("plan")}</h2><a class="btn" href="#plan">${t("seePlans")}</a></div>${S.site && (S.site.supportEmail || S.site.termsUrl) ? `<p class="muted">${S.site.supportEmail ? `${t("support")} <a href="mailto:${esc(S.site.supportEmail)}" dir="ltr">${esc(S.site.supportEmail)}</a> · ` : ""}${S.site.termsUrl ? `<a href="${esc(S.site.termsUrl)}" target="_blank" rel="noopener">${t("termsLink")}</a> · ` : ""}${S.site.privacyUrl ? `<a href="${esc(S.site.privacyUrl)}" target="_blank" rel="noopener">${t("privacyLink")}</a>` : ""}</p>` : ""}
     ${installCard()}
+    <div class="card"><h2>${S.lang === "ar" ? "شهاداتي" : "My Certificates"}</h2><p class="muted" style="font-size:14px">${S.lang === "ar" ? "عرض شهادات الاجتياز القابلة للمشاركة." : "View and share your performance certificates."}</p><a class="btn" href="#certificates">${S.lang === "ar" ? "عرض الشهادات" : "View certificates"}</a></div>
     <div class="card"><h2>${t("myData")}</h2><p class="muted">${t("myDataText")}</p><button id="export">${t("download")}</button></div>
+    <div class="card" id="referralCard"><h2>${S.lang === "ar" ? "أدعُ أصدقاءك" : "Refer a friend"}</h2><p class="muted" style="font-size:14px">${S.lang === "ar" ? "⏳ جاري تحميل كود الدعوة..." : "⏳ Loading referral code..."}</p></div>
+    <div class="card" id="mfaCard"><h2>${S.lang === "ar" ? "التحقق بخطوتين (MFA)" : "Two-factor authentication (MFA)"}</h2><p class="muted" style="font-size:14px">${me.mfaEnabled ? (S.lang === "ar" ? "✅ مفعّل" : "✅ Enabled") : (S.lang === "ar" ? "غير مفعّل" : "Not enabled")}</p>${!me.mfaEnabled ? `<button id="mfaSetup">${S.lang === "ar" ? "تفعيل MFA" : "Enable MFA"}</button>` : ""}<div id="mfaout"></div></div>
     <details class="case"><summary>${t("deleteAccount")}</summary><div class="card" style="margin-top:8px"><p>${t("deleteWarn")}</p><button class="danger" id="del">${t("confirmDelete")}</button></div></details>
     <p class="note">${t("notice")}</p>`);
   $("#prefs").onsubmit = async (ev) => {
@@ -878,6 +905,41 @@ function settingsView() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   $("#del").onclick = async () => { try { await api("DELETE", "/me"); } catch {} S.access = S.refresh = S.me = null; location.hash = "#signin"; render(); };
+  // Load referral code async
+  api("GET", "/me/referral").then((ref) => {
+    const card = $("#referralCard"); if (!card) return;
+    const code = ref.code || ref.referralCode || "";
+    const link = ref.url || (location.origin + "?ref=" + code);
+    card.innerHTML = `<h2>${S.lang === "ar" ? "أدعُ أصدقاءك" : "Refer a friend"}</h2>
+      <p class="muted" style="font-size:14px">${S.lang === "ar" ? "شارك كودك واربح تمديد مجاني لكل دعوة ناجحة." : "Share your code and earn a free extension for each successful referral."}</p>
+      <div class="row" style="align-items:stretch;gap:6px">
+        <input id="refCodeInput" value="${esc(code)}" readonly dir="ltr" style="flex:1;font-size:13px">
+        <button id="copyRef" class="btn small">${S.lang === "ar" ? "نسخ" : "Copy"}</button>
+      </div>
+      ${ref.usedCount !== undefined ? `<p class="muted" style="font-size:13px">${S.lang === "ar" ? `دعوات ناجحة: ${ref.usedCount}` : `Successful referrals: ${ref.usedCount}`}</p>` : ""}`;
+    $("#copyRef")?.addEventListener("click", () => { navigator.clipboard?.writeText(link || code).catch(() => {}); flash("ok", S.lang === "ar" ? "تم النسخ" : "Copied!"); });
+  }).catch(() => { const card = $("#referralCard"); if (card) card.style.display = "none"; });
+  // MFA setup
+  $("#mfaSetup")?.addEventListener("click", async () => {
+    const out = $("#mfaout"); if (!out) return;
+    out.innerHTML = `<p class="muted" style="font-size:13px">⏳</p>`;
+    try {
+      const setup = await api("POST", "/auth/mfa/setup");
+      out.innerHTML = `<p class="muted" style="font-size:13px">${S.lang === "ar" ? "امسح الكود بتطبيق المصادقة ثم أدخل رمز التحقق:" : "Scan the QR code with your authenticator app, then enter the code:"}</p>
+        ${setup.qrDataUrl ? `<img src="${esc(setup.qrDataUrl)}" alt="QR" style="max-width:160px;border-radius:8px">` : `<code style="font-size:11px;word-break:break-all;display:block">${esc(setup.secret || "")}</code>`}
+        <div class="row" style="margin-top:8px;gap:6px">
+          <input id="mfaCode" type="text" inputmode="numeric" maxlength="6" placeholder="000000" style="width:120px" dir="ltr">
+          <button class="primary btn small" id="mfaConfirm">${S.lang === "ar" ? "تفعيل" : "Enable"}</button>
+        </div><div id="mfaerr"></div>`;
+      $("#mfaConfirm")?.addEventListener("click", async () => {
+        const code = $("#mfaCode")?.value || "";
+        try {
+          await api("POST", "/auth/mfa/enable", { totpCode: code });
+          out.innerHTML = `<p class="msg ok" style="font-size:13px">${S.lang === "ar" ? "✅ تم تفعيل MFA بنجاح" : "✅ MFA enabled successfully"}</p>`;
+        } catch (e) { const el = $("#mfaerr"); if (el) el.innerHTML = `<p class="msg err" style="font-size:12px">${esc(errText(e))}</p>`; }
+      });
+    } catch (e) { out.innerHTML = `<p class="msg err" style="font-size:13px">${esc(errText(e))}</p>`; }
+  });
 }
 
 // ------------------------------------------------------------ plan and access
@@ -1067,6 +1129,94 @@ function tipsView() {
     <p class="muted">${t("tipsNote")}</p>`);
 }
 
+// ------------------------------------------------------------ certificates view
+
+async function certificatesView() {
+  const seq = S.seq;
+  shell(`<h1>${S.lang === "ar" ? "شهاداتي" : "My Certificates"}</h1><p class="muted">⏳</p>`);
+  const data = await api("GET", "/me/certificates").catch(() => ({ items: [] }));
+  const items = data.items || [];
+  if (!items.length) {
+    paint(seq, `<h1>${S.lang === "ar" ? "شهاداتي" : "My Certificates"}</h1><p class="muted">${S.lang === "ar" ? "أكمل اختباراً تجريبياً للحصول على شهادة." : "Complete a mock exam to earn a certificate."}</p>`);
+    return;
+  }
+  const rows = items.map((c) => {
+    const date = new Date(c.issued_at || "").toLocaleDateString(S.lang === "ar" ? "ar-EG" : "en-GB");
+    const link = location.origin + "/verify/" + c.token;
+    const status = c.revoked_at ? `<span style="color:var(--bad)">${S.lang === "ar" ? "ملغاة" : "Revoked"}</span>` : (c.passed ? `<span style="color:var(--good)">${S.lang === "ar" ? "ناجح" : "Passed"}</span>` : `<span style="color:var(--warn)">${S.lang === "ar" ? "لم يجتز" : "Not passed"}</span>`);
+    return `<div class="card" style="gap:6px">
+      <div class="row" style="justify-content:space-between"><span>${date}</span>${status}</div>
+      <span class="muted" style="font-size:13px">${c.score_percent !== null && c.score_percent !== undefined ? c.score_percent + "%" : ""}</span>
+      <div class="row" style="gap:6px;align-items:center">
+        <input dir="ltr" readonly value="${esc(link)}" style="flex:1;font-size:12px" onclick="this.select()">
+        <button class="btn small" onclick="navigator.clipboard?.writeText('${esc(link)}');this.textContent='✓'">${S.lang === "ar" ? "نسخ" : "Copy"}</button>
+        <a class="btn small" href="#result/${esc(c.attempt_id)}">${S.lang === "ar" ? "عرض" : "View"}</a>
+      </div>
+    </div>`;
+  }).join("");
+  paint(seq, `<h1>${S.lang === "ar" ? "شهاداتي" : "My Certificates"}</h1><div style="display:flex;flex-direction:column;gap:12px">${rows}</div>`);
+}
+
+// ------------------------------------------------------------ case studies view
+
+async function caseStudiesView() {
+  const seq = S.seq;
+  shell(`<h1>${S.lang === "ar" ? "دراسات الحالة" : "Case Studies"}</h1><p class="muted">⏳</p>`);
+  const list = await api("GET", "/case-studies?limit=20").catch(() => ({ items: [] }));
+  const items = list.items || [];
+  if (!items.length) {
+    paint(seq, `<h1>${S.lang === "ar" ? "دراسات الحالة" : "Case Studies"}</h1><p class="muted">${S.lang === "ar" ? "لا توجد دراسات حالة بعد." : "No case studies available yet."}</p>`);
+    return;
+  }
+  paint(seq, `<h1>${S.lang === "ar" ? "دراسات الحالة" : "Case Studies"}</h1>
+    <p class="muted">${S.lang === "ar" ? "أسئلة مترابطة حول سيناريو مشروع واحد." : "Groups of questions around a single project scenario."}</p>
+    <div style="display:flex;flex-direction:column;gap:12px">
+    ${items.map((cs) => `<div class="card" style="cursor:pointer" data-csid="${esc(cs.id)}">
+      <h2>${esc(S.lang === "ar" && cs.titleAr ? cs.titleAr : cs.title || "")}</h2>
+      <p class="muted" style="font-size:14px">${esc(S.lang === "ar" && cs.descriptionAr ? cs.descriptionAr : cs.description || "")}</p>
+      <div class="row"><span class="tag">${cs.questionCount || 0} ${S.lang === "ar" ? "أسئلة" : "questions"}</span>${cs.domainCode ? `<span class="tag">${esc(domainName(cs.domainCode) || cs.domainCode)}</span>` : ""}</div>
+    </div>`).join("")}
+    </div>`);
+  document.querySelectorAll("[data-csid]").forEach((card) => (card.onclick = () => location.hash = "#case-study/" + card.dataset.csid));
+}
+
+async function caseStudyView(id) {
+  const seq = S.seq;
+  shell(`<p class="muted">⏳</p>`);
+  const cs = await api("GET", "/case-studies/" + id).catch(() => null);
+  if (!cs) { paint(seq, `<p class="msg err">${S.lang === "ar" ? "دراسة الحالة غير موجودة." : "Case study not found."}</p>`); return; }
+  const title = S.lang === "ar" && cs.titleAr ? cs.titleAr : cs.title || "";
+  const desc = S.lang === "ar" && cs.descriptionAr ? cs.descriptionAr : cs.description || "";
+  const questions = cs.questions || [];
+  paint(seq, `<a class="btn small" href="#case-studies" style="margin-bottom:4px">← ${S.lang === "ar" ? "العودة" : "Back"}</a>
+    <h1>${esc(title)}</h1>
+    ${desc ? `<div class="card"><p>${esc(desc)}</p></div>` : ""}
+    ${cs.exhibit ? `<div class="card" style="font-size:14px;border-left:3px solid var(--primary)"><p><strong>${S.lang === "ar" ? "معلومات المشروع:" : "Project info:"}</strong></p><p>${esc(cs.exhibit)}</p></div>` : ""}
+    <div style="display:flex;flex-direction:column;gap:14px">
+    ${questions.map((q, idx) => {
+      const stem = S.lang === "ar" && q.stemAr ? q.stemAr : q.stem || "";
+      return `<div class="card"><p style="font-weight:600;margin-bottom:8px">${idx + 1}. ${esc(stem)}</p>
+        ${(q.options || []).map((o) => `<div class="opt" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer" data-copt="${esc(o.id)}" data-cq="${esc(q.id)}">${esc(S.lang === "ar" && o.textAr ? o.textAr : o.text || "")}</div>`).join("")}
+        <div id="cfb-${esc(q.id)}" style="margin-top:6px"></div>
+      </div>`;
+    }).join("")}
+    </div>`);
+  // Bind case study question options (self-contained, no session)
+  document.querySelectorAll("[data-copt]").forEach((opt) => (opt.onclick = async () => {
+    const qid = opt.dataset.cq, oid = opt.dataset.copt;
+    const q = questions.find((x) => x.id === qid); if (!q) return;
+    const correct = (q.correctOptionIds || [q.correctOptionId]).filter(Boolean);
+    const isRight = correct.includes(oid);
+    document.querySelectorAll(`[data-cq="${qid}"]`).forEach((o) => {
+      o.style.background = "";
+      if (correct.includes(o.dataset.copt)) o.style.background = "var(--good-soft)";
+      else if (o.dataset.copt === oid && !isRight) o.style.background = "var(--bad-soft)";
+    });
+    const fbEl = document.getElementById("cfb-" + qid);
+    if (fbEl) fbEl.innerHTML = `<p class="msg ${isRight ? "ok" : "err"}" style="font-size:13px">${isRight ? (S.lang === "ar" ? "✓ صحيح" : "✓ Correct") : (S.lang === "ar" ? "✗ خطأ" : "✗ Incorrect")}${q.explanation ? " — " + esc(S.lang === "ar" && q.explanationAr ? q.explanationAr : q.explanation) : ""}</p>`;
+  }));
+}
+
 // ------------------------------------------------------------ study plan view
 
 async function studyPlanView() {
@@ -1175,6 +1325,9 @@ async function render() {
     if (route === "stats") return await statsView();
     if (route === "analytics") return await analyticsView();
     if (route === "study-plan") return await studyPlanView();
+    if (route === "case-studies") return await caseStudiesView();
+    if (route === "case-study") return await caseStudyView(arg);
+    if (route === "certificates") return await certificatesView();
     if (route === "bookmarks") return await bookmarksView();
     if (route === "notifications") return await notificationsView();
     if (route === "tips") return tipsView();
