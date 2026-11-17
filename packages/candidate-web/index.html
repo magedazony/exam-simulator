@@ -83,6 +83,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 /* Question content is written in English and always reads left to right. */
 .content { direction: ltr; text-align: left; }
 .stem { white-space: pre-wrap; }
+.stem-ar { color: var(--muted); font-size: 15px; border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px; }
 .opts { display: flex; flex-direction: column; gap: 8px; }
 .opt { display: flex; gap: 10px; align-items: flex-start; text-align: left; font: inherit; line-height: 1.45; padding: 12px 14px; min-height: 48px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; width: 100%; font-weight: 400; justify-content: flex-start; }
 .opt .mark { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--muted); display: grid; place-items: center; font-size: 13px; font-weight: 600; }
@@ -273,9 +274,12 @@ function questionHtml(q, selected, reveal, feedback) {
     const on = selected.includes(o.id);
     const fb = feedback ? feedback.explanation.options.find((x) => x.id === o.id) : null;
     const cls = reveal ? (fb && fb.isCorrect ? " is-right" : on ? " is-wrong" : "") : "";
-    return `<button class="opt${multi ? " multi" : ""}${cls}" role="${multi ? "checkbox" : "radio"}" aria-checked="${on}" data-opt="${esc(o.id)}"${reveal ? " disabled" : ""}><span class="mark">${"ABCDEF"[i]}</span><span>${esc(o.text)}${reveal && fb && fb.rationale ? `<span class="why">${fb.isCorrect ? "✓ " : on ? "✗ " : ""}${esc(fb.rationale)}</span>` : ""}</span></button>`;
+    const optTextAr = (o.textAr && S.lang === "ar") ? `<span class="stem-ar" dir="rtl">${esc(o.textAr)}</span>` : "";
+    const rationaleAr = (fb && fb.rationaleAr && S.lang === "ar") ? `<span class="why" dir="rtl">${fb.isCorrect ? "✓ " : on ? "✗ " : ""}${esc(fb.rationaleAr)}</span>` : "";
+    return `<button class="opt${multi ? " multi" : ""}${cls}" role="${multi ? "checkbox" : "radio"}" aria-checked="${on}" data-opt="${esc(o.id)}"${reveal ? " disabled" : ""}><span class="mark">${"ABCDEF"[i]}</span><span>${esc(o.text)}${optTextAr}${reveal && fb && fb.rationale ? `<span class="why">${fb.isCorrect ? "✓ " : on ? "✗ " : ""}${esc(fb.rationale)}</span>` : ""}${rationaleAr}</span></button>`;
   }).join("");
-  return `<div class="content"><p class="stem">${esc(q.stem)}</p>${exhibits}${multi ? `<p class="muted">${t("choose", q.selectCount)}</p>` : ""}<div class="opts" role="${multi ? "group" : "radiogroup"}">${opts}</div></div>`;
+  const stemArHtml = (q.stemAr && S.lang === "ar") ? `<p class="stem stem-ar" dir="rtl">${esc(q.stemAr)}</p>` : "";
+  return `<div class="content"><p class="stem" dir="auto">${esc(q.stem)}</p>${stemArHtml}${exhibits}${multi ? `<p class="muted">${t("choose", q.selectCount)}</p>` : ""}<div class="opts" role="${multi ? "group" : "radiogroup"}">${opts}</div></div>`;
 }
 function exhibitHtml(e) {
   if (e.kind === "image") return `<div class="exhibit"><img src="${esc(e.url)}" alt="${esc(e.altText)}"></div>`;
@@ -283,8 +287,9 @@ function exhibitHtml(e) {
 }
 function feedbackHtml(q, selected, fb) {
   const ex = fb.explanation;
+  const exAr = (S.lang === "ar" && fb.explanationAr) ? fb.explanationAr : null;
   return `<p class="verdict ${fb.correct ? "ok" : "no"}">${fb.correct ? t("correct") : t("incorrect")}</p>${questionHtml(q, selected, true, fb)}
-    <div class="card"><h2>${t("why")}</h2><p class="content">${esc(ex.whyCorrect)}</p>${ex.mindset ? `<p><strong>${t("mindset")}:</strong> <span class="content">${esc(ex.mindset)}</span></p>` : ""}${ex.keyConcept ? `<p><strong>${t("concept")}:</strong> <span class="content">${esc(ex.keyConcept)}</span></p>` : ""}
+    <div class="card"><h2>${t("why")}</h2><p class="content">${esc(ex.whyCorrect)}</p>${exAr ? `<p class="content stem-ar" dir="rtl">${esc(exAr.whyCorrect)}</p>` : ""}${ex.mindset ? `<p><strong>${t("mindset")}:</strong> <span class="content">${esc(ex.mindset)}</span></p>` : ""}${ex.keyConcept ? `<p><strong>${t("concept")}:</strong> <span class="content">${esc(ex.keyConcept)}</span></p>` : ""}
     <div class="row"><span class="tag">${esc(ex.domainName || "")}</span><span class="tag">${t("task")}: ${esc(ex.taskName || "")}</span></div></div>
     <details class="case"><summary>${t("report")}</summary><div class="card" style="margin-top:8px"><label>${t("reportReason")}<select class="rep-reason">${Object.entries(T[S.lang].reasons).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label><textarea class="rep-comment" rows="2"></textarea><button class="small rep-send" data-token="${esc(fb.reportToken)}">${t("send")}</button></div></details>`;
 }

@@ -540,12 +540,14 @@ function gridToDrafts(grid) {
   return body.map((r) => {
     const correct = get(r, "correct").toUpperCase().split(/[;\s,]+/).filter(Boolean);
     const options = [];
-    for (const L of "ABCDEF") { const t = get(r, "option" + L.toLowerCase()); if (t) options.push({ text: t, isCorrect: correct.includes(L), rationale: get(r, "rationale" + L.toLowerCase()) }); }
+    for (const L of "ABCDEF") { const t = get(r, "option" + L.toLowerCase()); if (t) { const o = { text: t, isCorrect: correct.includes(L), rationale: get(r, "rationale" + L.toLowerCase()) }; const tar = get(r, "option" + L.toLowerCase() + "ar"); if (tar) o.textAr = tar; const rar = get(r, "rationale" + L.toLowerCase() + "ar"); if (rar) o.rationaleAr = rar; options.push(o); } }
     const d = { taskCode: get(r, "taskcode"), approach: get(r, "approach").toLowerCase(), difficulty: get(r, "difficulty").toLowerCase(), type: get(r, "type").toLowerCase() || (correct.length > 1 ? "multiple" : "single"), stem: get(r, "stem"), options };
+    if (get(r, "stemar")) d.stemAr = get(r, "stemar");
     if (get(r, "language")) d.language = get(r, "language").toLowerCase();
     if (get(r, "aiassisted")) d.aiAssisted = /^(true|1|yes|y)$/i.test(get(r, "aiassisted"));
     if (get(r, "casekey")) d.caseKey = get(r, "casekey");
     if (get(r, "whycorrect")) d.explanation = { whyCorrect: get(r, "whycorrect"), mindset: get(r, "mindset") || null, keyConcept: get(r, "keyconcept") || null, learningObjective: get(r, "learningobjective") || null };
+    if (get(r, "whycorrectar")) d.explanationAr = { whyCorrect: get(r, "whycorrectar"), mindset: get(r, "mindstar") || null, keyConcept: get(r, "keyconceptar") || null, learningObjective: get(r, "learningobjectivear") || null };
     return d;
   });
 }
@@ -560,7 +562,7 @@ function gridToCases(grid) {
 
 function importView() {
   let rows = null, cases = [];
-  shell(t("Import questions"), `<div class="panel"><p>${t("Upload an Excel (.xlsx), CSV or JSON file of up to 500 questions. Columns:")} <span class="code wrapok">taskCode, approach, difficulty, type, stem, optionA … optionF, correct, rationaleA … rationaleF, whyCorrect, mindset, keyConcept, learningObjective, language, aiAssisted, caseKey</span>. <span class="code">correct</span> ${t("holds letters, such as")} <span class="code">B</span> ${t("or")} <span class="code">A;C</span>. ${t("Excel files: questions on the first sheet, first row for column names. Optional columns aiAssisted and caseKey; a sheet named Case studies (caseKey, title, scenario) creates case-study drafts.")}</p>
+  shell(t("Import questions"), `<div class="panel"><p>${t("Upload an Excel (.xlsx), CSV or JSON file of up to 500 questions. Columns:")} <span class="code wrapok">taskCode, approach, difficulty, type, stem, optionA … optionF, correct, rationaleA … rationaleF, whyCorrect, mindset, keyConcept, learningObjective, language, aiAssisted, caseKey</span>. ${t("Arabic columns (optional):")} <span class="code wrapok">stemAr, optionAAr … optionFAr, rationaleAAr … rationaleFFAr, whyCorrectAr, mindsetAr, keyConceptAr</span>. <span class="code">correct</span> ${t("holds letters, such as")} <span class="code">B</span> ${t("or")} <span class="code">A;C</span>. ${t("Excel files: questions on the first sheet, first row for column names. Optional columns aiAssisted and caseKey; a sheet named Case studies (caseKey, title, scenario) creates case-study drafts.")}</p>
     <p class="muted">${t("Every imported row becomes a draft and goes through the full review.")}</p>
     <div class="row"><input type="file" id="file" accept=".xlsx,.csv,.json,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><button id="check" disabled>${t("Check rows")}</button><button class="primary" id="commit" disabled>${t("Import valid rows as drafts")}</button></div></div><div id="report"></div>`);
   $("#file").onchange = async () => {

@@ -113,6 +113,8 @@ export function validateDraft(input: unknown, taskCodes: ReadonlySet<string>, pr
   const type = oneOf('type', ['single', 'multiple']);
   const language = oneOf('language', ['en', 'ar'], 'en');
   const stem = text('stem', 20, 4000);
+  // Optional Arabic translations
+  const stemAr = (typeof b.stemAr === 'string' && b.stemAr.trim().length > 0) ? b.stemAr.trim() : undefined;
   if (b.graphic !== undefined && typeof b.graphic !== 'boolean') err('graphic', 'must be true or false');
   if (b.aiAssisted !== undefined && typeof b.aiAssisted !== 'boolean') err('aiAssisted', 'must be true or false');
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -131,7 +133,7 @@ export function validateDraft(input: unknown, taskCodes: ReadonlySet<string>, pr
     }
   }
 
-  const options: Array<{ text: string; isCorrect: boolean; rationale: string }> = [];
+  const options: Array<{ text: string; textAr?: string; isCorrect: boolean; rationale: string; rationaleAr?: string }> = [];
   if (!Array.isArray(b.options) || b.options.length < 2 || b.options.length > 6) {
     err('options', 'must hold 2 to 6 options');
   } else {
@@ -144,11 +146,18 @@ export function validateDraft(input: unknown, taskCodes: ReadonlySet<string>, pr
       if (opt.rationale !== undefined && (typeof opt.rationale !== 'string' || opt.rationale.length > 2000)) {
         err(`options[${i}].rationale`, 'must be text of at most 2000 characters');
       }
-      options.push({
+      if (opt.rationaleAr !== undefined && opt.rationaleAr !== null && opt.rationaleAr !== '' &&
+          (typeof opt.rationaleAr !== 'string' || opt.rationaleAr.length > 2000)) {
+        err(`options[${i}].rationaleAr`, 'must be text of at most 2000 characters');
+      }
+      const item: { text: string; textAr?: string; isCorrect: boolean; rationale: string; rationaleAr?: string } = {
         text: typeof opt.text === 'string' ? opt.text.trim() : '',
         isCorrect: opt.isCorrect === true,
         rationale: typeof opt.rationale === 'string' ? opt.rationale.trim() : '',
-      });
+      };
+      if (typeof opt.textAr === 'string' && opt.textAr.trim().length > 0) item.textAr = opt.textAr.trim();
+      if (typeof opt.rationaleAr === 'string' && opt.rationaleAr.trim().length > 0) item.rationaleAr = opt.rationaleAr.trim();
+      options.push(item);
     });
     const correct = options.filter((o) => o.isCorrect).length;
     if (type === 'single' && correct !== 1) err('options', 'a single-choice question needs exactly one correct option');
@@ -174,6 +183,18 @@ export function validateDraft(input: unknown, taskCodes: ReadonlySet<string>, pr
       }
     }
   }
+  // Optional Arabic explanation (parallel to English)
+  let explanationAr: Record<string, string> | undefined;
+  if (b.explanationAr !== undefined && b.explanationAr !== null) {
+    const ea = b.explanationAr as Record<string, unknown>;
+    if (typeof ea.whyCorrect === 'string' && ea.whyCorrect.trim().length > 0) {
+      explanationAr = { whyCorrect: ea.whyCorrect.trim() };
+      for (const key of ['mindset', 'keyConcept', 'learningObjective']) {
+        const v = ea[key];
+        if (typeof v === 'string' && v.trim().length > 0) explanationAr[key] = v.trim();
+      }
+    }
+  }
 
   if (errors.length > 0) return { errors };
   return {
@@ -185,12 +206,14 @@ export function validateDraft(input: unknown, taskCodes: ReadonlySet<string>, pr
       type,
       language,
       stem,
+      ...(stemAr ? { stemAr } : {}),
       graphic: b.graphic === true,
       aiAssisted: b.aiAssisted === true,
       ...(typeof b.caseStudyId === 'string' ? { caseStudyId: b.caseStudyId } : {}),
       exhibitIds,
       options,
       ...(explanation ? { explanation } : {}),
+      ...(explanationAr ? { explanationAr } : {}),
     },
   };
 }

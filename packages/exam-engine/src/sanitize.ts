@@ -13,6 +13,8 @@ export type CandidateExhibit = CandidateQuestion['exhibits'][number];
 export interface CandidateQuestion {
   type: string;
   stem: string;
+  /** Arabic translation of stem; present when available and lang=ar. */
+  stemAr?: string;
   graphic: boolean;
   caseSetId: string | null;
   /**
@@ -25,19 +27,25 @@ export interface CandidateQuestion {
   >;
   /** How many options to select; shown in the instruction, as on the real exam. */
   selectCount: number;
-  options: Array<{ id: string; text: string }>;
+  options: Array<{ id: string; text: string; textAr?: string }>;
 }
 
 export function toCandidateQuestion(q: Question): CandidateQuestion {
-  return {
+  const out: CandidateQuestion = {
     type: q.type,
     stem: q.stem,
     graphic: q.graphic === true,
     caseSetId: q.caseSetId ?? null,
     exhibits: toCandidateExhibits(q.exhibits ?? []),
     selectCount: q.options.filter((o) => o.isCorrect).length,
-    options: q.options.map((o) => ({ id: o.id, text: o.text })),
+    options: q.options.map((o) => {
+      const opt: { id: string; text: string; textAr?: string } = { id: o.id, text: o.text };
+      if (o.textAr) opt.textAr = o.textAr;
+      return opt;
+    }),
   };
+  if (q.stemAr) out.stemAr = q.stemAr;
+  return out;
 }
 
 /** Candidate form of exhibit references; also used for case-study scenarios. */

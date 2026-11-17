@@ -241,15 +241,28 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     return { ordinal, ...view, exhibits: present(exhibits), caseKey: null, taskName };
   };
 
-  const feedback = async (q: Question, correct: boolean, userId: string, language: string) => ({
-    correct,
-    correctOptionIds: q.options.filter((o) => o.isCorrect).map((o) => o.id),
-    explanation: {
-      ...await store.explanation(q.versionId, language),
-      options: q.options.map((o) => ({ id: o.id, isCorrect: o.isCorrect, rationale: o.rationale ?? '' })),
-    },
-    reportToken: signReportToken(q.versionId, userId, config.tokenSecret),
-  });
+  const feedback = async (q: Question, correct: boolean, userId: string, language: string) => {
+    const [explMain, explAr] = await Promise.all([
+      store.explanation(q.versionId, language),
+      language !== 'ar' ? store.explanation(q.versionId, 'ar') : Promise.resolve(null),
+    ]);
+    const result: Record<string, unknown> = {
+      correct,
+      correctOptionIds: q.options.filter((o) => o.isCorrect).map((o) => o.id),
+      explanation: {
+        ...explMain,
+        options: q.options.map((o) => {
+          const opt: { id: string; isCorrect: boolean; rationale: string; rationaleAr?: string } =
+            { id: o.id, isCorrect: o.isCorrect, rationale: o.rationale ?? '' };
+          if (o.rationaleAr) opt.rationaleAr = o.rationaleAr;
+          return opt;
+        }),
+      },
+      reportToken: signReportToken(q.versionId, userId, config.tokenSecret),
+    };
+    if (explAr && Object.keys(explAr).length > 0) result.explanationAr = explAr;
+    return result;
+  };
 
   const tallies = (group: Record<string, { total: number; answered: number; correct: number; percent: number }>) =>
     Object.entries(group).map(([key, t]) => ({ key, total: t.total, answered: t.answered, correct: t.correct, percent: t.percent }));

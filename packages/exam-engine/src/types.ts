@@ -8,9 +8,13 @@ export type Difficulty = 'easy' | 'medium' | 'hard';
 export interface Option {
   id: string;
   text: string;
+  /** Arabic translation of text, shown when the UI language is Arabic. */
+  textAr?: string;
   /** Never leaves the server before submission. See sanitize.ts. */
   isCorrect: boolean;
   rationale?: string;
+  /** Arabic translation of rationale. */
+  rationaleAr?: string;
 }
 
 /** A chart, diagram or table the candidate needs to answer. */
@@ -41,6 +45,8 @@ export interface Question {
   /** Position of the question inside its case-study set. */
   caseOrdinal?: number;
   stem: string;
+  /** Arabic translation of the stem, when available. */
+  stemAr?: string;
   options: Option[];
 }
 
