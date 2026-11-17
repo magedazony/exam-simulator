@@ -647,11 +647,33 @@ async function answersView(id) {
 
 async function statsView() {
   const seq = S.seq; // a newer screen started meanwhile → do not paint this one
-  const [dom, app] = await Promise.all([api("GET", "/me/analytics?dimension=domain"), api("GET", "/me/analytics?dimension=approach")]);
+  const [dom, app, snaps] = await Promise.all([
+    api("GET", "/me/analytics?dimension=domain"),
+    api("GET", "/me/analytics?dimension=approach"),
+    api("GET", "/me/weekly-snapshots").catch(() => ({ items: [] })),
+  ]);
   if (!dom.rows.length) return paint(seq, `<h1>${t("statsTitle")}</h1><p class="muted">${t("noStats")}</p>`);
   const task = await api("GET", "/me/analytics?dimension=task");
   const weakest = task.rows.filter((r) => r.total >= 3).sort((a, b) => a.percent - b.percent).slice(0, 8);
-  paint(seq, `<h1>${t("statsTitle")}</h1><div class="card"><h2>${t("byDomain")}</h2>${bars(dom.rows, domainName)}</div><div class="card"><h2>${t("byApproach")}</h2>${bars(app.rows, (k) => t(k))}</div>
+
+  // Build weekly activity mini-chart (last 8 weeks)
+  const weeks = (snaps.items || []).slice(0, 8).reverse();
+  const maxQ = Math.max(1, ...weeks.map((w) => w.questions_answered));
+  const weekChart = weeks.length
+    ? `<div class="card"><h2>${S.lang === "ar" ? "النشاط الأسبوعي" : "Weekly activity"}</h2>
+        <div style="display:flex;align-items:flex-end;gap:6px;height:70px;overflow:hidden" aria-label="${S.lang === "ar" ? "أسابيع" : "weeks"}">
+          ${weeks.map((w) => {
+            const h = Math.max(4, Math.round((w.questions_answered / maxQ) * 60));
+            const pct = w.questions_answered ? Math.round((w.questions_correct / w.questions_answered) * 100) : 0;
+            const label = new Date(w.week_start).toLocaleDateString(S.lang === "ar" ? "ar-EG" : "en-GB", { month: "short", day: "numeric" });
+            return `<div title="${label}: ${w.questions_answered} ${S.lang === "ar" ? "سؤال" : "Qs"} · ${pct}% ${S.lang === "ar" ? "صح" : "correct"}" style="flex:1;background:var(--primary);border-radius:4px 4px 0 0;height:${h}px;min-width:0;opacity:.85"></div>`;
+          }).join("")}
+        </div>
+        <p class="muted" style="font-size:12px">${S.lang === "ar" ? "كل عمود يمثل أسبوع — الارتفاع = عدد الأسئلة" : "Each bar = one week · height = questions answered"}</p>
+      </div>`
+    : "";
+
+  paint(seq, `<h1>${t("statsTitle")}</h1>${weekChart}<div class="card"><h2>${t("byDomain")}</h2>${bars(dom.rows, domainName)}</div><div class="card"><h2>${t("byApproach")}</h2>${bars(app.rows, (k) => t(k))}</div>
     ${weakest.length ? `<div class="card"><h2>${t("byTask")}</h2>${bars(weakest, taskName)}</div>` : ""}<p class="muted">${t("estimate")}</p>`);
 }
 

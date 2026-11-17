@@ -196,6 +196,8 @@ interface Route {
 export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResponse) => void {
   const { store, service, config } = deps;
   const iso = (ms = deps.now()): string => new Date(ms).toISOString();
+  const safeJson = <T>(s: string | null | undefined, fallback: T): T => { try { return s ? JSON.parse(s) as T : fallback; } catch { return fallback; } };
+  const startOfWeekMs = (ms: number): number => { const d = new Date(ms); d.setUTCHours(0,0,0,0); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.getTime(); };
   const routes: Route[] = [];
   const add = (method: string, path: string, handler: Handler, opts: RouteOptions = {}) => {
     const pattern = new RegExp(`^/api/v1${path.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`);
@@ -1111,6 +1113,58 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     if (!rows.length) throw notFound();
     return { status: 200, body: rows[0] };
   }, { auth: false });
+
+  // GET /me/weekly-snapshots — last 12 weeks of study stats for the signed-in user
+  add('GET', '/me/weekly-snapshots', async (c) => {
+    const rows = await store.query<{
+      week_start: string; questions_answered: number; questions_correct: number;
+      time_studied_min: number; domains: string; streak_days: number;
+    }>(
+      `SELECT week_start, questions_answered, questions_correct, time_studied_min, domains::text AS domains, streak_days
+         FROM weekly_snapshots WHERE user_id = $1 ORDER BY week_start DESC LIMIT 12`,
+      [c.claims.sub],
+    );
+    // Parse the domains jsonb (returned as text from our query helper)
+    const items = rows.map((r) => ({ ...r, domains: safeJson(r.domains, {}) }));
+    return { status: 200, body: { items } };
+  });
+
+  // POST /me/weekly-snapshots/refresh — upsert this week's snapshot from live data
+  add('POST', '/me/weekly-snapshots/refresh', async (c) => {
+    const userId = c.claims.sub;
+    const weekStart = new Date(startOfWeekMs(deps.now())).toISOString().slice(0, 10); // YYYY-MM-DD
+    // Use store.query which handles parameterisation safely
+    await store.query<Record<string, never>>(
+      `INSERT INTO weekly_snapshots (user_id, week_start, questions_answered, questions_correct, time_studied_min, domains, streak_days)
+       SELECT
+         $1::uuid,
+         $2::date,
+         COUNT(*)::int,
+         COUNT(*) FILTER (WHERE ea.is_correct)::int,
+         COALESCE(ROUND(SUM(EXTRACT(EPOCH FROM (ea.answered_at - ea.started_at))) / 60)::int, 0),
+         COALESCE((
+           SELECT jsonb_object_agg(qv2.eco_domain, cnt) FROM (
+             SELECT qv2.eco_domain, COUNT(*)::int AS cnt
+             FROM exam_answers ea2
+             JOIN question_versions qv2 ON qv2.id = ea2.question_version_id
+             WHERE ea2.user_id = $1::uuid
+               AND ea2.answered_at >= $2::date AND ea2.answered_at < $2::date + INTERVAL '7 days'
+             GROUP BY qv2.eco_domain
+           ) qv2
+         ), '{}'::jsonb),
+         0
+       FROM exam_answers ea
+       WHERE ea.user_id = $1::uuid
+         AND ea.answered_at >= $2::date AND ea.answered_at < $2::date + INTERVAL '7 days'
+       ON CONFLICT (user_id, week_start) DO UPDATE SET
+         questions_answered = EXCLUDED.questions_answered,
+         questions_correct   = EXCLUDED.questions_correct,
+         time_studied_min    = EXCLUDED.time_studied_min,
+         domains             = EXCLUDED.domains`,
+      [userId, weekStart],
+    );
+    return { status: 200, body: { ok: true } };
+  });
 
   // Exhibit images, reachable only through a signed address that has not expired.
   add('GET', '/exhibits/:exhibitId', async (c) => {
