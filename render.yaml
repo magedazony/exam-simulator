@@ -41,3 +41,26 @@ services:
         sync: false
       - key: DEMO_CONTENT
         value: "1"
+      # Optional: SMTP for real email delivery.
+      # Leave these out (or keep MAIL_MODE=log) on the free trial tier —
+      # confirmation links will appear in the Render Logs instead.
+      # Set MAIL_MODE=smtp and fill in the SMTP_* vars for real delivery.
+      # - key: MAIL_MODE
+      #   value: smtp
+      # - key: SMTP_HOST
+      #   sync: false
+      # - key: SMTP_PORT
+      #   value: "587"
+      # - key: SMTP_USER
+      #   sync: false
+      # - key: SMTP_PASS
+      #   sync: false
+      # - key: MAIL_FROM
+      #   sync: false
+      # Optional: legal pages (required in production / NODE_ENV=production)
+      # - key: TERMS_URL
+      #   value: https://<your-domain>.onrender.com/terms
+      # - key: PRIVACY_URL
+      #   value: https://<your-domain>.onrender.com/privacy
+      # - key: SUPPORT_EMAIL
+      #   sync: false
