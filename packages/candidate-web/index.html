@@ -456,10 +456,11 @@ function welcomeView() {
 
 async function homeView() {
   const seq = S.seq; // a newer screen started meanwhile → do not paint this one
-  const [d, readRes, reviewRes] = await Promise.all([
+  const [d, readRes, reviewRes, streakRes] = await Promise.all([
     api("GET", "/me/dashboard"),
     api("GET", "/me/readiness").catch(() => ({ score: null })),
     api("GET", "/me/spaced-reviews/due").catch(() => ({ count: 0 })),
+    api("GET", "/me/streak").catch(() => null),
   ]);
   const weak = d.weakestDomain;
   const readScore = readRes?.score;
@@ -475,11 +476,24 @@ async function homeView() {
   const reviewBadge = reviewCount > 0
     ? `<div class="card" style="border-left:3px solid var(--primary);padding:10px 16px"><div class="row"><span>🔁 <strong>${reviewCount}</strong> ${S.lang === "ar" ? "سؤال للمراجعة المتباعدة" : "spaced review" + (reviewCount !== 1 ? "s" : "") + " due"}</span><button class="btn small primary" id="reviewBtn">${S.lang === "ar" ? "راجع الآن" : "Review now"}</button></div></div>`
     : "";
+
+  // Streak card — richer when /me/streak returns detailed data
+  const curStreak = streakRes?.currentStreak ?? streakRes?.current ?? d.streakDays ?? 0;
+  const longestStreak = streakRes?.longestStreak ?? streakRes?.longest ?? 0;
+  const streakCard = curStreak > 0
+    ? (() => {
+        const flame = curStreak >= 7 ? "🔥" : curStreak >= 3 ? "⚡" : "✨";
+        const longestLine = longestStreak > curStreak ? `<small class="muted"> · ${S.lang === "ar" ? "أعلى:" : "best:"} ${longestStreak}</small>` : "";
+        return `<div class="card" style="border-left:3px solid #f59e0b;padding:10px 16px"><div class="row"><span style="font-size:22px">${flame}</span><div><strong style="font-size:17px">${curStreak} ${S.lang === "ar" ? "يوم متواصل" : "day streak"}</strong>${longestLine}<br><small class="muted">${S.lang === "ar" ? "واصل الدراسة كل يوم" : "keep studying every day"}</small></div></div></div>`;
+      })()
+    : "";
+
   paint(seq, `${d.daysToExam !== null && d.daysToExam >= 0 ? `<p class="muted">${t("daysLeft", d.daysToExam)}</p>` : ""}
+    ${streakCard}
     ${reviewBadge}
     <div class="card"><span class="muted">${t("readiness")}</span>${readinessBand}<span class="muted">${t("bandRule")}</span></div>
     <div class="card accent"><span class="muted">${t("today")}</span><h2>${weak ? esc(t("recWeak", domainName(weak.key))) : t("recFirst")}</h2><button class="primary" id="go">${t("start")}</button></div>
-    <div class="tiles"><div class="card"><span class="muted">${t("answered")}</span><span class="big">${d.questionsCompleted}</span></div><div class="card"><span class="muted">${t("accuracy")}</span><span class="big">${d.accuracyPercent === null ? "–" : d.accuracyPercent + "%"}</span></div><div class="card"><span class="muted">${t("mocksDone")}</span><span class="big">${d.mocksCompleted}</span></div><div class="card"><span class="muted">${t("streak")}</span><span class="big">${d.streakDays}</span></div></div>
+    <div class="tiles"><div class="card"><span class="muted">${t("answered")}</span><span class="big">${d.questionsCompleted}</span></div><div class="card"><span class="muted">${t("accuracy")}</span><span class="big">${d.accuracyPercent === null ? "–" : d.accuracyPercent + "%"}</span></div><div class="card"><span class="muted">${t("mocksDone")}</span><span class="big">${d.mocksCompleted}</span></div><div class="card"><span class="muted">${t("streak")}</span><span class="big">${curStreak}</span></div></div>
     ${weak && d.strongestDomain ? `<div class="tiles"><div class="card"><span class="muted">${t("weakest")}</span><strong>${esc(domainName(weak.key))} · ${weak.percent}%</strong></div><div class="card"><span class="muted">${t("strongest")}</span><strong>${esc(domainName(d.strongestDomain.key))} · ${d.strongestDomain.percent}%</strong></div></div>` : ""}
     ${d.recentScores.length ? `<div class="card"><h2>${t("recent")}</h2>${d.recentScores.map((s) => `<div class="bar"><span>${esc(s.date)}</span><span class="track"><i style="width:${s.percent}%"></i></span><span class="num">${s.percent}%</span></div>`).join("")}</div>` : ""}
     <p class="note">${t("notice")}</p>`);
@@ -806,8 +820,21 @@ async function statsView() {
   const streakBadge = totalStreak > 0
     ? `<div class="card" style="display:flex;align-items:center;gap:12px;padding:12px 16px"><span style="font-size:28px">🔥</span><div><p style="margin:0;font-weight:700;font-size:18px">${totalStreak} ${S.lang === "ar" ? "يوم" : "day"} streak</p><small class="muted">${S.lang === "ar" ? "نشاط متواصل" : "consecutive study"}</small></div></div>`
     : "";
-  paint(seq, `<h1>${t("statsTitle")}</h1>${streakBadge}${weekChart}<div class="card"><h2>${t("byDomain")}</h2>${bars(dom.rows, domainName)}</div><div class="card"><h2>${t("byApproach")}</h2>${bars(app.rows, (k) => t(k))}</div>
-    ${weakest.length ? `<div class="card"><h2>${t("byTask")}</h2>${bars(weakest, taskName)}</div>` : ""}<p class="muted">${t("estimate")}</p>`);
+  paint(seq, `<h1>${t("statsTitle")}</h1>
+    <div class="row" style="margin-bottom:8px"><span></span><button class="btn small" id="refreshSnaps">${S.lang === "ar" ? "🔄 تحديث البيانات" : "🔄 Refresh data"}</button></div>
+    ${streakBadge}${weekChart}
+    <div class="card"><h2>${t("byDomain")}</h2>${bars(dom.rows, domainName)}</div>
+    <div class="card"><h2>${t("byApproach")}</h2>${bars(app.rows, (k) => t(k))}</div>
+    ${weakest.length ? `<div class="card"><h2>${t("byTask")}</h2>${bars(weakest, taskName)}</div>` : ""}
+    <p class="muted">${t("estimate")}</p>`);
+  $("#refreshSnaps")?.addEventListener("click", async () => {
+    const btn = $("#refreshSnaps"); if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+    try {
+      await api("POST", "/me/weekly-snapshots/refresh");
+      flash("ok", S.lang === "ar" ? "تم التحديث" : "Data refreshed");
+    } catch (e) { flash("err", errText(e)); }
+    statsView();
+  });
 }
 
 async function bookmarksView() {
@@ -934,8 +961,19 @@ function settingsView() {
       $("#mfaConfirm")?.addEventListener("click", async () => {
         const code = $("#mfaCode")?.value || "";
         try {
-          await api("POST", "/auth/mfa/enable", { totpCode: code });
-          out.innerHTML = `<p class="msg ok" style="font-size:13px">${S.lang === "ar" ? "✅ تم تفعيل MFA بنجاح" : "✅ MFA enabled successfully"}</p>`;
+          const result = await api("POST", "/auth/mfa/enable", { totpCode: code });
+          // Show recovery codes if the API returns them
+          const recCodes = result?.recoveryCodes || result?.recovery_codes || [];
+          const codesHtml = recCodes.length
+            ? `<div style="margin-top:8px"><p class="muted" style="font-size:12px">${S.lang === "ar" ? "🔑 احفظ هذه الرموز في مكان آمن — لن تُعرض مجدداً:" : "🔑 Save these recovery codes somewhere safe — they will not be shown again:"}</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;font-family:monospace;background:var(--bg);border-radius:6px;padding:10px">${recCodes.map((c) => `<code>${esc(String(c))}</code>`).join("")}</div><button class="btn small" style="margin-top:6px" id="copyRecCodes">${S.lang === "ar" ? "نسخ الرموز" : "Copy codes"}</button></div>`
+            : "";
+          out.innerHTML = `<p class="msg ok" style="font-size:13px">${S.lang === "ar" ? "✅ تم تفعيل MFA بنجاح" : "✅ MFA enabled successfully"}</p>${codesHtml}`;
+          if (recCodes.length) {
+            out.querySelector("#copyRecCodes")?.addEventListener("click", () => {
+              navigator.clipboard?.writeText(recCodes.join("\n")).catch(() => {});
+              flash("ok", S.lang === "ar" ? "تم نسخ الرموز" : "Codes copied");
+            });
+          }
         } catch (e) { const el = $("#mfaerr"); if (el) el.innerHTML = `<p class="msg err" style="font-size:12px">${esc(errText(e))}</p>`; }
       });
     } catch (e) { out.innerHTML = `<p class="msg err" style="font-size:13px">${esc(errText(e))}</p>`; }
@@ -1264,20 +1302,25 @@ async function studyPlanView() {
 async function analyticsView() {
   const seq = S.seq;
   shell(`<h1>${t("statsTitle")}</h1><p class="muted">⏳</p>`);
-  const [domains, difficulty] = await Promise.all([
+  const [domains, difficulty, mastery, errors, profile] = await Promise.all([
     api("GET", "/me/analytics/domains").catch(() => ({ items: [] })),
     api("GET", "/me/analytics/difficulty").catch(() => ({ items: [] })),
+    api("GET", "/me/mastery").catch(() => ({ items: [] })),
+    api("GET", "/me/errors").catch(() => ({ items: [] })),
+    api("GET", "/me/profile").catch(() => null),
   ]);
   const domItems = domains.items || [];
   const diffItems = difficulty.items || [];
+  const mastItems = mastery.items || [];
+  const errItems = errors.items || [];
 
   const pctColor = (p) => p >= 75 ? "var(--good)" : p >= 50 ? "#f59e0b" : "var(--bad)";
   const masteryBar = (item) => {
     const pct = typeof item.accuracy === "number" ? Math.round(item.accuracy * 100) : 0;
-    const mastery = item.mastery || item.masteryLevel || "";
+    const masteryLabel = item.mastery || item.masteryLevel || "";
     const name = domainName(item.domainCode || item.domain || "") || item.domain || "";
     return `<div style="margin-bottom:10px">
-      <div class="row" style="margin-bottom:4px"><span>${esc(name)}</span>${mastery ? `<span class="tag" style="font-size:11px">${esc(mastery)}</span>` : ""}<span class="muted" style="font-size:12px;margin-left:auto">${item.total || 0} ${t("totalAtt")} · ${pct}%</span></div>
+      <div class="row" style="margin-bottom:4px"><span>${esc(name)}</span>${masteryLabel ? `<span class="tag" style="font-size:11px">${esc(masteryLabel)}</span>` : ""}<span class="muted" style="font-size:12px;margin-left:auto">${item.total || 0} ${t("totalAtt")} · ${pct}%</span></div>
       <div class="track" style="height:8px;border-radius:4px"><i style="width:${Math.min(pct,100)}%;height:8px;border-radius:4px;background:${pctColor(pct)};display:block"></i></div>
     </div>`;
   };
@@ -1295,10 +1338,46 @@ async function analyticsView() {
     </div>`;
   };
 
+  // Task mastery breakdown (from /me/mastery)
+  const taskMasteryHtml = mastItems.length ? mastItems.slice(0, 20).map((item) => {
+    const taskLabel = item.taskName || item.taskCode || item.task_id || "";
+    const pct = typeof item.accuracy === "number" ? Math.round(item.accuracy * 100) : (typeof item.percent === "number" ? Math.round(item.percent) : 0);
+    const level = item.level || item.masteryLevel || "";
+    const levelColor = level === "mastered" ? "var(--good)" : level === "learning" ? "#f59e0b" : "var(--muted)";
+    return `<div style="margin-bottom:8px">
+      <div class="row" style="margin-bottom:3px"><span style="font-size:13px">${esc(taskLabel)}</span>${level ? `<span style="font-size:11px;color:${levelColor}">${esc(level)}</span>` : ""}<span class="muted" style="font-size:11px;margin-left:auto">${pct}%</span></div>
+      <div class="track" style="height:5px;border-radius:3px"><i style="width:${Math.min(pct,100)}%;height:5px;border-radius:3px;background:${pctColor(pct)};display:block"></i></div>
+    </div>`;
+  }).join("") : "";
+
+  // Error distribution
+  const errHtml = errItems.length ? errItems.map((e) => {
+    const label = e.errorType || e.type || "";
+    const count = e.count || 0;
+    const total = errItems.reduce((s, x) => s + (x.count || 0), 0) || 1;
+    const pct = Math.round((count / total) * 100);
+    return `<div class="row" style="margin-bottom:6px">
+      <span style="min-width:120px;font-size:13px">${esc(label)}</span>
+      <div class="track" style="flex:1;height:6px;border-radius:3px"><i style="width:${pct}%;height:6px;border-radius:3px;background:var(--bad);display:block"></i></div>
+      <span class="muted" style="font-size:12px">${count}</span>
+    </div>`;
+  }).join("") : "";
+
+  // Learner profile summary
+  const profileHtml = profile && profile.learningStyle ? `<div class="card"><h2>${S.lang === "ar" ? "ملف المتعلم" : "Learner Profile"}</h2>
+    ${profile.learningStyle ? `<p style="font-size:14px"><strong>${S.lang === "ar" ? "أسلوب التعلم:" : "Learning style:"}</strong> ${esc(profile.learningStyle)}</p>` : ""}
+    ${profile.strengths?.length ? `<p style="font-size:14px"><strong>${S.lang === "ar" ? "نقاط القوة:" : "Strengths:"}</strong> ${esc(profile.strengths.join(", "))}</p>` : ""}
+    ${profile.weaknesses?.length ? `<p style="font-size:14px"><strong>${S.lang === "ar" ? "نقاط الضعف:" : "Areas to improve:"}</strong> ${esc(profile.weaknesses.join(", "))}</p>` : ""}
+    ${profile.recommendation ? `<p style="font-size:14px;color:var(--primary)">${esc(profile.recommendation)}</p>` : ""}
+  </div>` : "";
+
   paint(seq, `<h1>${t("statsTitle")}</h1>
+    ${profileHtml}
     ${domItems.length ? `<div class="card"><h2>${t("domainAnalytics")}</h2>${domItems.map(masteryBar).join("")}</div>` : ""}
     ${diffItems.length ? `<div class="card"><h2>${t("difficultyAnalytics")}</h2>${diffItems.map(diffRow).join("")}</div>` : ""}
-    ${!domItems.length && !diffItems.length ? `<p class="muted">${t("noStats")}</p>` : ""}
+    ${taskMasteryHtml ? `<div class="card"><h2>${S.lang === "ar" ? "إتقان المهام" : "Task mastery"}</h2>${taskMasteryHtml}</div>` : ""}
+    ${errHtml ? `<div class="card"><h2>${S.lang === "ar" ? "أنواع الأخطاء" : "Error types"}</h2>${errHtml}</div>` : ""}
+    ${!domItems.length && !diffItems.length && !taskMasteryHtml && !errHtml ? `<p class="muted">${t("noStats")}</p>` : ""}
     <p class="muted">${t("estimate")}</p>`);
 }
 
