@@ -545,6 +545,59 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     return { status: 200, body: plan };
   });
 
+  // ------------------------------------------------------------ bookmarks
+
+  /** GET /me/bookmarks — list bookmarked questions */
+  add('GET', '/me/bookmarks', async (c) => {
+    const limit = Math.min(Number(c.query.get('limit') ?? 20), 100);
+    const after = c.query.get('after') ?? null;
+    return { status: 200, body: { items: await store.listBookmarks(c.claims.sub, limit, after) } };
+  });
+
+  /** POST /me/bookmarks/:questionId — toggle bookmark on/off */
+  add('POST', '/me/bookmarks/:questionId', async (c) => {
+    const questionId = uuid(c.params.questionId);
+    const result = await store.toggleBookmark(c.claims.sub, questionId);
+    return { status: 200, body: result };
+  });
+
+  // ------------------------------------------------------------ question notes
+
+  /** GET /me/notes/:questionId */
+  add('GET', '/me/notes/:questionId', async (c) => {
+    const note = await store.getNote(c.claims.sub, uuid(c.params.questionId));
+    if (!note) throw notFound();
+    return { status: 200, body: note };
+  });
+
+  /** PUT /me/notes/:questionId — create or update note */
+  add('PUT', '/me/notes/:questionId', async (c) => {
+    const content = String((c.body as Record<string, unknown>).content ?? '').trim();
+    if (!content || content.length > 2000) throw invalid('content', 'must be 1–2000 characters');
+    const note = await store.upsertNote(c.claims.sub, uuid(c.params.questionId), content);
+    return { status: 200, body: note };
+  });
+
+  /** DELETE /me/notes/:questionId */
+  add('DELETE', '/me/notes/:questionId', async (c) => {
+    await store.deleteNote(c.claims.sub, uuid(c.params.questionId));
+    return { status: 200, body: { ok: true } };
+  });
+
+  // ------------------------------------------------------------ enhanced analytics
+
+  /** GET /me/analytics/domains — per-domain accuracy + mastery */
+  add('GET', '/me/analytics/domains', async (c) => ({
+    status: 200,
+    body: { items: await store.analyticsDomainBreakdown(c.claims.sub) },
+  }));
+
+  /** GET /me/analytics/difficulty — per-difficulty accuracy */
+  add('GET', '/me/analytics/difficulty', async (c) => ({
+    status: 200,
+    body: { items: await store.analyticsDifficultyBreakdown(c.claims.sub) },
+  }));
+
   /**
    * POST /practice/sessions  (adaptive modes)
    * mode: 'adaptive'       — targets weakest task

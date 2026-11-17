@@ -665,6 +665,58 @@ export class ApiStore extends PsqlStore {
     await this.run(`SELECT classify_errors(${lit.uuid(userId)}, ${lit.json(rows)});`);
   }
 
+  // ---------------------------------------------------------------- bookmarks + notes
+
+  async toggleBookmark(userId: string, questionId: string): Promise<{ bookmarked: boolean }> {
+    const exists = await this.run(
+      `SELECT 1 FROM question_bookmarks WHERE user_id = ${lit.uuid(userId)} AND question_id = ${lit.uuid(questionId)};`,
+    );
+    if (exists === '1') {
+      await this.run(`DELETE FROM question_bookmarks WHERE user_id = ${lit.uuid(userId)} AND question_id = ${lit.uuid(questionId)};`);
+      return { bookmarked: false };
+    } else {
+      await this.run(`INSERT INTO question_bookmarks (user_id, question_id) VALUES (${lit.uuid(userId)}, ${lit.uuid(questionId)}) ON CONFLICT DO NOTHING;`);
+      return { bookmarked: true };
+    }
+  }
+
+  async listBookmarks(userId: string, limit: number, after: string | null): Promise<Array<Record<string, unknown>>> {
+    const afterParam = after ? lit.text(after) + '::timestamptz' : 'NULL';
+    return (await this.one<Array<Record<string, unknown>>>(
+      `SELECT bookmarked_questions(${lit.uuid(userId)}, ${lit.int(limit)}, ${afterParam});`,
+    )) ?? [];
+  }
+
+  async upsertNote(userId: string, questionId: string, content: string): Promise<Record<string, unknown>> {
+    return (await this.one(
+      `INSERT INTO question_notes (user_id, question_id, content)
+       VALUES (${lit.uuid(userId)}, ${lit.uuid(questionId)}, ${lit.text(content)})
+       ON CONFLICT (user_id, question_id) DO UPDATE SET content = EXCLUDED.content, updated_at = now()
+       RETURNING jsonb_build_object('id', id, 'questionId', question_id, 'content', content, 'updatedAt', updated_at);`,
+    ))!;
+  }
+
+  async getNote(userId: string, questionId: string): Promise<Record<string, unknown> | null> {
+    return await this.one(
+      `SELECT jsonb_build_object('id', id, 'questionId', question_id, 'content', content, 'updatedAt', updated_at)
+       FROM question_notes WHERE user_id = ${lit.uuid(userId)} AND question_id = ${lit.uuid(questionId)};`,
+    );
+  }
+
+  async deleteNote(userId: string, questionId: string): Promise<void> {
+    await this.run(`DELETE FROM question_notes WHERE user_id = ${lit.uuid(userId)} AND question_id = ${lit.uuid(questionId)};`);
+  }
+
+  // ---------------------------------------------------------------- enhanced analytics
+
+  async analyticsDomainBreakdown(userId: string): Promise<Array<Record<string, unknown>>> {
+    return (await this.one<Array<Record<string, unknown>>>(`SELECT analytics_domain_breakdown(${lit.uuid(userId)});`)) ?? [];
+  }
+
+  async analyticsDifficultyBreakdown(userId: string): Promise<Array<Record<string, unknown>>> {
+    return (await this.one<Array<Record<string, unknown>>>(`SELECT analytics_difficulty_breakdown(${lit.uuid(userId)});`)) ?? [];
+  }
+
   /** Questions targeting a specific weak task (adaptive selection). */
   async adaptiveQuestions(userId: string, taskCode: string | null, limit: number): Promise<Array<Record<string, unknown>>> {
     const taskFilter = taskCode
