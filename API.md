@@ -127,6 +127,24 @@ Errors: `{ "error": "<code>", "message": "...", "field"?: "..." }` with appropri
 
 ---
 
+## Certificates
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/me/certificates?limit=10&after=<cursor>` | List the candidate's certificates |
+| GET | `/verify/:token` | Public certificate verification — `{ user_display, score_percent, issued_at, passed, revoked }` (public) |
+
+---
+
+## Weekly Progress Snapshots
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/me/weekly-snapshots?weeks=12` | Last N weeks of snapshot rows `{ weekStart, questionsAnswered, mocksTaken, accuracy }` |
+| POST | `/me/weekly-snapshots/refresh` | Force recompute today's snapshot row |
+
+---
+
 ## Exam Timer
 
 | Method | Path | Description |
