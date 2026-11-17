@@ -60,3 +60,34 @@ reached over TLS with a password and a non-administrator account.
 - After `ADMIN_PASSWORD` has done its job, delete that variable on Render.
 - To move to a real launch: a paid instance (or your own server), SMTP,
   terms and privacy pages, `NODE_ENV=production` and no `DEMO_CONTENT`.
+
+---
+
+## Alternative: Back4App (containers free tier)
+
+Back4App's free container tier does not sleep between requests, which makes
+it better for showing the app to real people, though limits still apply.
+
+1. **Back4App account.** Sign up at back4app.com and open *Containers*.
+2. **Connect your GitHub repo.** Back4App pulls directly from GitHub on each push.
+3. **Set environment variables** (same list as the Render table above, plus
+   `HOST=0.0.0.0` and `PORT=80`).
+4. **Health check path:** `/api/v1/health`
+5. **Free limits:** 0.25 vCPU, 256 MB RAM, 10 GB bandwidth/month. Enough for
+   a demo with a handful of users.
+
+The Neon database setup is the same as above.
+
+---
+
+## Upgrading to a paid plan for real launches
+
+For real candidates use a service that:
+- Does **not** sleep (Render Starter $7/month, Railway, Fly.io, or your own VPS)
+- Keeps `NODE_ENV=production`
+- Has SMTP configured (Resend free tier: 100 emails/day; Brevo free tier: 300/day)
+- Has `TERMS_URL` and `PRIVACY_URL` set to publicly reachable HTTPS pages
+
+The `/terms` and `/privacy` pages built into the server can be used as
+`TERMS_URL=https://your-domain.com/terms` and
+`PRIVACY_URL=https://your-domain.com/privacy` once you have a custom domain.
