@@ -612,6 +612,59 @@ export class ApiStore extends PsqlStore {
     );
   }
 
+  // ---------------------------------------------------------------- study plan + profile
+
+  /** Generate (or refresh) the weekly study plan. Returns the plan JSON. */
+  async generateStudyPlan(userId: string, weekStart: string): Promise<Record<string, unknown>> {
+    return (await this.one(`SELECT generate_study_plan(${lit.uuid(userId)}, ${lit.text(weekStart)}::date);`)) ?? {};
+  }
+
+  /** Get the current week's study plan (or null if not generated yet). */
+  async currentStudyPlan(userId: string, weekStart: string): Promise<Record<string, unknown> | null> {
+    return await this.one(
+      `SELECT plan_json FROM study_plans WHERE user_id = ${lit.uuid(userId)} AND week_start = ${lit.text(weekStart)}::date;`,
+    );
+  }
+
+  /** Refresh the learner profile (async-safe: upserts). */
+  async refreshLearnerProfile(userId: string): Promise<void> {
+    await this.run(`SELECT refresh_learner_profile(${lit.uuid(userId)});`);
+  }
+
+  /** Get the current learner profile. */
+  async learnerProfile(userId: string): Promise<Record<string, unknown> | null> {
+    return await this.one(`
+      SELECT jsonb_build_object(
+        'readinessScore', lp.readiness_score,
+        'predictedPassPct', lp.predicted_pass_pct,
+        'totalQuestionsSeen', lp.total_questions_seen,
+        'studyStreakDays', lp.study_streak_days,
+        'lastStudiedAt', lp.last_studied_at,
+        'dominantErrorType', lp.dominant_error_type,
+        'strongestTask', (SELECT jsonb_build_object('code', t.code, 'name', t.name) FROM tasks t WHERE t.id = lp.strongest_task_id),
+        'weakestTask', (SELECT jsonb_build_object('code', t.code, 'name', t.name) FROM tasks t WHERE t.id = lp.weakest_task_id),
+        'profileAt', lp.profile_at
+      ) FROM learner_profiles lp WHERE lp.user_id = ${lit.uuid(userId)};
+    `);
+  }
+
+  /** Error type distribution for a user. */
+  async errorDistribution(userId: string): Promise<Array<Record<string, unknown>>> {
+    return (await this.one<Array<Record<string, unknown>>>(
+      `SELECT coalesce(jsonb_agg(jsonb_build_object('errorType', error_type, 'count', cnt) ORDER BY cnt DESC), '[]'::jsonb)
+       FROM (
+         SELECT error_type, count(*) AS cnt
+         FROM error_classifications WHERE user_id = ${lit.uuid(userId)} AND error_type IS NOT NULL
+         GROUP BY error_type
+       ) x;`,
+    )) ?? [];
+  }
+
+  /** Classify errors for a batch of responses (from the API). */
+  async classifyErrors(userId: string, rows: unknown[]): Promise<void> {
+    await this.run(`SELECT classify_errors(${lit.uuid(userId)}, ${lit.json(rows)});`);
+  }
+
   /** Questions targeting a specific weak task (adaptive selection). */
   async adaptiveQuestions(userId: string, taskCode: string | null, limit: number): Promise<Array<Record<string, unknown>>> {
     const taskFilter = taskCode

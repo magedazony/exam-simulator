@@ -505,6 +505,46 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     body: { count: await store.spacedReviewsDue(c.claims.sub, iso()) },
   }));
 
+  /** GET /me/profile — learner intelligence profile */
+  add('GET', '/me/profile', async (c) => {
+    // Refresh profile in background
+    store.refreshLearnerProfile(c.claims.sub).catch(() => { /* non-fatal */ });
+    const profile = await store.learnerProfile(c.claims.sub);
+    return { status: 200, body: profile ?? { message: 'No profile yet — answer some questions first.' } };
+  });
+
+  /** GET /me/errors — error type distribution */
+  add('GET', '/me/errors', async (c) => ({
+    status: 200,
+    body: { items: await store.errorDistribution(c.claims.sub) },
+  }));
+
+  /** POST /me/errors — classify errors for a batch of responses */
+  add('POST', '/me/errors', async (c) => {
+    const rows = c.body as unknown[];
+    if (!Array.isArray(rows) || rows.length === 0) throw invalid('body', 'must be a non-empty array of error records');
+    await store.classifyErrors(c.claims.sub, rows);
+    return { status: 200, body: { ok: true, classified: rows.length } };
+  });
+
+  /** GET /me/study-plan?weekStart=2026-11-17 — current week study plan */
+  add('GET', '/me/study-plan', async (c) => {
+    const weekStart = c.query.get('weekStart') ?? new Date().toISOString().slice(0, 10);
+    // Try existing; generate if missing
+    let plan = await store.currentStudyPlan(c.claims.sub, weekStart);
+    if (!plan) {
+      plan = await store.generateStudyPlan(c.claims.sub, weekStart);
+    }
+    return { status: 200, body: plan };
+  });
+
+  /** POST /me/study-plan/refresh — force regenerate study plan for current week */
+  add('POST', '/me/study-plan/refresh', async (c) => {
+    const weekStart = new Date().toISOString().slice(0, 10);
+    const plan = await store.generateStudyPlan(c.claims.sub, weekStart);
+    return { status: 200, body: plan };
+  });
+
   /**
    * POST /practice/sessions  (adaptive modes)
    * mode: 'adaptive'       — targets weakest task
