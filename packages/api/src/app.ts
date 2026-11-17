@@ -1152,7 +1152,20 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
              GROUP BY qv2.eco_domain
            ) qv2
          ), '{}'::jsonb),
-         0
+         (
+           /* streak_days: count consecutive weekly_snapshot weeks (incl this one) working backwards */
+           WITH ordered AS (
+             SELECT week_start,
+                    ROW_NUMBER() OVER (ORDER BY week_start DESC) AS rn
+             FROM weekly_snapshots
+             WHERE user_id = $1::uuid AND questions_answered > 0
+               AND week_start <= $2::date
+           ), consec AS (
+             SELECT week_start FROM ordered
+             WHERE week_start = ($2::date - INTERVAL '7 days' * (rn - 1))::date
+           )
+           SELECT COALESCE(COUNT(*) * 7, 0)::int FROM consec
+         )
        FROM exam_answers ea
        WHERE ea.user_id = $1::uuid
          AND ea.answered_at >= $2::date AND ea.answered_at < $2::date + INTERVAL '7 days'
@@ -1160,7 +1173,8 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
          questions_answered = EXCLUDED.questions_answered,
          questions_correct   = EXCLUDED.questions_correct,
          time_studied_min    = EXCLUDED.time_studied_min,
-         domains             = EXCLUDED.domains`,
+         domains             = EXCLUDED.domains,
+         streak_days         = EXCLUDED.streak_days`,
       [userId, weekStart],
     );
     return { status: 200, body: { ok: true } };

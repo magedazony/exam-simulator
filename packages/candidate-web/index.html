@@ -137,11 +137,11 @@ a { color: var(--primary); }
 // in memory: after a reload the candidate signs in again and an unfinished
 // exam resumes where the server left it.
 const API = "/api/v1";
-const S = { lang: "en", access: null, refresh: null, me: null, blueprint: null, flash: null, practice: null, exam: null, timers: [] };
+const S = { lang: "en", access: null, refresh: null, me: null, blueprint: null, flash: null, practice: null, exam: null, timers: [], unreadCount: 0 };
 
 const T = {
   en: {
-    brand: "Exam Simulator", home: "Home", practice: "Practice", mock: "Mock exam", stats: "Stats", tips: "Exam tips", tipsIntro: "Short reminders for how to read questions, choose answers and manage your time.", tipsNote: "Study guidance from our course notes. It is not a statement by PMI.", settings: "Settings", signOut: "Sign out", dark: "Dark", light: "Light",
+    brand: "Exam Simulator", home: "Home", practice: "Practice", mock: "Mock exam", stats: "Stats", tips: "Exam tips", tipsIntro: "Short reminders for how to read questions, choose answers and manage your time.", tipsNote: "Study guidance from our course notes. It is not a statement by PMI.", settings: "Settings", signOut: "Sign out", dark: "Dark", light: "Light", notifications: "Notifications", markAllRead: "Mark all as read", noNotifications: "No notifications",
     notice: "Independent study tool. Not affiliated with or endorsed by PMI. PMP is a registered mark of the Project Management Institute, Inc.",
     signIn: "Sign in", register: "Create account", email: "Email", password: "Password", newPassword: "New password", forgot: "Forgot password?", haveAccount: "I already have an account", noAccount: "Create an account",
     acceptTerms: "I accept the terms of use and the privacy policy", termsLink: "Terms of use", buy: "Buy", bought: "Thank you. Your pass is active.", playNote: "Payment is handled by Google Play. Passes do not renew automatically.", install: "Install the app", installText: "Add the app to your home screen to open it like any other app.", iosInstall: "On iPhone or iPad: tap Share, then Add to Home Screen.", offlineBar: "You are offline. Practice and exams need a connection.", myData: "Your data", myDataText: "Download everything we store about you: profile, answers, mock exams, reports and access.", download: "Download my data", privacyLink: "Privacy policy", support: "Help:", pwHint: "At least 10 characters.", checkEmail: "Check your email for a link to confirm your address.", verified: "Your email is confirmed. You can sign in now.",
@@ -172,7 +172,7 @@ const T = {
     redeemTitle: "Have an access code?", redeemHint: "For example a code from your training course.", code: "Access code", redeem: "Redeem", redeemed: "Code accepted. You have full access.",
   },
   ar: {
-    brand: "محاكي الاختبار", home: "الرئيسية", practice: "تدريب", mock: "اختبار تجريبي", stats: "النتائج", tips: "نصائح الامتحان", tipsIntro: "تذكيرات قصيرة لطريقة قراءة الأسئلة واختيار الإجابة وإدارة الوقت.", tipsNote: "إرشادات دراسية من ملاحظات الدورة، وليست تصريحًا من PMI.", settings: "الإعدادات", signOut: "تسجيل الخروج", dark: "داكن", light: "فاتح",
+    brand: "محاكي الاختبار", home: "الرئيسية", practice: "تدريب", mock: "اختبار تجريبي", stats: "النتائج", tips: "نصائح الامتحان", tipsIntro: "تذكيرات قصيرة لطريقة قراءة الأسئلة واختيار الإجابة وإدارة الوقت.", tipsNote: "إرشادات دراسية من ملاحظات الدورة، وليست تصريحًا من PMI.", settings: "الإعدادات", signOut: "تسجيل الخروج", dark: "داكن", light: "فاتح", notifications: "الإشعارات", markAllRead: "تعليم الكل كمقروء", noNotifications: "لا توجد إشعارات",
     notice: "أداة دراسة مستقلة، غير تابعة لـ PMI وغير معتمدة منه. PMP علامة مسجّلة لمعهد إدارة المشروعات.",
     signIn: "تسجيل الدخول", register: "إنشاء حساب", email: "البريد الإلكتروني", password: "كلمة المرور", newPassword: "كلمة المرور الجديدة", forgot: "نسيت كلمة المرور؟", haveAccount: "لدي حساب بالفعل", noAccount: "إنشاء حساب جديد",
     acceptTerms: "أوافق على شروط الاستخدام وسياسة الخصوصية", termsLink: "شروط الاستخدام", buy: "شراء", bought: "شكراً لك. باقتك مفعّلة الآن.", playNote: "يتم الدفع عن طريق Google Play. الباقات لا تتجدد تلقائياً.", install: "ثبّت التطبيق", installText: "أضف التطبيق إلى الشاشة الرئيسية لتفتحه مثل أي تطبيق آخر.", iosInstall: "على iPhone أو iPad: اضغط مشاركة، ثم إضافة إلى الشاشة الرئيسية.", offlineBar: "أنت غير متصل. التدريب والاختبارات تحتاج اتصالاً.", myData: "بياناتك", myDataText: "نزّل كل ما نحفظه عنك: الملف الشخصي والإجابات والاختبارات التجريبية والبلاغات والوصول.", download: "تنزيل بياناتي", privacyLink: "سياسة الخصوصية", support: "المساعدة:", pwHint: "10 أحرف على الأقل.", checkEmail: "راجع بريدك الإلكتروني لتأكيد عنوانك عبر الرابط المرسل.", verified: "تم تأكيد بريدك. يمكنك تسجيل الدخول الآن.",
@@ -253,8 +253,10 @@ function shell(body, opts = {}) {
   S.flash = null;
   const dark = getComputedStyle(document.documentElement).colorScheme.includes("dark");
   const tabs = [["home", t("home")], ["practice", t("practice")], ["mock", t("mock")], ["stats", t("stats")], ["tips", t("tips")], ["settings", t("settings")]];
+  const unread = S.unreadCount > 0 ? `<span style="background:var(--bad);color:#fff;border-radius:9999px;font-size:11px;padding:0 5px;min-width:17px;text-align:center;vertical-align:middle">${S.unreadCount > 9 ? "9+" : S.unreadCount}</span>` : "";
   $("#app").innerHTML = `<header class="top"><span class="brand">${t("brand")}</span>
       <button class="small" data-act="lang">${S.lang === "en" ? "العربية" : "English"}</button><button class="small" data-act="theme">${dark ? t("light") : t("dark")}</button>
+      ${S.access && !opts.exam ? `<a href="#notifications" class="btn small" aria-label="${t("notifications")}" title="${t("notifications")}">🔔${unread}</a>` : ""}
       ${S.access && !opts.exam ? `<button class="small" data-act="signout">${t("signOut")}</button>` : ""}</header>
     ${S.access && !opts.exam ? `<nav class="tabs" aria-label="Sections">${tabs.map(([id, n]) => `<a href="#${id}"${route === id ? ' aria-current="page"' : ""}>${n}</a>`).join("")}</nav>` : ""}
     <main>${msg}${body}</main>`;
@@ -345,11 +347,19 @@ async function verifyEmail() {
   catch (e) { flash("err", errText(e)); }
   location.hash = "#signin";
 }
+async function fetchUnreadCount() {
+  try {
+    const res = await api("GET", "/me/notifications");
+    const items = Array.isArray(res) ? res : (res.notifications ?? []);
+    S.unreadCount = items.filter((n) => !n.readAt).length;
+  } catch { S.unreadCount = 0; }
+}
 async function afterSignIn() {
   S.me = await api("GET", "/me");
   setLang(S.me.language === "ar" ? "ar" : "en");
   S.blueprint = await api("GET", "/blueprints/active");
   settlePlayPurchases();
+  fetchUnreadCount(); // fire-and-forget; updates bell badge on next render
   location.hash = S.me.examTargetDate === null && S.me.weeklyStudyHours === null ? "#welcome" : "#home";
   if (location.hash === "#home") render();
 }
@@ -673,8 +683,41 @@ async function statsView() {
       </div>`
     : "";
 
-  paint(seq, `<h1>${t("statsTitle")}</h1>${weekChart}<div class="card"><h2>${t("byDomain")}</h2>${bars(dom.rows, domainName)}</div><div class="card"><h2>${t("byApproach")}</h2>${bars(app.rows, (k) => t(k))}</div>
+  // streak badge from weekly snapshots
+  const totalStreak = (() => { let s = 0; for (const w of [...(snaps.items || [])].reverse()) { if (w.questions_answered > 0) s = w.streak_days || s; } return s; })();
+  const streakBadge = totalStreak > 0
+    ? `<div class="card" style="display:flex;align-items:center;gap:12px;padding:12px 16px"><span style="font-size:28px">🔥</span><div><p style="margin:0;font-weight:700;font-size:18px">${totalStreak} ${S.lang === "ar" ? "يوم" : "day"} streak</p><small class="muted">${S.lang === "ar" ? "نشاط متواصل" : "consecutive study"}</small></div></div>`
+    : "";
+  paint(seq, `<h1>${t("statsTitle")}</h1>${streakBadge}${weekChart}<div class="card"><h2>${t("byDomain")}</h2>${bars(dom.rows, domainName)}</div><div class="card"><h2>${t("byApproach")}</h2>${bars(app.rows, (k) => t(k))}</div>
     ${weakest.length ? `<div class="card"><h2>${t("byTask")}</h2>${bars(weakest, taskName)}</div>` : ""}<p class="muted">${t("estimate")}</p>`);
+}
+
+async function notificationsView() {
+  shell(`<h1>${t("notifications")}</h1><p class="muted">⏳</p>`);
+  let items = [];
+  try { const res = await api("GET", "/me/notifications"); items = Array.isArray(res) ? res : (res.notifications ?? []); } catch { items = []; }
+  // mark unread count
+  S.unreadCount = items.filter((n) => !n.readAt).length;
+  const list = items.length
+    ? items.map((n) => {
+        const when = dateText(n.createdAt);
+        const unread = !n.readAt ? `style="font-weight:600"` : "";
+        return `<div class="card" style="margin-bottom:6px;padding:12px 16px"><p ${unread} style="margin:0 0 4px">${esc(n.message || n.type)}</p><small class="muted" dir="ltr">${when}</small></div>`;
+      }).join("")
+    : `<div class="card"><p class="muted" style="text-align:center">${t("noNotifications")}</p></div>`;
+  const hasUnread = items.some((n) => !n.readAt);
+  shell(`<h1>${t("notifications")}</h1>
+    ${hasUnread ? `<button class="btn small" id="markAll" style="margin-bottom:12px">${t("markAllRead")}</button>` : ""}
+    ${list}`);
+  if (hasUnread) {
+    $("#markAll").onclick = async () => {
+      try {
+        await api("POST", "/me/notifications/read-all");
+        S.unreadCount = 0;
+        await notificationsView();
+      } catch (e) { flash(e.text ? await e.text() : e.message, true); }
+    };
+  }
 }
 
 function settingsView() {
@@ -916,6 +959,7 @@ async function render() {
     if (route === "result") return await resultView(arg);
     if (route === "answers") return await answersView(arg);
     if (route === "stats") return await statsView();
+    if (route === "notifications") return await notificationsView();
     if (route === "tips") return tipsView();
     if (route === "settings") return settingsView();
     return await homeView();

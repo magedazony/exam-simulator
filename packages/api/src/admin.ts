@@ -686,5 +686,26 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
     return { status: 200, body: { items: await store.questionReports(status) } };
   });
 
+  // GET /admin/question-difficulty — questions ranked by difficulty (most failed first)
+  add('GET', '/admin/question-difficulty', ROLES.anyStaff, async (c) => {
+    const limit = Math.min(200, parseInt(c.query.get('limit') ?? '50', 10) || 50);
+    const minAttempts = parseInt(c.query.get('min_attempts') ?? '5', 10) || 5;
+    const rows = await store.query<{
+      question_id: string; ordinal: number; eco_task: string; eco_domain: string;
+      total_attempts: number; correct_attempts: number; difficulty_score: number;
+    }>(
+      `SELECT qs.question_id, qv.ordinal, qv.eco_task, qv.eco_domain,
+              qs.total_attempts, qs.correct_attempts,
+              ROUND(qs.difficulty_score::numeric, 3) AS difficulty_score
+         FROM question_stats qs
+         JOIN question_versions qv ON qv.id = qs.latest_version_id
+        WHERE qs.total_attempts >= $2
+        ORDER BY qs.difficulty_score DESC, qs.total_attempts DESC
+        LIMIT $1`,
+      [limit, minAttempts],
+    );
+    return { status: 200, body: { items: rows } };
+  });
+
   return routes;
 }
