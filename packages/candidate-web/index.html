@@ -119,8 +119,8 @@ th { background: var(--bg); font-weight: 600; }
 .cell.flag::after { content: "⚑"; position: absolute; top: 0; right: 4px; font-size: 11px; color: var(--warn); }
 .cell.current { outline: 2px solid var(--text); }
 .bar { display: grid; grid-template-columns: minmax(110px, 36%) 1fr 64px; gap: 8px; align-items: center; font-size: 14px; }
-.bar .track { height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
-.bar .track i { display: block; height: 100%; background: var(--primary); border-radius: 5px; }
+.bar .track, .track { height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
+.bar .track i, .track i { display: block; height: 100%; background: var(--primary); border-radius: 5px; }
 .bar .num { text-align: end; font-variant-numeric: tabular-nums; font-weight: 600; direction: ltr; }
 .auth { width: min(420px, 100%); margin: 24px auto; }
 .links { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; }
@@ -141,7 +141,7 @@ const S = { lang: "en", access: null, refresh: null, me: null, blueprint: null, 
 
 const T = {
   en: {
-    brand: "Exam Simulator", home: "Home", practice: "Practice", mock: "Mock exam", stats: "Stats", tips: "Exam tips", tipsIntro: "Short reminders for how to read questions, choose answers and manage your time.", tipsNote: "Study guidance from our course notes. It is not a statement by PMI.", settings: "Settings", signOut: "Sign out", dark: "Dark", light: "Light", notifications: "Notifications", markAllRead: "Mark all as read", noNotifications: "No notifications", bookmarks: "Bookmarks", bookmark: "Bookmark", unbookmark: "Remove bookmark", bookmarked: "Bookmarked", addNote: "Add note", noteSaved: "Note saved", noteDeleted: "Note deleted", noBookmarks: "No bookmarks yet",
+    brand: "Exam Simulator", home: "Home", practice: "Practice", mock: "Mock exam", stats: "Stats", analytics: "Analytics", studyPlanTab: "Study Plan", tips: "Exam tips", tipsIntro: "Short reminders for how to read questions, choose answers and manage your time.", tipsNote: "Study guidance from our course notes. It is not a statement by PMI.", settings: "Settings", signOut: "Sign out", dark: "Dark", light: "Light", notifications: "Notifications", markAllRead: "Mark all as read", noNotifications: "No notifications", bookmarks: "Bookmarks", bookmark: "Bookmark", unbookmark: "Remove bookmark", bookmarked: "Bookmarked", addNote: "Add note", noteSaved: "Note saved", noteDeleted: "Note deleted", noBookmarks: "No bookmarks yet",
     notice: "Independent study tool. Not affiliated with or endorsed by PMI. PMP is a registered mark of the Project Management Institute, Inc.",
     signIn: "Sign in", register: "Create account", email: "Email", password: "Password", newPassword: "New password", forgot: "Forgot password?", haveAccount: "I already have an account", noAccount: "Create an account",
     acceptTerms: "I accept the terms of use and the privacy policy", termsLink: "Terms of use", buy: "Buy", bought: "Thank you. Your pass is active.", playNote: "Payment is handled by Google Play. Passes do not renew automatically.", install: "Install the app", installText: "Add the app to your home screen to open it like any other app.", iosInstall: "On iPhone or iPad: tap Share, then Add to Home Screen.", offlineBar: "You are offline. Practice and exams need a connection.", myData: "Your data", myDataText: "Download everything we store about you: profile, answers, mock exams, reports and access.", download: "Download my data", privacyLink: "Privacy policy", support: "Help:", pwHint: "At least 10 characters.", checkEmail: "Check your email for a link to confirm your address.", verified: "Your email is confirmed. You can sign in now.",
@@ -150,7 +150,7 @@ const T = {
     readiness: "Readiness", noBand: "Not enough data yet", bandRule: "A readiness band appears after one full mock exam and 300 practice questions. It is an educational estimate, never a guarantee of passing.",
     daysLeft: (n) => (n === 1 ? "1 day to your exam" : n + " days to your exam"), today: "Recommended today", recFirst: "Start with 10 practice questions", recWeak: (d) => "Practise your weakest domain: " + d, start: "Start",
     answered: "Questions answered", accuracy: "Accuracy", mocksDone: "Mock exams", streak: "Day streak", weakest: "Weakest domain", strongest: "Strongest domain", recent: "Recent mock scores",
-    pTitle: "Practice", pIntro: "Answer one question at a time. The explanation appears after each answer.", mode: "Mode", modes: { quick: "Quick: mixed questions", focused: "Focused: choose domains and approaches", weak_areas: "My weak areas", incorrect_only: "Questions I got wrong", timed: "Timed (80 seconds a question)" },
+    pTitle: "Practice", pIntro: "Answer one question at a time. The explanation appears after each answer.", mode: "Mode", modes: { quick: "Quick: mixed questions", focused: "Focused: choose domains and approaches", weak_areas: "My weak areas", incorrect_only: "Questions I got wrong", timed: "Timed (80 seconds a question)", adaptive: "Adaptive: AI-tuned difficulty" },
     domains: "Domains", approaches: "Approaches", count: "Number of questions", any: "Any", startPractice: "Start practice", noMatch: "No questions match these choices. Choose fewer filters.",
     ofq: (a, b) => "Question " + a + " of " + b, choose: (n) => "Choose " + n, check: "Check answer", next: "Next question", finish: "See summary", correct: "Correct", incorrect: "Not correct",
     why: "Why", mindset: "Mindset", concept: "Key concept", task: "Task", report: "Report a problem with this question", reportReason: "What is wrong?", reasons: { wrong_answer: "The answer is wrong", ambiguous: "More than one answer fits", typo: "Typo or wording", outdated: "Out of date", other: "Something else" }, send: "Send", reported: "Thank you. Our content team will review it.",
@@ -162,6 +162,7 @@ const T = {
     breakTitle: "Break", breakText: "The exam clock is paused. The previous section is locked.", resumeNow: "Resume now",
     result: "Result", expiredMsg: "Time ran out. The answers you saved were submitted.", byDomain: "By domain", byApproach: "By approach", byTask: "By task", reviewAnswers: "Review answers", filterAll: "All", filterWrong: "Incorrect", filterFlagged: "Flagged", filterBlank: "Unanswered", yours: "Your answer", none: "none", more: "Show more",
     statsTitle: "Your results", noStats: "Answer some questions and your results appear here.", estimate: "Educational estimate. It is not a prediction or guarantee of the official exam result.",
+    studyPlan: "Study Plan", studyPlanIntro: "Your personalised weekly study plan.", refreshPlan: "Refresh plan", planWeekOf: "Week of", planGoal: "Goal", planSessions: "Sessions", planTopic: "Topic", planMins: "min", noStudyPlan: "Complete your profile to get a study plan.", domainAnalytics: "Domain Analytics", difficultyAnalytics: "Difficulty Analytics", masteryLevel: "Mastery", totalAtt: "Attempts", correctAtt: "Correct", diffEasy: "Easy", diffMedium: "Medium", diffHard: "Hard",
     language: "Interface language", saved2: "Saved.", deleteAccount: "Delete my account", deleteWarn: "This ends all your sessions and removes your account.", confirmDelete: "Yes, delete my account",
     predictive: "Predictive", agile: "Agile", hybrid: "Hybrid", serverDown: "Cannot reach the server. Check your connection and try again.",
     plan: "Your plan", planFree: "Free plan", planPass: "Full access", until: (d) => "Until " + d, freeLeft: (n, max) => n + " of " + max + " free practice questions left today",
@@ -172,7 +173,7 @@ const T = {
     redeemTitle: "Have an access code?", redeemHint: "For example a code from your training course.", code: "Access code", redeem: "Redeem", redeemed: "Code accepted. You have full access.",
   },
   ar: {
-    brand: "محاكي الاختبار", home: "الرئيسية", practice: "تدريب", mock: "اختبار تجريبي", stats: "النتائج", tips: "نصائح الامتحان", tipsIntro: "تذكيرات قصيرة لطريقة قراءة الأسئلة واختيار الإجابة وإدارة الوقت.", tipsNote: "إرشادات دراسية من ملاحظات الدورة، وليست تصريحًا من PMI.", settings: "الإعدادات", signOut: "تسجيل الخروج", dark: "داكن", light: "فاتح", notifications: "الإشعارات", markAllRead: "تعليم الكل كمقروء", noNotifications: "لا توجد إشعارات", bookmarks: "المفضلة", bookmark: "أضف للمفضلة", unbookmark: "إزالة من المفضلة", bookmarked: "في المفضلة", addNote: "أضف ملاحظة", noteSaved: "تم حفظ الملاحظة", noteDeleted: "تم حذف الملاحظة", noBookmarks: "لا توجد إشارات مرجعية بعد",
+    brand: "محاكي الاختبار", home: "الرئيسية", practice: "تدريب", mock: "اختبار تجريبي", stats: "النتائج", analytics: "تحليلات", studyPlanTab: "خطة الدراسة", tips: "نصائح الامتحان", tipsIntro: "تذكيرات قصيرة لطريقة قراءة الأسئلة واختيار الإجابة وإدارة الوقت.", tipsNote: "إرشادات دراسية من ملاحظات الدورة، وليست تصريحًا من PMI.", settings: "الإعدادات", signOut: "تسجيل الخروج", dark: "داكن", light: "فاتح", notifications: "الإشعارات", markAllRead: "تعليم الكل كمقروء", noNotifications: "لا توجد إشعارات", bookmarks: "المفضلة", bookmark: "أضف للمفضلة", unbookmark: "إزالة من المفضلة", bookmarked: "في المفضلة", addNote: "أضف ملاحظة", noteSaved: "تم حفظ الملاحظة", noteDeleted: "تم حذف الملاحظة", noBookmarks: "لا توجد إشارات مرجعية بعد",
     notice: "أداة دراسة مستقلة، غير تابعة لـ PMI وغير معتمدة منه. PMP علامة مسجّلة لمعهد إدارة المشروعات.",
     signIn: "تسجيل الدخول", register: "إنشاء حساب", email: "البريد الإلكتروني", password: "كلمة المرور", newPassword: "كلمة المرور الجديدة", forgot: "نسيت كلمة المرور؟", haveAccount: "لدي حساب بالفعل", noAccount: "إنشاء حساب جديد",
     acceptTerms: "أوافق على شروط الاستخدام وسياسة الخصوصية", termsLink: "شروط الاستخدام", buy: "شراء", bought: "شكراً لك. باقتك مفعّلة الآن.", playNote: "يتم الدفع عن طريق Google Play. الباقات لا تتجدد تلقائياً.", install: "ثبّت التطبيق", installText: "أضف التطبيق إلى الشاشة الرئيسية لتفتحه مثل أي تطبيق آخر.", iosInstall: "على iPhone أو iPad: اضغط مشاركة، ثم إضافة إلى الشاشة الرئيسية.", offlineBar: "أنت غير متصل. التدريب والاختبارات تحتاج اتصالاً.", myData: "بياناتك", myDataText: "نزّل كل ما نحفظه عنك: الملف الشخصي والإجابات والاختبارات التجريبية والبلاغات والوصول.", download: "تنزيل بياناتي", privacyLink: "سياسة الخصوصية", support: "المساعدة:", pwHint: "10 أحرف على الأقل.", checkEmail: "راجع بريدك الإلكتروني لتأكيد عنوانك عبر الرابط المرسل.", verified: "تم تأكيد بريدك. يمكنك تسجيل الدخول الآن.",
@@ -181,7 +182,7 @@ const T = {
     readiness: "الجاهزية", noBand: "لا توجد بيانات كافية بعد", bandRule: "يظهر مستوى الجاهزية بعد اختبار تجريبي كامل و300 سؤال تدريب. هو تقدير تعليمي وليس ضماناً للنجاح.",
     daysLeft: (n) => "باقٍ " + n + " يوماً على اختبارك", today: "المقترح اليوم", recFirst: "ابدأ بـ 10 أسئلة تدريب", recWeak: (d) => "تدرّب على أضعف مجال لديك: " + d, start: "ابدأ",
     answered: "أسئلة تمت الإجابة عنها", accuracy: "الدقة", mocksDone: "اختبارات تجريبية", streak: "أيام متتالية", weakest: "أضعف مجال", strongest: "أقوى مجال", recent: "آخر نتائج الاختبارات",
-    pTitle: "تدريب", pIntro: "أجب عن سؤال واحد في كل مرة. يظهر الشرح بعد كل إجابة.", mode: "النوع", modes: { quick: "سريع: أسئلة متنوعة", focused: "مركّز: اختر المجالات والمناهج", weak_areas: "نقاط ضعفي", incorrect_only: "الأسئلة التي أخطأت فيها", timed: "بوقت محدد (80 ثانية للسؤال)" },
+    pTitle: "تدريب", pIntro: "أجب عن سؤال واحد في كل مرة. يظهر الشرح بعد كل إجابة.", mode: "النوع", modes: { quick: "سريع: أسئلة متنوعة", focused: "مركّز: اختر المجالات والمناهج", weak_areas: "نقاط ضعفي", incorrect_only: "الأسئلة التي أخطأت فيها", timed: "بوقت محدد (80 ثانية للسؤال)", adaptive: "تكيّفي: صعوبة مضبوطة بالذكاء الاصطناعي" },
     domains: "المجالات", approaches: "المناهج", count: "عدد الأسئلة", any: "الكل", startPractice: "ابدأ التدريب", noMatch: "لا توجد أسئلة بهذه الاختيارات. قلّل عوامل التصفية.",
     ofq: (a, b) => "السؤال " + a + " من " + b, choose: (n) => "اختر " + n, check: "تحقق من الإجابة", next: "السؤال التالي", finish: "عرض الملخص", correct: "إجابة صحيحة", incorrect: "إجابة غير صحيحة",
     why: "لماذا", mindset: "طريقة التفكير", concept: "المفهوم الأساسي", task: "المهمة", report: "أبلغ عن مشكلة في هذا السؤال", reportReason: "ما المشكلة؟", reasons: { wrong_answer: "الإجابة خاطئة", ambiguous: "أكثر من إجابة مناسبة", typo: "خطأ في الكتابة أو الصياغة", outdated: "معلومة قديمة", other: "شيء آخر" }, send: "إرسال", reported: "شكراً لك. سيراجعه فريق المحتوى.",
@@ -193,6 +194,7 @@ const T = {
     breakTitle: "استراحة", breakText: "ساعة الاختبار متوقفة. القسم السابق أصبح مقفلاً.", resumeNow: "استأنف الآن",
     result: "النتيجة", expiredMsg: "انتهى الوقت. تم تسليم الإجابات المحفوظة.", byDomain: "حسب المجال", byApproach: "حسب المنهج", byTask: "حسب المهمة", reviewAnswers: "مراجعة الإجابات", filterAll: "الكل", filterWrong: "الخاطئة", filterFlagged: "عليها علامة", filterBlank: "بدون إجابة", yours: "إجابتك", none: "لا شيء", more: "عرض المزيد",
     statsTitle: "نتائجك", noStats: "أجب عن بعض الأسئلة لتظهر نتائجك هنا.", estimate: "تقدير تعليمي. ليس توقعاً ولا ضماناً لنتيجة الاختبار الرسمي.",
+    studyPlan: "خطة الدراسة", studyPlanIntro: "خطة دراستك الأسبوعية المخصصة.", refreshPlan: "تحديث الخطة", planWeekOf: "أسبوع", planGoal: "الهدف", planSessions: "الجلسات", planTopic: "الموضوع", planMins: "دقيقة", noStudyPlan: "أكمل ملفك الشخصي للحصول على خطة دراسية.", domainAnalytics: "تحليل المجالات", difficultyAnalytics: "تحليل الصعوبة", masteryLevel: "مستوى الإتقان", totalAtt: "المحاولات", correctAtt: "الصحيحة", diffEasy: "سهل", diffMedium: "متوسط", diffHard: "صعب",
     language: "لغة الواجهة", saved2: "تم الحفظ.", deleteAccount: "حذف حسابي", deleteWarn: "سيؤدي ذلك إلى إنهاء كل جلساتك وحذف حسابك.", confirmDelete: "نعم، احذف حسابي",
     predictive: "Predictive", agile: "Agile", hybrid: "Hybrid", serverDown: "تعذّر الوصول إلى الخادم. تحقق من الاتصال وحاول مرة أخرى.",
     plan: "خطتك", planFree: "الخطة المجانية", planPass: "وصول كامل", until: (d) => "حتى " + d, freeLeft: (n, max) => "متبقٍ " + n + " من " + max + " سؤال تدريب مجاني اليوم",
@@ -252,7 +254,7 @@ function shell(body, opts = {}) {
   const msg = S.flash ? `<p class="msg ${S.flash.kind}" role="status">${esc(S.flash.text)}</p>` : "";
   S.flash = null;
   const dark = getComputedStyle(document.documentElement).colorScheme.includes("dark");
-  const tabs = [["home", t("home")], ["practice", t("practice")], ["mock", t("mock")], ["stats", t("stats")], ["bookmarks", t("bookmarks")], ["tips", t("tips")], ["settings", t("settings")]];
+  const tabs = [["home", t("home")], ["practice", t("practice")], ["mock", t("mock")], ["stats", t("stats")], ["analytics", t("analytics")], ["study-plan", t("studyPlanTab")], ["bookmarks", t("bookmarks")], ["tips", t("tips")], ["settings", t("settings")]];
   const unread = S.unreadCount > 0 ? `<span style="background:var(--bad);color:#fff;border-radius:9999px;font-size:11px;padding:0 5px;min-width:17px;text-align:center;vertical-align:middle">${S.unreadCount > 9 ? "9+" : S.unreadCount}</span>` : "";
   $("#app").innerHTML = `<header class="top"><span class="brand">${t("brand")}</span>
       <button class="small" data-act="lang">${S.lang === "en" ? "العربية" : "English"}</button><button class="small" data-act="theme">${dark ? t("light") : t("dark")}</button>
@@ -454,16 +456,35 @@ function welcomeView() {
 
 async function homeView() {
   const seq = S.seq; // a newer screen started meanwhile → do not paint this one
-  const d = await api("GET", "/me/dashboard");
+  const [d, readRes, reviewRes] = await Promise.all([
+    api("GET", "/me/dashboard"),
+    api("GET", "/me/readiness").catch(() => ({ score: null })),
+    api("GET", "/me/spaced-reviews/due").catch(() => ({ count: 0 })),
+  ]);
   const weak = d.weakestDomain;
+  const readScore = readRes?.score;
+  const readinessBand = readScore !== null && readScore !== undefined
+    ? (() => {
+        const pct = typeof readScore === "object" ? (readScore.percent ?? readScore.score ?? null) : readScore;
+        if (pct === null) return t("noBand");
+        const color = pct >= 75 ? "var(--good)" : pct >= 50 ? "#f59e0b" : "var(--bad)";
+        return `<span style="color:${color};font-size:2rem;font-weight:800">${Math.round(pct)}%</span>`;
+      })()
+    : t("noBand");
+  const reviewCount = reviewRes?.count || 0;
+  const reviewBadge = reviewCount > 0
+    ? `<div class="card" style="border-left:3px solid var(--primary);padding:10px 16px"><div class="row"><span>🔁 <strong>${reviewCount}</strong> ${S.lang === "ar" ? "سؤال للمراجعة المتباعدة" : "spaced review" + (reviewCount !== 1 ? "s" : "") + " due"}</span><button class="btn small primary" id="reviewBtn">${S.lang === "ar" ? "راجع الآن" : "Review now"}</button></div></div>`
+    : "";
   paint(seq, `${d.daysToExam !== null && d.daysToExam >= 0 ? `<p class="muted">${t("daysLeft", d.daysToExam)}</p>` : ""}
-    <div class="card"><span class="muted">${t("readiness")}</span><span class="big">${t("noBand")}</span><span class="muted">${t("bandRule")}</span></div>
+    ${reviewBadge}
+    <div class="card"><span class="muted">${t("readiness")}</span>${readinessBand}<span class="muted">${t("bandRule")}</span></div>
     <div class="card accent"><span class="muted">${t("today")}</span><h2>${weak ? esc(t("recWeak", domainName(weak.key))) : t("recFirst")}</h2><button class="primary" id="go">${t("start")}</button></div>
     <div class="tiles"><div class="card"><span class="muted">${t("answered")}</span><span class="big">${d.questionsCompleted}</span></div><div class="card"><span class="muted">${t("accuracy")}</span><span class="big">${d.accuracyPercent === null ? "–" : d.accuracyPercent + "%"}</span></div><div class="card"><span class="muted">${t("mocksDone")}</span><span class="big">${d.mocksCompleted}</span></div><div class="card"><span class="muted">${t("streak")}</span><span class="big">${d.streakDays}</span></div></div>
     ${weak && d.strongestDomain ? `<div class="tiles"><div class="card"><span class="muted">${t("weakest")}</span><strong>${esc(domainName(weak.key))} · ${weak.percent}%</strong></div><div class="card"><span class="muted">${t("strongest")}</span><strong>${esc(domainName(d.strongestDomain.key))} · ${d.strongestDomain.percent}%</strong></div></div>` : ""}
     ${d.recentScores.length ? `<div class="card"><h2>${t("recent")}</h2>${d.recentScores.map((s) => `<div class="bar"><span>${esc(s.date)}</span><span class="track"><i style="width:${s.percent}%"></i></span><span class="num">${s.percent}%</span></div>`).join("")}</div>` : ""}
     <p class="note">${t("notice")}</p>`);
   $("#go").onclick = () => startPractice(weak ? { mode: "focused", questionCount: 10, domainCodes: [weak.key] } : { mode: "quick", questionCount: 10 });
+  if (reviewCount > 0) $("#reviewBtn")?.addEventListener("click", () => startPractice({ mode: "spaced_review", questionCount: Math.min(reviewCount, 20) }));
 }
 
 async function practiceSetupView() {
@@ -492,8 +513,9 @@ async function practiceSetupView() {
 }
 async function startPractice(req) {
   try {
-    const s = await api("POST", "/practice/sessions", req);
-    S.practice = { session: s, i: 1, q: null, sel: [], fb: null, started: Date.now(), deadline: s.timeLimitSeconds ? Date.now() + s.timeLimitSeconds * 1000 : null };
+    const endpoint = req.mode === "adaptive" ? "/practice/adaptive" : "/practice/sessions";
+    const s = await api("POST", endpoint, req);
+    S.practice = { session: s, i: 1, q: null, sel: [], fb: null, started: Date.now(), deadline: s.timeLimitSeconds ? Date.now() + s.timeLimitSeconds * 1000 : null, adaptive: req.mode === "adaptive" };
     location.hash = "#practice/run"; render();
   } catch (e) { flash("err", e.code === "no_questions_match" ? t("noMatch") : e.code === "daily_limit_reached" ? t("freeOut") : errText(e)); location.hash = "#practice"; render(); }
 }
@@ -1045,6 +1067,91 @@ function tipsView() {
     <p class="muted">${t("tipsNote")}</p>`);
 }
 
+// ------------------------------------------------------------ study plan view
+
+async function studyPlanView() {
+  const seq = S.seq;
+  shell(`<h1>${t("studyPlan")}</h1><p class="muted">⏳</p>`);
+  const today = new Date().toISOString().slice(0, 10);
+  const plan = await api("GET", `/me/study-plan?weekStart=${today}`).catch(() => null);
+  if (!plan || !plan.sessions?.length) {
+    paint(seq, `<h1>${t("studyPlan")}</h1><p class="muted">${t("noStudyPlan")}</p>
+      <button class="primary" id="refreshPlan">${t("refreshPlan")}</button>`);
+    $("#refreshPlan")?.addEventListener("click", async () => {
+      flash("ok", "…"); await api("POST", "/me/study-plan/refresh").catch(() => {}); render();
+    });
+    return;
+  }
+  const daysAr = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+  const daysEn = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const sessionRows = plan.sessions.map((s) => {
+    const d = new Date(s.scheduledDate || s.date || today);
+    const dayName = S.lang === "ar" ? (daysAr[d.getDay()] || "") : (daysEn[d.getDay()] || "");
+    const domCode = s.domainCode || s.domain || "";
+    const domLabel = domCode ? (domainName(domCode) || domCode) : (s.topic || "");
+    const mins = s.durationMinutes || s.minutes || 30;
+    const badge = domCode ? `<span class="tag" style="font-size:12px">${esc(domLabel)}</span>` : "";
+    return `<div class="card" style="flex-direction:row;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="min-width:50px;text-align:center"><strong>${esc(dayName)}</strong><br><span class="muted" style="font-size:12px">${esc(s.scheduledDate || s.date || "")}</span></div>
+      <div style="flex:1"><span>${esc(domLabel || t("studyPlan"))}</span> ${badge}</div>
+      <span class="muted" style="font-size:13px">${mins} ${t("planMins")}</span>
+      ${s.questionCount ? `<span class="tag">${s.questionCount} Q</span>` : ""}
+    </div>`;
+  }).join("");
+  const goal = plan.weeklyGoalMinutes || plan.goalMinutes || "";
+  paint(seq, `<h1>${t("studyPlan")}</h1>
+    <p class="muted">${t("studyPlanIntro")}</p>
+    ${goal ? `<div class="card accent"><span class="muted">${t("planGoal")}</span><span class="big">${goal} ${t("planMins")}</span></div>` : ""}
+    <div style="display:flex;flex-direction:column;gap:10px">${sessionRows}</div>
+    <button id="refreshPlan">${t("refreshPlan")}</button>`);
+  $("#refreshPlan")?.addEventListener("click", async () => {
+    flash("ok", "…"); await api("POST", "/me/study-plan/refresh").catch(() => {}); render();
+  });
+}
+
+// ------------------------------------------------------------ deep analytics view
+
+async function analyticsView() {
+  const seq = S.seq;
+  shell(`<h1>${t("statsTitle")}</h1><p class="muted">⏳</p>`);
+  const [domains, difficulty] = await Promise.all([
+    api("GET", "/me/analytics/domains").catch(() => ({ items: [] })),
+    api("GET", "/me/analytics/difficulty").catch(() => ({ items: [] })),
+  ]);
+  const domItems = domains.items || [];
+  const diffItems = difficulty.items || [];
+
+  const pctColor = (p) => p >= 75 ? "var(--good)" : p >= 50 ? "#f59e0b" : "var(--bad)";
+  const masteryBar = (item) => {
+    const pct = typeof item.accuracy === "number" ? Math.round(item.accuracy * 100) : 0;
+    const mastery = item.mastery || item.masteryLevel || "";
+    const name = domainName(item.domainCode || item.domain || "") || item.domain || "";
+    return `<div style="margin-bottom:10px">
+      <div class="row" style="margin-bottom:4px"><span>${esc(name)}</span>${mastery ? `<span class="tag" style="font-size:11px">${esc(mastery)}</span>` : ""}<span class="muted" style="font-size:12px;margin-left:auto">${item.total || 0} ${t("totalAtt")} · ${pct}%</span></div>
+      <div class="track" style="height:8px;border-radius:4px"><i style="width:${Math.min(pct,100)}%;height:8px;border-radius:4px;background:${pctColor(pct)};display:block"></i></div>
+    </div>`;
+  };
+
+  const diffBands = { easy: t("diffEasy"), medium: t("diffMedium"), hard: t("diffHard") };
+  const diffRow = (item) => {
+    const pct = typeof item.accuracy === "number" ? Math.round(item.accuracy * 100) : 0;
+    const band = item.difficulty || item.band || "";
+    const label = diffBands[band] || band;
+    return `<div class="row" style="margin-bottom:8px">
+      <span style="min-width:70px">${esc(label)}</span>
+      <div class="track" style="flex:1;height:8px;border-radius:4px"><i style="width:${Math.min(pct,100)}%;height:8px;border-radius:4px;background:${pctColor(pct)};display:block"></i></div>
+      <span style="min-width:40px;text-align:right;font-size:13px;color:${pctColor(pct)}">${pct}%</span>
+      <span class="muted" style="font-size:12px">${item.total || 0}</span>
+    </div>`;
+  };
+
+  paint(seq, `<h1>${t("statsTitle")}</h1>
+    ${domItems.length ? `<div class="card"><h2>${t("domainAnalytics")}</h2>${domItems.map(masteryBar).join("")}</div>` : ""}
+    ${diffItems.length ? `<div class="card"><h2>${t("difficultyAnalytics")}</h2>${diffItems.map(diffRow).join("")}</div>` : ""}
+    ${!domItems.length && !diffItems.length ? `<p class="muted">${t("noStats")}</p>` : ""}
+    <p class="muted">${t("estimate")}</p>`);
+}
+
 // ------------------------------------------------------------ router
 
 async function render() {
@@ -1066,6 +1173,8 @@ async function render() {
     if (route === "result") return await resultView(arg);
     if (route === "answers") return await answersView(arg);
     if (route === "stats") return await statsView();
+    if (route === "analytics") return await analyticsView();
+    if (route === "study-plan") return await studyPlanView();
     if (route === "bookmarks") return await bookmarksView();
     if (route === "notifications") return await notificationsView();
     if (route === "tips") return tipsView();
