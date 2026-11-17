@@ -285,7 +285,7 @@ function loginView(step) {
 
 // ------------------------------------------------------------ shell
 
-const NAV = [["queue", "Work queue"], ["questions", "Questions"], ["new", "New question", isAuthor], ["cases", "Case studies"], ["import", "Import", isAuthor], ["blueprints", "Blueprints", isAdmin], ["reports", "Reports"], ["users", "Users", isAdmin], ["access", "Plans and access", isAdmin], ["audit", "Audit log", isAdmin], ["security", "Security"]];
+const NAV = [["queue", "Work queue"], ["questions", "Questions"], ["new", "New question", isAuthor], ["cases", "Case studies"], ["import", "Import", isAuthor], ["blueprints", "Blueprints", isAdmin], ["reports", "Reports"], ["users", "Users", isAdmin], ["certificates", "Certificates", isAdmin], ["access", "Plans and access", isAdmin], ["audit", "Audit log", isAdmin], ["security", "Security"]];
 
 function shell(title, body) {
   const route = (location.hash.slice(1) || "queue").split("/")[0];
@@ -754,6 +754,54 @@ function securityView() {
   $("#regen").onclick = async () => { try { const r = await api("POST", "/auth/mfa/recovery-codes"); $("#codes").innerHTML = `<p class="msg ok">${t("Save these now. They are shown only once.")}</p><div class="codes">${r.recoveryCodes.map((c) => `<span>${esc(c)}</span>`).join("")}</div>`; } catch (e) { showError(e); } };
 }
 
+async function certificatesAdminView() {
+  const passed = new URLSearchParams(location.hash.split("?")[1] || "").get("passed");
+  const offset = Number(new URLSearchParams(location.hash.split("?")[1] || "").get("offset") || 0);
+  const limit = 50;
+  const qs = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (passed !== null) qs.set("passed", passed);
+  const r = await api("GET", "/admin/certificates?" + qs);
+  const items = r.items || [];
+  shell(t("Certificates"), `
+    <div class="row" style="gap:8px;margin-bottom:12px">
+      <a class="btn small${passed === null ? " primary" : ""}" href="#certificates">${t("All")}</a>
+      <a class="btn small${passed === "true" ? " primary" : ""}" href="#certificates?passed=true">${t("Passed")}</a>
+      <a class="btn small${passed === "false" ? " primary" : ""}" href="#certificates?passed=false">${t("Not passed")}</a>
+    </div>
+    ${table(items, [
+      ["Token", (c) => `<span dir="ltr" style="font-size:12px">${esc(c.token)}</span>`],
+      ["User", (c) => `<span dir="ltr" style="font-size:12px">${esc(c.user_id)}</span>`],
+      ["Score", (c) => `${c.score_percent}%`],
+      ["Passed", (c) => c.passed ? "✅" : "❌"],
+      ["Issued", (c) => new Date(c.issued_at).toLocaleDateString()],
+      ["Revoked", (c) => c.revoked_at ? `<span style="color:var(--bad)">Yes</span>` : "No"],
+      ["Action", (c) => c.revoked_at
+        ? `<button class="small" data-unrevoke="${c.id}">${t("Un-revoke")}</button>`
+        : `<button class="small danger" data-revoke="${c.id}">${t("Revoke")}</button>`],
+    ])}
+    <div style="display:flex;gap:8px;margin-top:12px">
+      ${offset > 0 ? `<a class="btn small" href="#certificates?${new URLSearchParams({ passed: passed || '', offset: String(Math.max(0, offset - limit)) })}">${t("← Previous")}</a>` : ""}
+      ${items.length === limit ? `<a class="btn small" href="#certificates?${new URLSearchParams({ passed: passed || '', offset: String(offset + limit) })}">${t("Next →")}</a>` : ""}
+    </div>`);
+  document.addEventListener("click", async (ev) => {
+    const btn = ev.target.closest("[data-revoke],[data-unrevoke]");
+    if (!btn) return;
+    const id = btn.dataset.revoke || btn.dataset.unrevoke;
+    const isRevoke = !!btn.dataset.revoke;
+    btn.disabled = true;
+    try {
+      if (isRevoke) {
+        const reason = prompt(t("Reason for revocation (optional):")) || "admin_revoke";
+        await api("POST", `/admin/certificates/${id}/revoke`, { reason });
+      } else {
+        await api("DELETE", `/admin/certificates/${id}/revoke`);
+      }
+      flash("ok", isRevoke ? t("Certificate revoked.") : t("Revocation removed."));
+      render();
+    } catch (e) { btn.disabled = false; showError(e); }
+  }, { once: true });
+}
+
 async function render() {
   if (!S.access) return loginView();
   const [route, arg] = location.hash.slice(1).split("?")[0].split("/");
@@ -768,6 +816,7 @@ async function render() {
     if (route === "blueprints") return await blueprintsView();
     if (route === "reports") return await reportsView();
     if (route === "users") return await usersView();
+    if (route === "certificates") return await certificatesAdminView();
     if (route === "security") return securityView();
     if (route === "access") return await accessView();
     if (route === "audit") return await auditView();
