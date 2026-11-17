@@ -631,6 +631,53 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
     return { status: 200, body: { items, nextCursor: items.length === limit && last ? String(last.id) : null } };
   });
 
+  // ------------------------------------------------------------ certificates
+
+  add('GET', '/admin/certificates', ROLES.admins, async (c) => {
+    const userId = c.query.get('user_id');
+    const passed = c.query.get('passed');
+    const limit = Math.min(Math.max(Number(c.query.get('limit') ?? 50) || 50, 1), 200);
+    const offset = Math.max(Number(c.query.get('offset') ?? 0) || 0, 0);
+    let where = 'WHERE 1=1';
+    const params: (string | number | boolean | null)[] = [];
+    if (userId) { params.push(userId); where += ` AND c.user_id = $${params.length}::uuid`; }
+    if (passed !== null && passed !== undefined) { params.push(passed === 'true'); where += ` AND c.passed = $${params.length}`; }
+    params.push(limit); const limitP = `$${params.length}`;
+    params.push(offset); const offsetP = `$${params.length}`;
+    const items = await store.query<{
+      id: string; token: string; user_id: string; score_percent: number;
+      passed: boolean; issued_at: string; revoked_at: string | null; attempt_id: string;
+    }>(
+      `SELECT c.id, c.token, c.user_id, c.score_percent, c.passed, c.issued_at, c.revoked_at, c.attempt_id
+         FROM certificates c ${where} ORDER BY c.issued_at DESC LIMIT ${limitP} OFFSET ${offsetP}`,
+      params,
+    );
+    return { status: 200, body: { items } };
+  });
+
+  add('POST', '/admin/certificates/:certId/revoke', ROLES.admins, async (c) => {
+    const certId = uuid(c.params.certId);
+    const reason = typeof c.body?.reason === 'string' ? c.body.reason.slice(0, 500) : 'admin_revoke';
+    const result = await store.query<{ id: string }>(
+      `UPDATE certificates SET revoked_at = NOW(), revoke_reason = $1
+         WHERE id = $2 AND revoked_at IS NULL RETURNING id`,
+      [reason, certId],
+    );
+    if (!result.length) throw new HttpError(404, 'not_found', 'Certificate not found or already revoked');
+    return { status: 200, body: { ok: true, id: certId } };
+  });
+
+  add('DELETE', '/admin/certificates/:certId/revoke', ROLES.admins, async (c) => {
+    const certId = uuid(c.params.certId);
+    const result = await store.query<{ id: string }>(
+      `UPDATE certificates SET revoked_at = NULL, revoke_reason = NULL
+         WHERE id = $1 AND revoked_at IS NOT NULL RETURNING id`,
+      [certId],
+    );
+    if (!result.length) throw new HttpError(404, 'not_found', 'Certificate not found or not revoked');
+    return { status: 200, body: { ok: true, id: certId } };
+  });
+
   // ------------------------------------------------------------ reports
 
   add('GET', '/admin/question-reports', ROLES.anyStaff, async (c) => {
