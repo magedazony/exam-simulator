@@ -707,6 +707,47 @@ export class ApiStore extends PsqlStore {
     await this.run(`DELETE FROM question_notes WHERE user_id = ${lit.uuid(userId)} AND question_id = ${lit.uuid(questionId)};`);
   }
 
+  // ---------------------------------------------------------------- case studies + AI coach + subscriptions
+
+  /** Get a published case set with its questions. */
+  async caseSet(caseId: string): Promise<Record<string, unknown> | null> {
+    return await this.one(`SELECT case_set_json(${lit.uuid(caseId)});`);
+  }
+
+  /** List published case studies. */
+  async listCaseSets(limit: number): Promise<Array<Record<string, unknown>>> {
+    return (await this.one<Array<Record<string, unknown>>>(
+      `SELECT coalesce(jsonb_agg(jsonb_build_object(
+        'id', cs.id, 'publicCode', cs.public_code, 'title', cs.title, 'titleAr', cs.title_ar,
+        'language', cs.language, 'questionCount',
+        (SELECT count(*) FROM question_versions qv WHERE qv.case_study_id = cs.id AND qv.workflow_state = 'published')
+      ) ORDER BY cs.created_at DESC), '[]'::jsonb)
+      FROM case_studies cs WHERE cs.status = 'published'
+      LIMIT ${lit.int(limit)};`,
+    )) ?? [];
+  }
+
+  /** Record a coach hint request. Returns whether user is under daily quota. */
+  async recordCoachHint(userId: string, questionId: string, hintType: string, now: string): Promise<{ allowed: boolean; usedToday: number }> {
+    const usedStr = await this.run(`SELECT hints_today(${lit.uuid(userId)}, ${ts(now)});`);
+    const usedToday = parseInt(usedStr ?? '0', 10);
+    // Free plan limit: 3 per day; pass holders: unlimited
+    const userAccess = await this.one<{ entitled: boolean }>(`SELECT user_access(${lit.uuid(userId)}, ${ts(now)});`);
+    const limit = userAccess?.entitled ? 9999 : 3;
+    if (usedToday >= limit) return { allowed: false, usedToday };
+    await this.run(
+      `INSERT INTO coach_hint_requests (user_id, question_id, hint_type) VALUES (${lit.uuid(userId)}, ${lit.uuid(questionId)}, ${lit.text(hintType)});`,
+    );
+    return { allowed: true, usedToday: usedToday + 1 };
+  }
+
+  /** Restore a purchase by transaction ID. */
+  async restorePurchase(userId: string, transactionId: string, productId: string, now: string): Promise<Record<string, unknown>> {
+    return (await this.one(
+      `SELECT restore_purchase(${lit.uuid(userId)}, ${lit.text(transactionId)}, ${lit.text(productId)}, ${ts(now)});`,
+    )) ?? { status: 'error' };
+  }
+
   // ---------------------------------------------------------------- enhanced analytics
 
   async analyticsDomainBreakdown(userId: string): Promise<Array<Record<string, unknown>>> {

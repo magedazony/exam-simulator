@@ -128,6 +128,44 @@ export interface AppDeps {
 
 const DISCLAIMER =
   'Educational estimate based on practice questions. It is not a prediction or guarantee of the official exam result.';
+
+/** Rule-based AI coach hint generator (no external API needed for MVP hints). */
+async function generateCoachHint(store: import('./api-store.ts').ApiStore, questionId: string, hintType: string): Promise<string> {
+  // Pull minimal question metadata
+  const q = await store.one<{ taskCode: string; approach: string; difficulty: string; type: string }>(
+    `SELECT jsonb_build_object('taskCode', t.code, 'approach', qv.approach_code,
+       'difficulty', qv.difficulty_code, 'type', qv.type_code)
+     FROM question_versions qv JOIN tasks t ON t.id = qv.task_id
+     WHERE qv.question_id = '${questionId}'::uuid AND qv.workflow_state = 'published'
+     LIMIT 1;`,
+  );
+  if (!q) return 'Read the question carefully and eliminate obviously incorrect options first.';
+  const { taskCode, approach, difficulty } = q;
+  const hints: Record<string, string[]> = {
+    general: [
+      `This question tests ${taskCode}. Focus on what the question is really asking.`,
+      `Consider the ${approach} project context — what would a project manager do first?`,
+      difficulty === 'hard' ? 'Hard questions often have two plausible answers — look for the most proactive one.' : 'Read all options before choosing.',
+    ],
+    approach: [
+      approach === 'agile' ? 'Agile mindset: favour collaboration, iteration, and customer value.' : '',
+      approach === 'predictive' ? 'Predictive mindset: follow the process, document, and control changes.' : '',
+      approach === 'hybrid' ? 'Hybrid: apply the right tool for the right context — not all situations are agile.' : '',
+    ].filter(Boolean),
+    eliminate: [
+      'Eliminate options that escalate before attempting to resolve.',
+      'Eliminate options that bypass the team or ignore stakeholders.',
+      'The correct answer is usually the most proactive, least reactive option.',
+    ],
+    explain: [
+      `This question is in the ${taskCode} task area.`,
+      `The ${approach} approach is key here — think about how the PMI expects a PM to handle this.`,
+      'After answering, review the rationale carefully to understand the reasoning.',
+    ],
+  };
+  const list = hints[hintType] ?? hints.general;
+  return list[Math.floor(Math.random() * list.length)] ?? hints.general[0];
+}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
 const MODES = ['quick', 'focused', 'weak_areas', 'timed', 'incorrect_only'];
@@ -597,6 +635,65 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     status: 200,
     body: { items: await store.analyticsDifficultyBreakdown(c.claims.sub) },
   }));
+
+  // ------------------------------------------------------------ case studies
+
+  /** GET /case-studies — list published case sets */
+  add('GET', '/case-studies', async (c) => {
+    const limit = Math.min(Number(c.query.get('limit') ?? 20), 50);
+    return { status: 200, body: { items: await store.listCaseSets(limit) } };
+  });
+
+  /** GET /case-studies/:caseId — get case set with questions */
+  add('GET', '/case-studies/:caseId', async (c) => {
+    const cs = await store.caseSet(uuid(c.params.caseId));
+    if (!cs) throw notFound();
+    return { status: 200, body: cs };
+  });
+
+  // ------------------------------------------------------------ AI coach
+
+  /**
+   * POST /coach/hint
+   * body: { questionId, hintType: 'general'|'approach'|'eliminate'|'explain' }
+   * Returns a generated coaching hint (or quota error).
+   * The actual text is generated server-side from question metadata —
+   * no external AI call needed for MVP hints.
+   */
+  add('POST', '/coach/hint', async (c) => {
+    const body = c.body as Record<string, unknown>;
+    const questionId = uuid(String(body.questionId ?? ''));
+    const hintType = String(body.hintType ?? 'general');
+    if (!['general', 'approach', 'eliminate', 'explain'].includes(hintType)) {
+      throw invalid('hintType', 'must be general, approach, eliminate, or explain');
+    }
+    const quota = await store.recordCoachHint(c.claims.sub, questionId, hintType, iso());
+    if (!quota.allowed) {
+      return {
+        status: 429,
+        body: {
+          error: 'quota_exceeded',
+          message: 'You have used your 3 daily hints. Upgrade to a pass for unlimited hints.',
+          usedToday: quota.usedToday,
+        },
+      };
+    }
+    // Generate rule-based hint from question metadata
+    const hint = await generateCoachHint(store, questionId, hintType);
+    return { status: 200, body: { hint, usedToday: quota.usedToday } };
+  });
+
+  // ------------------------------------------------------------ subscription restore
+
+  /** POST /billing/restore — restore a purchase by store transaction ID */
+  add('POST', '/billing/restore', async (c) => {
+    const body = c.body as Record<string, unknown>;
+    const transactionId = String(body.transactionId ?? '');
+    const productId = String(body.productId ?? '');
+    if (!transactionId || !productId) throw invalid('body', 'transactionId and productId are required');
+    const result = await store.restorePurchase(c.claims.sub, transactionId, productId, iso());
+    return { status: 200, body: result };
+  });
 
   /**
    * POST /practice/sessions  (adaptive modes)
