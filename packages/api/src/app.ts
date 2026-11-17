@@ -1030,6 +1030,57 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
 
   for (const r of adminRoutes({ store, blueprintCode: config.blueprintCode, exhibitUrl, now: () => iso() })) add(r.method, r.path, r.handler, r.options);
 
+  // ---------------------------------------------------------------- Notifications
+  // In-app notification inbox: list unread + all, mark as read.
+  add('GET', '/me/notifications', async (c) => {
+    const limit = Math.min(50, parseInt(c.query.get('limit') ?? '20', 10) || 20);
+    const unreadOnly = c.query.get('unread') === 'true';
+    const rows = await store.listNotifications(c.claims.sub, limit, unreadOnly);
+    return { status: 200, body: { notifications: rows } };
+  });
+
+  add('POST', '/me/notifications/:notificationId/read', async (c) => {
+    const id = c.params.notificationId ?? '';
+    if (!UUID.test(id)) throw notFound();
+    await store.markNotificationRead(c.claims.sub, id);
+    return { status: 204 };
+  });
+
+  add('POST', '/me/notifications/read-all', async (c) => {
+    await store.markAllNotificationsRead(c.claims.sub);
+    return { status: 204 };
+  });
+
+  // ---------------------------------------------------------------- Exam timer heartbeat
+  // Client pings every 30s during a live attempt so the server can detect abandoned exams.
+  add('POST', '/exams/attempts/:attemptId/heartbeat', async (c) => {
+    const id = c.params.attemptId ?? '';
+    if (!UUID.test(id)) throw notFound();
+    const timeRemainingMs = typeof c.body.timeRemainingMs === 'number' ? c.body.timeRemainingMs : null;
+    await store.recordHeartbeat(c.claims.sub, id, timeRemainingMs, deps.now());
+    return { status: 204 };
+  });
+
+  // ---------------------------------------------------------------- Referral & coupons
+  // GET own referral link.
+  add('GET', '/me/referral', async (c) => {
+    const ref = await store.referralCode(c.claims.sub);
+    return { status: 200, body: ref };
+  });
+
+  // Apply a coupon or referral code to get a discount.
+  add('POST', '/me/coupon', async (c) => {
+    const code = str(c.body, 'code', 50).toUpperCase();
+    const result = await store.applyCoupon(c.claims.sub, code, deps.now());
+    return { status: 200, body: result };
+  });
+
+  // ---------------------------------------------------------------- Streak & gamification
+  add('GET', '/me/streak', async (c) => {
+    const data = await store.streakInfo(c.claims.sub, deps.now());
+    return { status: 200, body: data };
+  });
+
   // Exhibit images, reachable only through a signed address that has not expired.
   add('GET', '/exhibits/:exhibitId', async (c) => {
     const id = c.params.exhibitId ?? '';

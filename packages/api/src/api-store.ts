@@ -799,4 +799,99 @@ export class ApiStore extends PsqlStore {
       )) ?? []
     );
   }
+
+  // ---------------------------------------------------------------- Notifications
+  async listNotifications(userId: string, limit: number, unreadOnly: boolean): Promise<Array<Record<string, unknown>>> {
+    const whereRead = unreadOnly ? `AND read_at IS NULL` : '';
+    return (
+      (await this.one<Array<Record<string, unknown>>>(
+        `SELECT coalesce(jsonb_agg(row_to_json(n) ORDER BY n.created_at DESC), '[]'::jsonb)
+         FROM notifications n
+         WHERE n.user_id = ${lit.uuid(userId)} ${whereRead}
+         LIMIT ${lit.int(limit)};`,
+      )) ?? []
+    );
+  }
+
+  async markNotificationRead(userId: string, notificationId: string): Promise<void> {
+    await this.exec(
+      `UPDATE notifications SET read_at = now()
+       WHERE id = ${lit.uuid(notificationId)} AND user_id = ${lit.uuid(userId)} AND read_at IS NULL;`,
+    );
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<void> {
+    await this.exec(
+      `UPDATE notifications SET read_at = now()
+       WHERE user_id = ${lit.uuid(userId)} AND read_at IS NULL;`,
+    );
+  }
+
+  // ---------------------------------------------------------------- Exam heartbeat
+  async recordHeartbeat(userId: string, attemptId: string, timeRemainingMs: number | null, now: number): Promise<void> {
+    // Update the attempt's last_heartbeat_at so server-side expiry jobs can detect abandonment.
+    await this.exec(
+      `UPDATE exam_attempts
+       SET last_heartbeat_at = to_timestamp(${lit.int(Math.floor(now / 1000))}),
+           time_remaining_ms = CASE WHEN ${timeRemainingMs === null ? 'false' : 'true'} THEN ${lit.int(timeRemainingMs ?? 0)} ELSE time_remaining_ms END
+       WHERE id = ${lit.uuid(attemptId)} AND user_id = ${lit.uuid(userId)} AND status = 'in_progress';`,
+    );
+  }
+
+  // ---------------------------------------------------------------- Referral & coupons
+  async referralCode(userId: string): Promise<Record<string, unknown>> {
+    // Returns or generates a referral code for the user.
+    const row = await this.one<Record<string, unknown>>(
+      `SELECT id, code, created_at, uses_count, credits_earned
+       FROM referral_codes
+       WHERE user_id = ${lit.uuid(userId)}
+       LIMIT 1;`,
+    );
+    if (row) return row;
+    // Create one on first access — deterministic suffix for readability.
+    const suffix = userId.replace(/-/g, '').slice(0, 8).toUpperCase();
+    await this.exec(
+      `INSERT INTO referral_codes (user_id, code) VALUES (${lit.uuid(userId)}, ${lit.text(`PMP-${suffix}`)})
+       ON CONFLICT (user_id) DO NOTHING;`,
+    );
+    return (
+      (await this.one<Record<string, unknown>>(
+        `SELECT id, code, created_at, uses_count, credits_earned FROM referral_codes WHERE user_id = ${lit.uuid(userId)};`,
+      )) ?? { code: `PMP-${suffix}`, uses_count: 0, credits_earned: 0 }
+    );
+  }
+
+  async applyCoupon(userId: string, code: string, now: number): Promise<Record<string, unknown>> {
+    const coupon = await this.one<{ id: string; discount_pct: number; max_uses: number; uses_count: number; expires_at: string | null }>(
+      `SELECT id, discount_pct, max_uses, uses_count, expires_at
+       FROM coupons
+       WHERE code = ${lit.text(code)} AND active = true
+       LIMIT 1;`,
+    );
+    if (!coupon) return { valid: false, reason: 'code_not_found' };
+    if (coupon.expires_at && new Date(coupon.expires_at).getTime() < now) return { valid: false, reason: 'expired' };
+    if (coupon.max_uses > 0 && coupon.uses_count >= coupon.max_uses) return { valid: false, reason: 'exhausted' };
+    // Record application (actual discount applied at payment time).
+    await this.exec(
+      `INSERT INTO coupon_applications (user_id, coupon_id, applied_at)
+       VALUES (${lit.uuid(userId)}, ${lit.uuid(coupon.id)}, now())
+       ON CONFLICT (user_id, coupon_id) DO NOTHING;`,
+    );
+    return { valid: true, discountPct: coupon.discount_pct, code };
+  }
+
+  // ---------------------------------------------------------------- Streak
+  async streakInfo(userId: string, now: number): Promise<Record<string, unknown>> {
+    const profile = await this.one<{ streak_days: number; longest_streak: number; last_activity_date: string | null }>(
+      `SELECT streak_days, longest_streak, last_activity_date
+       FROM learner_profiles
+       WHERE user_id = ${lit.uuid(userId)};`,
+    );
+    if (!profile) return { currentStreak: 0, longestStreak: 0, lastActivityDate: null };
+    return {
+      currentStreak: profile.streak_days ?? 0,
+      longestStreak: profile.longest_streak ?? 0,
+      lastActivityDate: profile.last_activity_date,
+    };
+  }
 }
