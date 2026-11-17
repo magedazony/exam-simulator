@@ -141,7 +141,7 @@ const S = { lang: "en", access: null, refresh: null, me: null, blueprint: null, 
 
 const T = {
   en: {
-    brand: "Exam Simulator", home: "Home", practice: "Practice", mock: "Mock exam", stats: "Stats", tips: "Exam tips", tipsIntro: "Short reminders for how to read questions, choose answers and manage your time.", tipsNote: "Study guidance from our course notes. It is not a statement by PMI.", settings: "Settings", signOut: "Sign out", dark: "Dark", light: "Light", notifications: "Notifications", markAllRead: "Mark all as read", noNotifications: "No notifications",
+    brand: "Exam Simulator", home: "Home", practice: "Practice", mock: "Mock exam", stats: "Stats", tips: "Exam tips", tipsIntro: "Short reminders for how to read questions, choose answers and manage your time.", tipsNote: "Study guidance from our course notes. It is not a statement by PMI.", settings: "Settings", signOut: "Sign out", dark: "Dark", light: "Light", notifications: "Notifications", markAllRead: "Mark all as read", noNotifications: "No notifications", bookmarks: "Bookmarks", bookmark: "Bookmark", unbookmark: "Remove bookmark", bookmarked: "Bookmarked", addNote: "Add note", noteSaved: "Note saved", noteDeleted: "Note deleted", noBookmarks: "No bookmarks yet",
     notice: "Independent study tool. Not affiliated with or endorsed by PMI. PMP is a registered mark of the Project Management Institute, Inc.",
     signIn: "Sign in", register: "Create account", email: "Email", password: "Password", newPassword: "New password", forgot: "Forgot password?", haveAccount: "I already have an account", noAccount: "Create an account",
     acceptTerms: "I accept the terms of use and the privacy policy", termsLink: "Terms of use", buy: "Buy", bought: "Thank you. Your pass is active.", playNote: "Payment is handled by Google Play. Passes do not renew automatically.", install: "Install the app", installText: "Add the app to your home screen to open it like any other app.", iosInstall: "On iPhone or iPad: tap Share, then Add to Home Screen.", offlineBar: "You are offline. Practice and exams need a connection.", myData: "Your data", myDataText: "Download everything we store about you: profile, answers, mock exams, reports and access.", download: "Download my data", privacyLink: "Privacy policy", support: "Help:", pwHint: "At least 10 characters.", checkEmail: "Check your email for a link to confirm your address.", verified: "Your email is confirmed. You can sign in now.",
@@ -172,7 +172,7 @@ const T = {
     redeemTitle: "Have an access code?", redeemHint: "For example a code from your training course.", code: "Access code", redeem: "Redeem", redeemed: "Code accepted. You have full access.",
   },
   ar: {
-    brand: "محاكي الاختبار", home: "الرئيسية", practice: "تدريب", mock: "اختبار تجريبي", stats: "النتائج", tips: "نصائح الامتحان", tipsIntro: "تذكيرات قصيرة لطريقة قراءة الأسئلة واختيار الإجابة وإدارة الوقت.", tipsNote: "إرشادات دراسية من ملاحظات الدورة، وليست تصريحًا من PMI.", settings: "الإعدادات", signOut: "تسجيل الخروج", dark: "داكن", light: "فاتح", notifications: "الإشعارات", markAllRead: "تعليم الكل كمقروء", noNotifications: "لا توجد إشعارات",
+    brand: "محاكي الاختبار", home: "الرئيسية", practice: "تدريب", mock: "اختبار تجريبي", stats: "النتائج", tips: "نصائح الامتحان", tipsIntro: "تذكيرات قصيرة لطريقة قراءة الأسئلة واختيار الإجابة وإدارة الوقت.", tipsNote: "إرشادات دراسية من ملاحظات الدورة، وليست تصريحًا من PMI.", settings: "الإعدادات", signOut: "تسجيل الخروج", dark: "داكن", light: "فاتح", notifications: "الإشعارات", markAllRead: "تعليم الكل كمقروء", noNotifications: "لا توجد إشعارات", bookmarks: "المفضلة", bookmark: "أضف للمفضلة", unbookmark: "إزالة من المفضلة", bookmarked: "في المفضلة", addNote: "أضف ملاحظة", noteSaved: "تم حفظ الملاحظة", noteDeleted: "تم حذف الملاحظة", noBookmarks: "لا توجد إشارات مرجعية بعد",
     notice: "أداة دراسة مستقلة، غير تابعة لـ PMI وغير معتمدة منه. PMP علامة مسجّلة لمعهد إدارة المشروعات.",
     signIn: "تسجيل الدخول", register: "إنشاء حساب", email: "البريد الإلكتروني", password: "كلمة المرور", newPassword: "كلمة المرور الجديدة", forgot: "نسيت كلمة المرور؟", haveAccount: "لدي حساب بالفعل", noAccount: "إنشاء حساب جديد",
     acceptTerms: "أوافق على شروط الاستخدام وسياسة الخصوصية", termsLink: "شروط الاستخدام", buy: "شراء", bought: "شكراً لك. باقتك مفعّلة الآن.", playNote: "يتم الدفع عن طريق Google Play. الباقات لا تتجدد تلقائياً.", install: "ثبّت التطبيق", installText: "أضف التطبيق إلى الشاشة الرئيسية لتفتحه مثل أي تطبيق آخر.", iosInstall: "على iPhone أو iPad: اضغط مشاركة، ثم إضافة إلى الشاشة الرئيسية.", offlineBar: "أنت غير متصل. التدريب والاختبارات تحتاج اتصالاً.", myData: "بياناتك", myDataText: "نزّل كل ما نحفظه عنك: الملف الشخصي والإجابات والاختبارات التجريبية والبلاغات والوصول.", download: "تنزيل بياناتي", privacyLink: "سياسة الخصوصية", support: "المساعدة:", pwHint: "10 أحرف على الأقل.", checkEmail: "راجع بريدك الإلكتروني لتأكيد عنوانك عبر الرابط المرسل.", verified: "تم تأكيد بريدك. يمكنك تسجيل الدخول الآن.",
@@ -252,7 +252,7 @@ function shell(body, opts = {}) {
   const msg = S.flash ? `<p class="msg ${S.flash.kind}" role="status">${esc(S.flash.text)}</p>` : "";
   S.flash = null;
   const dark = getComputedStyle(document.documentElement).colorScheme.includes("dark");
-  const tabs = [["home", t("home")], ["practice", t("practice")], ["mock", t("mock")], ["stats", t("stats")], ["tips", t("tips")], ["settings", t("settings")]];
+  const tabs = [["home", t("home")], ["practice", t("practice")], ["mock", t("mock")], ["stats", t("stats")], ["bookmarks", t("bookmarks")], ["tips", t("tips")], ["settings", t("settings")]];
   const unread = S.unreadCount > 0 ? `<span style="background:var(--bad);color:#fff;border-radius:9999px;font-size:11px;padding:0 5px;min-width:17px;text-align:center;vertical-align:middle">${S.unreadCount > 9 ? "9+" : S.unreadCount}</span>` : "";
   $("#app").innerHTML = `<header class="top"><span class="brand">${t("brand")}</span>
       <button class="small" data-act="lang">${S.lang === "en" ? "العربية" : "English"}</button><button class="small" data-act="theme">${dark ? t("light") : t("dark")}</button>
@@ -290,9 +290,16 @@ function exhibitHtml(e) {
 function feedbackHtml(q, selected, fb) {
   const ex = fb.explanation;
   const exAr = (S.lang === "ar" && fb.explanationAr) ? fb.explanationAr : null;
+  const qid = q.id || q.questionId || "";
   return `<p class="verdict ${fb.correct ? "ok" : "no"}">${fb.correct ? t("correct") : t("incorrect")}</p>${questionHtml(q, selected, true, fb)}
     <div class="card"><h2>${t("why")}</h2><p class="content">${esc(ex.whyCorrect)}</p>${exAr ? `<p class="content stem-ar" dir="rtl">${esc(exAr.whyCorrect)}</p>` : ""}${ex.mindset ? `<p><strong>${t("mindset")}:</strong> <span class="content">${esc(ex.mindset)}</span></p>` : ""}${ex.keyConcept ? `<p><strong>${t("concept")}:</strong> <span class="content">${esc(ex.keyConcept)}</span></p>` : ""}
-    <div class="row"><span class="tag">${esc(ex.domainName || "")}</span><span class="tag">${t("task")}: ${esc(ex.taskName || "")}</span></div></div>
+    <div class="row"><span class="tag">${esc(ex.domainName || "")}</span><span class="tag">${t("task")}: ${esc(ex.taskName || "")}</span></div>
+    ${qid ? `<div class="row" style="margin-top:8px;gap:8px">
+      <button class="btn small bm-toggle" data-qid="${esc(qid)}" data-bm="0">🔖 ${t("bookmark")}</button>
+      <button class="btn small note-toggle" data-qid="${esc(qid)}">📝 ${t("addNote")}</button>
+    </div>
+    <div class="note-area" style="display:none;margin-top:8px"><textarea class="note-text" rows="3" style="width:100%;box-sizing:border-box" placeholder="${S.lang === "ar" ? "اكتب ملاحظتك هنا..." : "Write your note here..."}"></textarea><div style="display:flex;gap:8px;margin-top:4px"><button class="btn small primary note-save" data-qid="${esc(qid)}">${t("noteSaved").replace("تم حفظ", "حفظ").replace("saved", "Save")}</button><button class="btn small note-del" data-qid="${esc(qid)}">${t("noteDeleted").replace("تم حذف", "حذف").replace("deleted", "Delete")}</button></div></div>` : ""}
+    </div>
     <details class="case"><summary>${t("report")}</summary><div class="card" style="margin-top:8px"><label>${t("reportReason")}<select class="rep-reason">${Object.entries(T[S.lang].reasons).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label><textarea class="rep-comment" rows="2"></textarea><button class="small rep-send" data-token="${esc(fb.reportToken)}">${t("send")}</button></div></details>`;
 }
 function bindReport() {
@@ -301,6 +308,71 @@ function bindReport() {
     try { await api("POST", "/question-reports", { reportToken: b.dataset.token, reason: $(".rep-reason", box).value, ...($(".rep-comment", box).value.trim() ? { comment: $(".rep-comment", box).value.trim() } : {}) }); box.innerHTML = `<p class="msg ok">${t("reported")}</p>`; }
     catch (e) { box.insertAdjacentHTML("beforeend", `<p class="msg err">${esc(errText(e))}</p>`); }
   }));
+  bindBookmarkNote();
+}
+function bindBookmarkNote() {
+  // Load current bookmark state once for all questions on the page
+  const bmBtns = Array.from(document.querySelectorAll(".bm-toggle[data-qid]"));
+  if (bmBtns.length) {
+    let bookmarkedIds = new Set();
+    try {
+      const bms = await api("GET", "/me/bookmarks");
+      bookmarkedIds = new Set((bms.items || bms || []).map((b) => b.questionId || b.id));
+    } catch {}
+    bmBtns.forEach((btn) => {
+      const qid = btn.dataset.qid;
+      const isBookmarked = bookmarkedIds.has(qid);
+      btn.dataset.bm = isBookmarked ? "1" : "0";
+      btn.textContent = `🔖 ${isBookmarked ? t("bookmarked") : t("bookmark")}`;
+      btn.style.opacity = isBookmarked ? "1" : "0.6";
+    });
+  }
+  document.querySelectorAll(".bm-toggle[data-qid]").forEach((btn) => {
+    const qid = btn.dataset.qid;
+    btn.onclick = async () => {
+      try {
+        const res = await api("POST", `/me/bookmarks/${encodeURIComponent(qid)}`);
+        const isNow = res.bookmarked ?? (btn.dataset.bm !== "1");
+        btn.dataset.bm = isNow ? "1" : "0";
+        btn.textContent = `🔖 ${isNow ? t("bookmarked") : t("bookmark")}`;
+        btn.style.opacity = isNow ? "1" : "0.6";
+      } catch (e) { flash(errText(e), true); }
+    };
+  });
+  // Note toggle: show/hide textarea, load existing note
+  document.querySelectorAll(".note-toggle[data-qid]").forEach(async (btn) => {
+    const qid = btn.dataset.qid;
+    const area = btn.closest(".card").querySelector(".note-area");
+    const ta = area?.querySelector(".note-text");
+    // Load existing note
+    try { const n = await api("GET", `/me/notes/${encodeURIComponent(qid)}`); if (ta && n.content) { ta.value = n.content; btn.textContent = `📝 ${t("addNote")} ✓`; } } catch {}
+    btn.onclick = () => { if (area) area.style.display = area.style.display === "none" ? "block" : "none"; };
+  });
+  document.querySelectorAll(".note-save[data-qid]").forEach((btn) => {
+    btn.onclick = async () => {
+      const qid = btn.dataset.qid;
+      const ta = btn.closest(".note-area")?.querySelector(".note-text");
+      try {
+        await api("PUT", `/me/notes/${encodeURIComponent(qid)}`, { content: ta?.value || "" });
+        flash("ok", t("noteSaved"));
+        const toggle = document.querySelector(`.note-toggle[data-qid="${qid}"]`);
+        if (toggle) toggle.textContent = `📝 ${t("addNote")} ✓`;
+      } catch (e) { flash(errText(e), true); }
+    };
+  });
+  document.querySelectorAll(".note-del[data-qid]").forEach((btn) => {
+    btn.onclick = async () => {
+      const qid = btn.dataset.qid;
+      const ta = btn.closest(".note-area")?.querySelector(".note-text");
+      try {
+        await api("DELETE", `/me/notes/${encodeURIComponent(qid)}`);
+        if (ta) ta.value = "";
+        flash("ok", t("noteDeleted"));
+        const toggle = document.querySelector(`.note-toggle[data-qid="${qid}"]`);
+        if (toggle) toggle.textContent = `📝 ${t("addNote")}`;
+      } catch (e) { flash(errText(e), true); }
+    };
+  });
 }
 function bars(rows, label) {
   return rows.map((r) => `<div class="bar"><span>${esc(label(r.key))}</span><span class="track"><i style="width:${Math.round(r.percent)}%"></i></span><span class="num">${r.correct}/${r.total}</span></div>`).join("");
@@ -692,6 +764,41 @@ async function statsView() {
     ${weakest.length ? `<div class="card"><h2>${t("byTask")}</h2>${bars(weakest, taskName)}</div>` : ""}<p class="muted">${t("estimate")}</p>`);
 }
 
+async function bookmarksView() {
+  shell(`<h1>${t("bookmarks")}</h1><p class="muted">⏳</p>`);
+  let items = [];
+  try { const res = await api("GET", "/me/bookmarks"); items = Array.isArray(res) ? res : (res.items ?? []); } catch {}
+  if (!items.length) {
+    shell(`<h1>${t("bookmarks")}</h1><div class="card"><p class="muted" style="text-align:center">${t("noBookmarks")}</p></div>`);
+    return;
+  }
+  shell(`<h1>${t("bookmarks")}</h1>
+    <div class="card"><p class="muted" style="font-size:13px">${items.length} ${S.lang === "ar" ? "سؤال محفوظ" : "saved question" + (items.length !== 1 ? "s" : "")}</p></div>
+    ${items.map((bm) => {
+      const qid = bm.questionId || "";
+      const stem = (S.lang === "ar" && bm.stemAr) ? bm.stemAr : (bm.stem || "");
+      const task = bm.taskCode || "";
+      const when = bm.bookmarkedAt ? dateText(bm.bookmarkedAt) : "";
+      return `<div class="card" style="margin-bottom:8px">
+        <div class="row" style="margin-bottom:6px;flex-wrap:wrap;gap:6px">
+          ${task ? `<span class="tag">${esc(task)}</span>` : ""}
+          ${when ? `<span class="muted" style="font-size:12px">${when}</span>` : ""}
+          ${bm.hasNote ? `<span class="tag" style="background:var(--primary-soft,#e0f2fe)">📝</span>` : ""}
+          <button class="btn small" style="margin-left:auto;opacity:0.7" data-remove-bm="${esc(qid)}" title="${S.lang === "ar" ? "إزالة من المفضلة" : "Remove"}">🗑</button>
+        </div>
+        <p class="content" style="margin:0" dir="${S.lang === "ar" ? "rtl" : "ltr"}">${esc(stem.length > 250 ? stem.slice(0, 250) + "…" : stem)}</p>
+      </div>`;
+    }).join("")}`);
+  document.querySelectorAll("[data-remove-bm]").forEach((btn) => {
+    btn.onclick = async () => {
+      try {
+        await api("POST", `/me/bookmarks/${encodeURIComponent(btn.dataset.removeBm)}`); // toggle = remove
+        await bookmarksView();
+      } catch (e) { flash(errText(e), true); }
+    };
+  });
+}
+
 async function notificationsView() {
   shell(`<h1>${t("notifications")}</h1><p class="muted">⏳</p>`);
   let items = [];
@@ -959,6 +1066,7 @@ async function render() {
     if (route === "result") return await resultView(arg);
     if (route === "answers") return await answersView(arg);
     if (route === "stats") return await statsView();
+    if (route === "bookmarks") return await bookmarksView();
     if (route === "notifications") return await notificationsView();
     if (route === "tips") return tipsView();
     if (route === "settings") return settingsView();
