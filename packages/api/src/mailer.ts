@@ -190,19 +190,36 @@ export async function sendSmtp(cfg: SmtpConfig, msg: OutgoingMessage): Promise<v
 
 /** The text of an account email, in both languages, with the person's language first. */
 export function accountEmail(mail: Mail, publicUrl: string, product = 'Exam Simulator'): OutgoingMessage {
-  const link = `${publicUrl}/app#${mail.purpose === 'verify' ? 'verify' : 'reset'}?token=${encodeURIComponent(mail.token)}`;
-  const en =
-    mail.purpose === 'verify'
-      ? `Confirm your email address for ${product} by opening this link within 24 hours:\n\n${link}\n\nIf you did not create an account, you can ignore this email.`
-      : `Someone asked to reset the password of your ${product} account. Open this link within one hour to choose a new password:\n\n${link}\n\nIf it was not you, ignore this email; your password stays the same.`;
-  const ar =
-    mail.purpose === 'verify'
-      ? `أكّد بريدك الإلكتروني لحساب ${product} بفتح هذا الرابط خلال 24 ساعة:\n\n${link}\n\nإذا لم تنشئ حساباً، يمكنك تجاهل هذه الرسالة.`
-      : `طلب أحدهم إعادة تعيين كلمة مرور حسابك في ${product}. افتح هذا الرابط خلال ساعة لاختيار كلمة مرور جديدة:\n\n${link}\n\nإذا لم تكن أنت، تجاهل هذه الرسالة؛ لن تتغير كلمة المرور.`;
-  const subject =
-    mail.purpose === 'verify'
-      ? mail.language === 'ar' ? `أكّد بريدك الإلكتروني · Confirm your email` : `Confirm your email · أكّد بريدك الإلكتروني`
-      : mail.language === 'ar' ? `إعادة تعيين كلمة المرور · Reset your password` : `Reset your password · إعادة تعيين كلمة المرور`;
+  const appUrl = `${publicUrl}/app`;
+  const link = mail.purpose === 'welcome'
+    ? appUrl
+    : `${publicUrl}/app#${mail.purpose === 'verify' ? 'verify' : 'reset'}?token=${encodeURIComponent(mail.token)}`;
+
+  let en: string;
+  let ar: string;
+  let subject: string;
+
+  if (mail.purpose === 'welcome') {
+    const name = mail.displayName ? `, ${mail.displayName}` : '';
+    en = `Welcome${name}! 🎉\n\nYour ${product} account is ready. Start your PMP exam preparation now:\n\n${appUrl}\n\nTip: begin with the Diagnostic mode to see which areas need the most work.\n\nGood luck with your exam!`;
+    ar = `أهلاً${name}! 🎉\n\nحسابك في ${product} جاهز. ابدأ التحضير لامتحان PMP الآن:\n\n${appUrl}\n\nنصيحة: ابدأ بـ Diagnostic Mode لتعرف المواضيع التي تحتاج تركيزاً أكثر.\n\nبالتوفيق في امتحانك!`;
+    subject = mail.language === 'ar'
+      ? `أهلاً بك في ${product} · Welcome to ${product}`
+      : `Welcome to ${product} · أهلاً بك في ${product}`;
+  } else if (mail.purpose === 'verify') {
+    en = `Confirm your email address for ${product} by opening this link within 24 hours:\n\n${link}\n\nIf you did not create an account, you can ignore this email.`;
+    ar = `أكّد بريدك الإلكتروني لحساب ${product} بفتح هذا الرابط خلال 24 ساعة:\n\n${link}\n\nإذا لم تنشئ حساباً، يمكنك تجاهل هذه الرسالة.`;
+    subject = mail.language === 'ar'
+      ? `أكّد بريدك الإلكتروني · Confirm your email`
+      : `Confirm your email · أكّد بريدك الإلكتروني`;
+  } else {
+    en = `Someone asked to reset the password of your ${product} account. Open this link within one hour to choose a new password:\n\n${link}\n\nIf it was not you, ignore this email; your password stays the same.`;
+    ar = `طلب أحدهم إعادة تعيين كلمة مرور حسابك في ${product}. افتح هذا الرابط خلال ساعة لاختيار كلمة مرور جديدة:\n\n${link}\n\nإذا لم تكن أنت، تجاهل هذه الرسالة؛ لن تتغير كلمة المرور.`;
+    subject = mail.language === 'ar'
+      ? `إعادة تعيين كلمة المرور · Reset your password`
+      : `Reset your password · إعادة تعيين كلمة المرور`;
+  }
+
   const notice = 'Independent study tool. Not affiliated with or endorsed by PMI. · أداة دراسة مستقلة، غير تابعة لـ PMI وغير معتمدة منه.';
   const body = mail.language === 'ar' ? `${ar}\n\n---\n\n${en}` : `${en}\n\n---\n\n${ar}`;
   return { to: mail.to, subject, text: `${body}\n\n${notice}\n` };

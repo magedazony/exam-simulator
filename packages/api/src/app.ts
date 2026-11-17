@@ -98,10 +98,12 @@ export interface AccessLogEntry {
 
 export interface Mail {
   to: string;
-  purpose: 'verify' | 'reset';
+  purpose: 'verify' | 'reset' | 'welcome';
   token: string;
   /** The person's interface language, so the email leads with it. */
   language?: 'en' | 'ar';
+  /** Display name for welcome emails. */
+  displayName?: string;
 }
 
 export interface AppDeps {
@@ -350,6 +352,8 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     const token = newOpaqueToken();
     await store.saveEmailToken(userId, 'verify', hashToken(token), iso(deps.now() + 86_400_000));
     sendMail({ to: email, purpose: 'verify', token, language: language === 'ar' ? 'ar' : 'en' });
+    // Welcome email (non-blocking, best-effort).
+    sendMail({ to: email, purpose: 'welcome', token: '', language: language === 'ar' ? 'ar' : 'en' });
     return { status: 201 };
   }, { auth: false, limited: true });
 
