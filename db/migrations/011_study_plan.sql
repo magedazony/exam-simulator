@@ -114,20 +114,15 @@ BEGIN
   ORDER BY count(*) DESC LIMIT 1;
 
   -- Total questions seen across practice and exams
-  SELECT count(*) INTO v_total
-  FROM practice_items pi
-  JOIN practice_sessions ps ON ps.id = pi.session_id
-  WHERE ps.user_id = p_user AND pi.answered;
+  SELECT count(*) INTO v_total FROM user_answer_events(p_user);
 
   -- Last studied at
-  SELECT max(ps.updated_at) INTO v_last
-  FROM practice_sessions ps WHERE ps.user_id = p_user;
+  SELECT max(answered_at) INTO v_last FROM user_answer_events(p_user);
 
   -- Study streak (consecutive days with at least one answered question)
   WITH daily AS (
-    SELECT date_trunc('day', ps.updated_at) AS day
-    FROM practice_sessions ps
-    WHERE ps.user_id = p_user
+    SELECT date_trunc('day', answered_at) AS day
+    FROM user_answer_events(p_user)
     GROUP BY 1
     ORDER BY 1 DESC
   ),
@@ -142,8 +137,8 @@ BEGIN
 
   -- Readiness + predicted pass %
   v_readiness := coalesce(readiness_score(p_user), 0);
-  -- Empirical: 70+ readiness → ~85% pass probability
-  v_pass_pct  := least(100, greatest(0, (v_readiness - 50) * 2.5 + 50));
+  -- No pass prediction: PMI does not publish a passing score, so we do not estimate one.
+  v_pass_pct  := NULL;
 
   INSERT INTO learner_profiles (
     user_id, strongest_task_id, weakest_task_id, dominant_error_type,

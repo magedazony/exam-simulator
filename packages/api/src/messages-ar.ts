@@ -5,6 +5,24 @@
 // test/messages.test.ts fails if a message in the source has no Arabic here.
 
 export const AR_MESSAGES: Record<string, string> = {
+  // study tools, coach, billing restore, certificates
+  'must be a non-empty array of error records': 'يجب أن تكون قائمة غير فارغة من سجلات الأخطاء',
+  'must be 1–2000 characters': 'يجب أن يكون من 1 إلى 2000 حرف',
+  'must be general, approach, eliminate, or explain': 'يجب أن يكون general أو approach أو eliminate أو explain',
+  'transactionId and productId are required': 'رقم العملية ورقم المنتج مطلوبان',
+  'questionId, taskId, and correct are required': 'السؤال والمهمة وصحة الإجابة مطلوبة',
+  'No profile yet — answer some questions first.': 'لا يوجد ملف بعد. أجب عن بعض الأسئلة أولاً.',
+  'You have used your 3 daily hints. Upgrade to a pass for unlimited hints.': 'استخدمت التلميحات الثلاثة اليومية. اشترك للحصول على تلميحات بلا حد.',
+  'No questions available for this mode yet. Try standard practice first.': 'لا توجد أسئلة متاحة لهذا الوضع بعد. جرّب التدريب العادي أولاً.',
+  'Certificate not found or already revoked': 'الشهادة غير موجودة أو ملغاة بالفعل',
+  'Certificate not found or not revoked': 'الشهادة غير موجودة أو غير ملغاة',
+  // exam tips (admin)
+  'must be a list of sections': 'يجب أن تكون قائمة أقسام',
+  'at most 30 sections': '30 قسماً على الأكثر',
+  'is required, up to 200 characters': 'مطلوب، حتى 200 حرف',
+  'must be a list': 'يجب أن تكون قائمة',
+  'at most 50 tips per section': '50 نصيحة على الأكثر في كل قسم',
+  'is required, up to 1000 characters': 'مطلوب، حتى 1000 حرف',
   // titles: general
   'Not found': 'غير موجود',
   'Method not allowed': 'هذه الطريقة غير مسموحة',

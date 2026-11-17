@@ -138,7 +138,7 @@ describe('production rehearsal on an empty database', { skip: configured ? false
     assert.ok(health.headers.get('x-request-id'));
     const root = await fetch(`${BASE}/`, { redirect: 'manual' });
     assert.equal(root.status, 200);
-    assert.match(await root.text(), /Open the app/);
+    assert.match(await root.text(), /href="\/app#register"/); // landing page links into the app
     const manifest = (await (await fetch(`${BASE}/app/manifest.webmanifest`)).json()) as { name: string };
     assert.equal(manifest.name, 'Exam Simulator');
     assert.equal((await fetch(`${BASE}/sw.js`)).status, 200);

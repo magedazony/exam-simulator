@@ -131,8 +131,10 @@ Errors: `{ "error": "<code>", "message": "...", "field"?: "..." }` with appropri
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/me/certificates?limit=10&after=<cursor>` | List the candidate's certificates |
-| GET | `/verify/:token` | Public certificate verification — `{ user_display, score_percent, issued_at, passed, revoked }` (public) |
+| GET | `/me/certificates` | List the candidate's completion certificates (newest first, up to 50) |
+| GET | `/verify/:token` | Public certificate verification — `{ user_display, score_percent, issued_at, passed, revoked }` (public). `passed` is always `null`: a certificate records a finished mock exam and its score, never pass/fail, because PMI does not publish a passing score. |
+
+A certificate is issued automatically, once, when a mock exam is submitted or its result is first read after it expired. Share links have the form `/app#verify-cert/<token>`.
 
 ---
 
@@ -173,6 +175,7 @@ Errors: `{ "error": "<code>", "message": "...", "field"?: "..." }` with appropri
 | POST | `/question-reports` | Report a question `{ questionId, reason, detail? }` |
 | GET | `/health` | Health check (public) |
 | GET | `/site` | Site config: appName, androidPackage, etc. (public) |
+| GET | `/tips` | Exam tips, published sections only: `{ items: [{ id, position, titleEn, titleAr, items: [{ en, ar }], published, updatedAt }] }` (public) |
 
 ---
 
@@ -197,6 +200,10 @@ Prefix: `/admin`
 | GET | `/admin/audit` | Audit log |
 | GET | `/admin/plans` | List plans with prices |
 | POST | `/admin/plans/:code/prices` | Set plan price |
+| GET | `/admin/tips` | All exam tips sections, including unpublished (any staff role) |
+| PUT | `/admin/tips` | Replace the whole tips document `{ sections: [{ titleEn, titleAr, published?, items: [{ en, ar }] }] }` in the order sent (content author or administrator). Up to 30 sections, 50 tips each; every title and tip needs English and Arabic. Recorded in the audit log as `tips.replace`. |
+| GET | `/admin/question-difficulty?min_attempts=5&limit=50` | Questions ranked by measured difficulty (share of wrong answers in practice and finished mock exams) |
+| GET | `/admin/certificates?limit=50&offset=0` | Completion certificates; `POST`/`DELETE /admin/certificates/:id/revoke` revokes or restores one |
 
 ---
 
@@ -236,4 +243,9 @@ Recommendation types:
 012_bookmarks_notes — bookmarks, notes, domain/difficulty analytics
 013_case_coach   — case study bilingual, AI coach hints, purchase restore
 014_notifications_referral — notifications inbox, exam heartbeat, referral codes, coupons, streak milestones
+015_certificates_snapshots — completion certificates, weekly progress snapshots
+016_question_stats_v2 — question_difficulty view (measured from stored answers)
+017_exam_tips    — admin-editable exam tips (8 seeded sections)
 ```
+
+Migration files must not contain `BEGIN;`/`COMMIT;`: `scripts/migrate.ts` wraps each file in its own transaction.

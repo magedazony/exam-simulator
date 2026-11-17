@@ -267,54 +267,55 @@ END $$;
 -- Readiness = weighted average of task mastery × blueprint domain weights,
 -- scaled 0–100, with a 0.5 floor for unstarted tasks.
 CREATE OR REPLACE FUNCTION readiness_score(p_user uuid) RETURNS numeric LANGUAGE sql STABLE AS $$
+  -- Each domain's weight is shared equally among its tasks.
   SELECT round(
-    100.0 * SUM(coalesce(tm.weighted_score, 0.5) * bp.weight_pct / 100.0)
-    / NULLIF(SUM(bp.weight_pct / 100.0), 0)
+    100.0 * SUM(coalesce(tm.weighted_score, 0.5) * d.weight_pct / dc.n)
+    / NULLIF(SUM(d.weight_pct / dc.n), 0)
   )::numeric
   FROM tasks t
   JOIN domains d ON d.id = t.domain_id
   JOIN exam_blueprints bp ON bp.id = d.blueprint_id AND bp.status = 'active'
+  JOIN (SELECT domain_id, count(*)::numeric AS n FROM tasks GROUP BY domain_id) dc ON dc.domain_id = d.id
   LEFT JOIN task_mastery tm ON tm.task_id = t.id AND tm.user_id = p_user;
 $$;
 
 -- ---------------------------------------------------------------- update user_dashboard to include adaptive signals
 
 CREATE OR REPLACE FUNCTION user_dashboard(p_user uuid, p_now timestamptz) RETURNS jsonb LANGUAGE sql STABLE AS $$
+  -- Same shape as 003_api.sql, plus readinessScore, spacedReviewsDue,
+  -- taskMastery and recommendation.
+  WITH ev AS (SELECT * FROM user_answer_events(p_user)),
+  days AS (SELECT DISTINCT (answered_at AT TIME ZONE 'UTC')::date AS day FROM ev),
+  runs AS (SELECT day, day - (row_number() OVER (ORDER BY day))::integer AS grp FROM days),
+  dom AS (
+    SELECT d.code, d.name, count(*) AS total, count(*) FILTER (WHERE ev.is_correct) AS correct
+    FROM ev JOIN question_versions v ON v.id = ev.question_version_id
+    JOIN tasks t ON t.id = v.task_id JOIN domains d ON d.id = t.domain_id
+    GROUP BY d.code, d.name HAVING count(*) >= 10)
   SELECT jsonb_build_object(
-    'user', (
-      SELECT jsonb_build_object(
-        'displayName', display_name, 'email', email, 'language', language,
-        'examTargetDate', exam_target_date, 'weeklyStudyHours', weekly_study_hours
-      ) FROM users WHERE id = p_user
-    ),
-    'access', (
-      SELECT jsonb_build_object(
-        'plan', plan, 'examsRemaining', exams_remaining,
-        'practiceRemaining', practice_remaining, 'expiresAt', expires_at
-      ) FROM user_access WHERE user_id = p_user
-    ),
-    'stats', jsonb_build_object(
-      'questionsAnswered', (
-        SELECT count(*) FROM practice_items pi
-        JOIN practice_sessions ps ON ps.id = pi.session_id
-        WHERE ps.user_id = p_user AND pi.answered
-      ),
-      'practiceAccuracy', (
-        SELECT round(100.0 * sum(CASE WHEN pi.is_correct THEN 1 ELSE 0 END)::numeric
-                     / NULLIF(count(*), 0), 1)
-        FROM practice_items pi
-        JOIN practice_sessions ps ON ps.id = pi.session_id
-        WHERE ps.user_id = p_user AND pi.answered
-      ),
-      'mocksCompleted', (SELECT count(*) FROM exam_attempts WHERE user_id = p_user AND result IS NOT NULL),
-      'studyStreakDays', coalesce(
-        (SELECT study_streak_days FROM learner_profiles WHERE user_id = p_user), 0
-      )
-    ),
+    'daysToExam', (SELECT CASE WHEN u.exam_target_date IS NULL THEN NULL
+                               ELSE u.exam_target_date - (p_now AT TIME ZONE 'UTC')::date END
+                   FROM users u WHERE u.id = p_user),
+    'questionsCompleted', (SELECT count(*) FROM ev),
+    'accuracyPercent', (SELECT CASE WHEN count(*) = 0 THEN NULL
+                                    ELSE round(count(*) FILTER (WHERE is_correct) * 100.0 / count(*), 1) END FROM ev),
+    'mocksCompleted', (SELECT count(*) FROM exam_attempts WHERE user_id = p_user AND result IS NOT NULL),
+    'streakDays', coalesce((
+      SELECT count(*) FROM runs WHERE grp = (
+        SELECT grp FROM runs
+        WHERE day >= (p_now AT TIME ZONE 'UTC')::date - 1 ORDER BY day DESC LIMIT 1)), 0),
+    'strongestDomain', (SELECT tally_json(code, name, total, correct) FROM dom
+                        ORDER BY correct::numeric / total DESC, code LIMIT 1),
+    'weakestDomain', (SELECT tally_json(code, name, total, correct) FROM dom
+                      ORDER BY correct::numeric / total ASC, code LIMIT 1),
+    'recentScores', coalesce((
+      SELECT jsonb_agg(jsonb_build_object('date', (x.submitted_at AT TIME ZONE 'UTC')::date, 'percent', x.score_percent)
+                       ORDER BY x.submitted_at)
+      FROM (SELECT submitted_at, score_percent FROM exam_attempts
+            WHERE user_id = p_user AND result IS NOT NULL ORDER BY submitted_at DESC LIMIT 10) x), '[]'::jsonb),
     'readinessScore', readiness_score(p_user),
-    'spacedReviewsDue', (
-      SELECT count(*) FROM spaced_state WHERE user_id = p_user AND next_review_at <= p_now
-    ),
+    'spacedReviewsDue', (SELECT count(*) FROM task_mastery
+                         WHERE user_id = p_user AND next_review_at IS NOT NULL AND next_review_at <= p_now),
     'taskMastery', (
       SELECT coalesce(jsonb_agg(jsonb_build_object(
         'taskCode', t.code, 'taskName', t.name,
@@ -322,19 +323,6 @@ CREATE OR REPLACE FUNCTION user_dashboard(p_user uuid, p_now timestamptz) RETURN
         'nextReviewAt', tm.next_review_at
       ) ORDER BY tm.weighted_score ASC), '[]'::jsonb)
       FROM task_mastery tm JOIN tasks t ON t.id = tm.task_id
-      WHERE tm.user_id = p_user
-    ),
-    'recentMockScores', (
-      SELECT coalesce(jsonb_agg(
-        jsonb_build_object('submittedAt', submitted_at, 'scorePercent', score_percent)
-        ORDER BY submitted_at DESC
-      ), '[]'::jsonb)
-      FROM (
-        SELECT submitted_at, score_percent FROM exam_attempts
-        WHERE user_id = p_user AND result IS NOT NULL
-        ORDER BY submitted_at DESC LIMIT 5
-      ) s
-    ),
-    'recommendation', next_best_action(p_user, p_now)
-  );
+      WHERE tm.user_id = p_user),
+    'recommendation', next_best_action(p_user, p_now));
 $$;

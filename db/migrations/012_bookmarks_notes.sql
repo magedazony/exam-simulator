@@ -46,13 +46,11 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
   JOIN exam_blueprints bp ON bp.id = d.blueprint_id AND bp.status = 'active'
   LEFT JOIN (
     SELECT t.domain_id,
-           count(*) FILTER (WHERE pi.answered) AS answered,
-           count(*) FILTER (WHERE pi.is_correct) AS correct
-    FROM practice_items pi
-    JOIN practice_sessions ps ON ps.id = pi.session_id
-    JOIN question_versions qv ON qv.question_id = pi.question_id
+           count(*) AS answered,
+           count(*) FILTER (WHERE ev.is_correct) AS correct
+    FROM user_answer_events(p_user) ev
+    JOIN question_versions qv ON qv.id = ev.question_version_id
     JOIN tasks t ON t.id = qv.task_id
-    WHERE ps.user_id = p_user
     GROUP BY t.domain_id
   ) agg ON agg.domain_id = d.id;
 $$;
@@ -73,12 +71,10 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
   FROM difficulty_levels dl
   LEFT JOIN (
     SELECT qv.difficulty_code,
-           count(*) FILTER (WHERE pi.answered) AS answered,
-           count(*) FILTER (WHERE pi.is_correct) AS correct
-    FROM practice_items pi
-    JOIN practice_sessions ps ON ps.id = pi.session_id
-    JOIN question_versions qv ON qv.question_id = pi.question_id
-    WHERE ps.user_id = p_user
+           count(*) AS answered,
+           count(*) FILTER (WHERE ev.is_correct) AS correct
+    FROM user_answer_events(p_user) ev
+    JOIN question_versions qv ON qv.id = ev.question_version_id
     GROUP BY qv.difficulty_code
   ) agg ON agg.difficulty_code = dl.code;
 $$;

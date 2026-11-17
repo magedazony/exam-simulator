@@ -385,6 +385,45 @@ describe('staff tools', { skip: configured ? false : 'PGDATABASE is not set; see
     assert.equal((await call('GET', '/admin/questions?workflowState=nope', tk('reviewer'))).status, 422);
   });
 
+  it('lets staff edit the exam tips, and candidates see only published sections', async () => {
+    const pub = await call('GET', '/tips');
+    assert.equal(pub.status, 200);
+    assert.equal(pub.body.items.length, 8, 'seeded with eight sections');
+    assert.equal(pub.body.items[7].titleEn, 'What is new in the July 2026 exam');
+    assert.ok(pub.body.items.every((g: Json) => g.items.length > 0 && g.items.every((it: Json) => it.en && it.ar)));
+
+    assert.equal((await call('GET', '/admin/tips', student)).status, 403);
+    assert.equal((await call('PUT', '/admin/tips', tk('reviewer'), { sections: [] })).status, 403);
+
+    const bad = await call('PUT', '/admin/tips', tk('author'), { sections: [{ titleEn: '', titleAr: 'عنوان', items: [{ en: 'x' }] }] });
+    assert.equal(bad.status, 422);
+    assert.deepEqual(bad.body.errors.map((e: Json) => e.field).sort(), ['sections[0].items[0].ar', 'sections[0].titleEn']);
+
+    const sections = [
+      { titleEn: 'Second', titleAr: 'الثاني', items: [{ en: 'B tip', ar: 'نصيحة ب' }] },
+      { titleEn: 'Hidden', titleAr: 'مخفي', published: false, items: [{ en: 'draft', ar: 'مسودة' }] },
+      { titleEn: 'First', titleAr: 'الأول', items: [{ en: ' A tip ', ar: 'نصيحة أ' }, { en: 'C tip', ar: 'نصيحة ج' }] },
+    ];
+    const saved = await call('PUT', '/admin/tips', tk('author'), { sections });
+    assert.equal(saved.status, 200);
+    assert.deepEqual(saved.body.items.map((g: Json) => [g.titleEn, g.published]), [['Second', true], ['Hidden', false], ['First', true]]);
+
+    const live = await call('GET', '/tips');
+    assert.deepEqual(live.body.items.map((g: Json) => g.titleEn), ['Second', 'First'], 'unpublished section hidden, order kept');
+    assert.deepEqual(live.body.items[1].items, [{ en: 'A tip', ar: 'نصيحة أ' }, { en: 'C tip', ar: 'نصيحة ج' }], 'text trimmed');
+    assert.equal(store.query(`SELECT count(*) FROM audit_logs WHERE action = 'tips.replace';`), '1');
+  });
+
+  it('serves the measured-difficulty and certificate lists to administrators', async () => {
+    const diff = await call('GET', '/admin/question-difficulty?min_attempts=1', tk('admin'));
+    assert.equal(diff.status, 200);
+    assert.ok(Array.isArray(diff.body.items));
+    const certs = await call('GET', '/admin/certificates', tk('admin'));
+    assert.equal(certs.status, 200);
+    assert.ok(Array.isArray(certs.body.items));
+    assert.equal((await call('GET', '/admin/certificates', tk('author'))).status, 403);
+  });
+
   it('lets administrators price plans, create access codes and grant passes', async () => {
     const plans = await call('GET', '/admin/plans', tk('admin'));
     assert.equal(plans.status, 200);

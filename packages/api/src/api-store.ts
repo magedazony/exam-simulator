@@ -85,7 +85,7 @@ export class ApiStore extends PsqlStore {
   /** Run a parameterised query and return all rows as typed objects.
    *  Uses PostgreSQL's json_agg so the wire client only needs to handle
    *  a single text result, consistent with the rest of the store. */
-  async query<T>(sql: string, params: (string | number | boolean | null)[] = []): Promise<T[]> {
+  async rows<T>(sql: string, params: (string | number | boolean | null)[] = []): Promise<T[]> {
     // Substitute $1, $2 … with the literal values from params.
     // This is intentionally simple: values are escaped with lit.* helpers
     // from the caller or are plain identifiers. Never call this with
@@ -99,6 +99,15 @@ export class ApiStore extends PsqlStore {
       else if (typeof v === 'number') escaped = String(v);
       else escaped = "'" + String(v).replace(/'/g, "''") + "'";
       parameterised = parameterised.replaceAll('$' + i, escaped);
+    }
+    // INSERT/UPDATE/DELETE cannot sit inside FROM (...); run them as they are.
+    if (/^\s*(INSERT|UPDATE|DELETE)\b/i.test(parameterised) && !/\bRETURNING\b/i.test(parameterised)) {
+      await this.run(parameterised.trimEnd().replace(/;?$/, ';'));
+      return [];
+    }
+    if (/^\s*(INSERT|UPDATE|DELETE)\b/i.test(parameterised)) {
+      const out = await this.run(`WITH t AS (${parameterised.trimEnd().replace(/;$/, '')}) SELECT coalesce(json_agg(t), '[]'::json) FROM t;`);
+      return (out === '' ? [] : JSON.parse(out)) as T[];
     }
     const wrapped = `SELECT coalesce(json_agg(t), '[]'::json) AS r FROM (${parameterised}) t;`;
     const out = await this.run(wrapped);
@@ -554,6 +563,21 @@ export class ApiStore extends PsqlStore {
     );
   }
 
+  /** Issues the completion certificate for a finished mock exam (no-op if not finished or already issued). */
+  async issueCertificate(attemptId: string): Promise<void> {
+    await this.run(`SELECT issue_certificate_if_passed(${lit.uuid(attemptId)});`);
+  }
+
+  /** Exam tips sections. allSections = true includes unpublished ones (staff view). */
+  async tips(allSections: boolean): Promise<Array<Record<string, unknown>>> {
+    return await this.one(`SELECT tips_json(${allSections ? 'true' : 'false'});`) ?? [];
+  }
+
+  /** Replaces every exam tips section in one transaction and records it in the audit log. */
+  async replaceTips(actorId: string, sections: unknown[]): Promise<void> {
+    await this.admin(async () => await this.run(`SELECT replace_tips(${lit.uuid(actorId)}, ${lit.json(sections)});`));
+  }
+
   async listBlueprints(): Promise<Array<Record<string, unknown>>> {
     return await this.one(`SELECT list_blueprints();`) ?? [];
   }
@@ -828,23 +852,23 @@ export class ApiStore extends PsqlStore {
     const whereRead = unreadOnly ? `AND read_at IS NULL` : '';
     return (
       (await this.one<Array<Record<string, unknown>>>(
-        `SELECT coalesce(jsonb_agg(row_to_json(n) ORDER BY n.created_at DESC), '[]'::jsonb)
-         FROM notifications n
-         WHERE n.user_id = ${lit.uuid(userId)} ${whereRead}
-         LIMIT ${lit.int(limit)};`,
+        `SELECT coalesce(jsonb_agg(to_jsonb(n) ORDER BY n.created_at DESC), '[]'::jsonb)
+         FROM (SELECT * FROM notifications
+               WHERE user_id = ${lit.uuid(userId)} ${whereRead}
+               ORDER BY created_at DESC LIMIT ${lit.int(limit)}) n;`,
       )) ?? []
     );
   }
 
   async markNotificationRead(userId: string, notificationId: string): Promise<void> {
-    await this.exec(
+    await this.run(
       `UPDATE notifications SET read_at = now()
        WHERE id = ${lit.uuid(notificationId)} AND user_id = ${lit.uuid(userId)} AND read_at IS NULL;`,
     );
   }
 
   async markAllNotificationsRead(userId: string): Promise<void> {
-    await this.exec(
+    await this.run(
       `UPDATE notifications SET read_at = now()
        WHERE user_id = ${lit.uuid(userId)} AND read_at IS NULL;`,
     );
@@ -853,49 +877,41 @@ export class ApiStore extends PsqlStore {
   // ---------------------------------------------------------------- Exam heartbeat
   async recordHeartbeat(userId: string, attemptId: string, timeRemainingMs: number | null, now: number): Promise<void> {
     // Update the attempt's last_heartbeat_at so server-side expiry jobs can detect abandonment.
-    await this.exec(
+    await this.run(
       `UPDATE exam_attempts
        SET last_heartbeat_at = to_timestamp(${lit.int(Math.floor(now / 1000))}),
            time_remaining_ms = CASE WHEN ${timeRemainingMs === null ? 'false' : 'true'} THEN ${lit.int(timeRemainingMs ?? 0)} ELSE time_remaining_ms END
-       WHERE id = ${lit.uuid(attemptId)} AND user_id = ${lit.uuid(userId)} AND status = 'in_progress';`,
+       WHERE id = ${lit.uuid(attemptId)} AND user_id = ${lit.uuid(userId)} AND state = 'in_progress';`,
     );
   }
 
   // ---------------------------------------------------------------- Referral & coupons
   async referralCode(userId: string): Promise<Record<string, unknown>> {
-    // Returns or generates a referral code for the user.
-    const row = await this.one<Record<string, unknown>>(
-      `SELECT id, code, created_at, uses_count, credits_earned
-       FROM referral_codes
-       WHERE user_id = ${lit.uuid(userId)}
-       LIMIT 1;`,
-    );
+    // Returns the user's referral code, creating it on first use.
+    const select = `SELECT jsonb_build_object('id', id, 'code', code, 'created_at', created_at,
+                      'uses_count', uses_count, 'credits_earned', credits_earned)
+                    FROM referral_codes WHERE user_id = ${lit.uuid(userId)};`;
+    const row = await this.one<Record<string, unknown>>(select);
     if (row) return row;
-    // Create one on first access — deterministic suffix for readability.
     const suffix = userId.replace(/-/g, '').slice(0, 8).toUpperCase();
-    await this.exec(
+    await this.run(
       `INSERT INTO referral_codes (user_id, code) VALUES (${lit.uuid(userId)}, ${lit.text(`PMP-${suffix}`)})
        ON CONFLICT (user_id) DO NOTHING;`,
     );
-    return (
-      (await this.one<Record<string, unknown>>(
-        `SELECT id, code, created_at, uses_count, credits_earned FROM referral_codes WHERE user_id = ${lit.uuid(userId)};`,
-      )) ?? { code: `PMP-${suffix}`, uses_count: 0, credits_earned: 0 }
-    );
+    return (await this.one<Record<string, unknown>>(select)) ?? { code: `PMP-${suffix}`, uses_count: 0, credits_earned: 0 };
   }
 
   async applyCoupon(userId: string, code: string, now: number): Promise<Record<string, unknown>> {
     const coupon = await this.one<{ id: string; discount_pct: number; max_uses: number; uses_count: number; expires_at: string | null }>(
-      `SELECT id, discount_pct, max_uses, uses_count, expires_at
-       FROM coupons
-       WHERE code = ${lit.text(code)} AND active = true
-       LIMIT 1;`,
+      `SELECT jsonb_build_object('id', id, 'discount_pct', discount_pct, 'max_uses', max_uses,
+                                 'uses_count', uses_count, 'expires_at', expires_at)
+       FROM coupons WHERE code = ${lit.text(code)} AND active = true LIMIT 1;`,
     );
     if (!coupon) return { valid: false, reason: 'code_not_found' };
     if (coupon.expires_at && new Date(coupon.expires_at).getTime() < now) return { valid: false, reason: 'expired' };
     if (coupon.max_uses > 0 && coupon.uses_count >= coupon.max_uses) return { valid: false, reason: 'exhausted' };
     // Record application (actual discount applied at payment time).
-    await this.exec(
+    await this.run(
       `INSERT INTO coupon_applications (user_id, coupon_id, applied_at)
        VALUES (${lit.uuid(userId)}, ${lit.uuid(coupon.id)}, now())
        ON CONFLICT (user_id, coupon_id) DO NOTHING;`,
@@ -905,16 +921,27 @@ export class ApiStore extends PsqlStore {
 
   // ---------------------------------------------------------------- Streak
   async streakInfo(userId: string, now: number): Promise<Record<string, unknown>> {
-    const profile = await this.one<{ streak_days: number; longest_streak: number; last_activity_date: string | null }>(
-      `SELECT streak_days, longest_streak, last_activity_date
-       FROM learner_profiles
-       WHERE user_id = ${lit.uuid(userId)};`,
+    // Days in a row with at least one answer, from stored answers (same rule as the dashboard).
+    return (await this.one<Record<string, unknown>>(
+      `WITH days AS (SELECT DISTINCT (answered_at AT TIME ZONE 'UTC')::date AS day FROM user_answer_events(${lit.uuid(userId)})),
+            runs AS (SELECT day, day - (row_number() OVER (ORDER BY day))::integer AS grp FROM days),
+            spans AS (SELECT grp, count(*)::int AS len, max(day) AS last_day FROM runs GROUP BY grp)
+       SELECT jsonb_build_object(
+         'currentStreak', coalesce((SELECT len FROM spans WHERE last_day >= (${ts(new Date(now).toISOString())} AT TIME ZONE 'UTC')::date - 1
+                                    ORDER BY last_day DESC LIMIT 1), 0),
+         'longestStreak', coalesce((SELECT max(len) FROM spans), 0),
+         'lastActivityDate', (SELECT max(day) FROM days));`,
+    )) ?? { currentStreak: 0, longestStreak: 0, lastActivityDate: null };
+  }
+
+  /** Task and type of a published question, for the rule-based coach. */
+  async coachQuestionMeta(questionId: string): Promise<{ taskCode: string; approach: string; difficulty: string; type: string } | null> {
+    return await this.one(
+      `SELECT jsonb_build_object('taskCode', t.code, 'approach', qv.approach_code,
+         'difficulty', qv.difficulty_code, 'type', qv.type_code)
+       FROM question_versions qv JOIN tasks t ON t.id = qv.task_id
+       WHERE qv.question_id = ${lit.uuid(questionId)} AND qv.workflow_state = 'published'
+       ORDER BY qv.version_no DESC LIMIT 1;`,
     );
-    if (!profile) return { currentStreak: 0, longestStreak: 0, lastActivityDate: null };
-    return {
-      currentStreak: profile.streak_days ?? 0,
-      longestStreak: profile.longest_streak ?? 0,
-      lastActivityDate: profile.last_activity_date,
-    };
   }
 }

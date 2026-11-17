@@ -218,6 +218,32 @@ export function validateDraft(input: unknown, taskCodes: ReadonlySet<string>, pr
   };
 }
 
+/** Checks the whole exam tips document sent from the admin panel. */
+export function validateTips(input: unknown): { sections?: Array<Record<string, unknown>>; errors: FieldError[] } {
+  const errors: FieldError[] = [];
+  if (!Array.isArray(input)) return { errors: [{ field: 'sections', message: 'must be a list of sections' }] };
+  if (input.length > 30) errors.push({ field: 'sections', message: 'at most 30 sections' });
+  const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim() : '');
+  const sections = input.map((raw, i) => {
+    const s = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+    const titleEn = text(s.titleEn, 200), titleAr = text(s.titleAr, 200);
+    if (!titleEn || titleEn.length > 200) errors.push({ field: `sections[${i}].titleEn`, message: 'is required, up to 200 characters' });
+    if (!titleAr || titleAr.length > 200) errors.push({ field: `sections[${i}].titleAr`, message: 'is required, up to 200 characters' });
+    const rawItems = Array.isArray(s.items) ? s.items : [];
+    if (!Array.isArray(s.items)) errors.push({ field: `sections[${i}].items`, message: 'must be a list' });
+    if (rawItems.length > 50) errors.push({ field: `sections[${i}].items`, message: 'at most 50 tips per section' });
+    const items = rawItems.map((it, j) => {
+      const o = (it && typeof it === 'object' ? it : {}) as Record<string, unknown>;
+      const en = text(o.en, 1000), ar = text(o.ar, 1000);
+      if (!en || en.length > 1000) errors.push({ field: `sections[${i}].items[${j}].en`, message: 'is required, up to 1000 characters' });
+      if (!ar || ar.length > 1000) errors.push({ field: `sections[${i}].items[${j}].ar`, message: 'is required, up to 1000 characters' });
+      return { en, ar };
+    });
+    return { titleEn, titleAr, items, published: s.published !== false };
+  });
+  return errors.length ? { errors } : { sections, errors };
+}
+
 export interface AdminRoute {
   method: string;
   path: string;
@@ -562,6 +588,18 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
     return { status: 204 };
   });
 
+  // ------------------------------------------------------------ exam tips
+
+  add('GET', '/admin/tips', ROLES.anyStaff, async () => ({ status: 200, body: { items: await store.tips(true) } }));
+
+  // Replaces the whole document: sections and their tips, in the order sent.
+  add('PUT', '/admin/tips', ROLES.authors, async (c) => {
+    const { sections, errors } = validateTips(c.body.sections);
+    if (errors.length) throw invalidMany(errors);
+    await run(async () => await store.replaceTips(c.claims.sub, sections!));
+    return { status: 200, body: { items: await store.tips(true) } };
+  });
+
   // ------------------------------------------------------------ plans and access
 
   add('GET', '/admin/plans', ROLES.admins, async () => ({ status: 200, body: { items: await store.adminPlans() } }));
@@ -644,7 +682,7 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
     if (passed !== null && passed !== undefined) { params.push(passed === 'true'); where += ` AND c.passed = $${params.length}`; }
     params.push(limit); const limitP = `$${params.length}`;
     params.push(offset); const offsetP = `$${params.length}`;
-    const items = await store.query<{
+    const items = await store.rows<{
       id: string; token: string; user_id: string; score_percent: number;
       passed: boolean; issued_at: string; revoked_at: string | null; attempt_id: string;
     }>(
@@ -658,7 +696,7 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
   add('POST', '/admin/certificates/:certId/revoke', ROLES.admins, async (c) => {
     const certId = uuid(c.params.certId);
     const reason = typeof c.body?.reason === 'string' ? c.body.reason.slice(0, 500) : 'admin_revoke';
-    const result = await store.query<{ id: string }>(
+    const result = await store.rows<{ id: string }>(
       `UPDATE certificates SET revoked_at = NOW(), revoke_reason = $1
          WHERE id = $2 AND revoked_at IS NULL RETURNING id`,
       [reason, certId],
@@ -669,7 +707,7 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
 
   add('DELETE', '/admin/certificates/:certId/revoke', ROLES.admins, async (c) => {
     const certId = uuid(c.params.certId);
-    const result = await store.query<{ id: string }>(
+    const result = await store.rows<{ id: string }>(
       `UPDATE certificates SET revoked_at = NULL, revoke_reason = NULL
          WHERE id = $1 AND revoked_at IS NOT NULL RETURNING id`,
       [certId],
@@ -690,17 +728,18 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
   add('GET', '/admin/question-difficulty', ROLES.anyStaff, async (c) => {
     const limit = Math.min(200, parseInt(c.query.get('limit') ?? '50', 10) || 50);
     const minAttempts = parseInt(c.query.get('min_attempts') ?? '5', 10) || 5;
-    const rows = await store.query<{
-      question_id: string; ordinal: number; eco_task: string; eco_domain: string;
+    const rows = await store.rows<{
+      question_id: string; public_code: string; latest_version_id: string; task_code: string; domain_code: string;
       total_attempts: number; correct_attempts: number; difficulty_score: number;
     }>(
-      `SELECT qs.question_id, qv.ordinal, qv.eco_task, qv.eco_domain,
-              qs.total_attempts, qs.correct_attempts,
-              ROUND(qs.difficulty_score::numeric, 3) AS difficulty_score
-         FROM question_stats qs
-         JOIN question_versions qv ON qv.id = qs.latest_version_id
-        WHERE qs.total_attempts >= $2
-        ORDER BY qs.difficulty_score DESC, qs.total_attempts DESC
+      `SELECT qd.question_id, qd.public_code, qd.latest_version_id, t.code AS task_code, d.code AS domain_code,
+              qd.total_attempts, qd.correct_attempts, qd.difficulty_score
+         FROM question_difficulty qd
+         JOIN question_versions qv ON qv.id = qd.latest_version_id
+         JOIN tasks t ON t.id = qv.task_id
+         JOIN domains d ON d.id = t.domain_id
+        WHERE qd.total_attempts >= $2
+        ORDER BY qd.difficulty_score DESC, qd.total_attempts DESC
         LIMIT $1`,
       [limit, minAttempts],
     );

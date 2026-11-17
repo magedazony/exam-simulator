@@ -684,6 +684,43 @@ describe('HTTP API', { skip: configured ? false : 'PGDATABASE is not set; see sc
     assert.equal(timed.body.timeLimitSeconds, 800);
   });
 
+  it('answers every study-tool endpoint without a server error, after practice and a finished mock', async () => {
+    const tk = alice.accessToken;
+    const qid = store.query(`SELECT pi.question_id FROM practice_items pi JOIN practice_sessions ps ON ps.id = pi.session_id
+                             JOIN users u ON u.id = ps.user_id WHERE u.email = 'alice@example.test' AND pi.answered_at IS NOT NULL LIMIT 1;`);
+    const checks: Array<[string, string, unknown?]> = [
+      ['GET', '/me/dashboard'], ['GET', '/me/analytics'], ['GET', '/me/mastery'], ['GET', '/me/readiness'],
+      ['GET', '/me/spaced-reviews/due'], ['GET', '/me/profile'], ['GET', '/me/errors'], ['GET', '/me/study-plan'],
+      ['POST', '/me/study-plan/refresh'], ['GET', '/me/bookmarks'], ['POST', `/me/bookmarks/${qid}`],
+      ['PUT', `/me/notes/${qid}`, { content: 'my note' }], ['GET', `/me/notes/${qid}`], ['DELETE', `/me/notes/${qid}`],
+      ['GET', '/me/analytics/domains'], ['GET', '/me/analytics/difficulty'], ['GET', '/case-studies'],
+      ['POST', '/coach/hint', { questionId: qid, hintType: 'approach' }], ['POST', '/practice/adaptive', {}],
+      ['GET', '/me/notifications'], ['POST', '/me/notifications/read-all'], ['GET', '/me/referral'],
+      ['POST', '/me/coupon', { code: 'NOPE' }], ['GET', '/me/streak'], ['GET', '/me/certificates'],
+      ['GET', '/me/weekly-snapshots'], ['POST', '/me/weekly-snapshots/refresh'], ['GET', '/tips'],
+    ];
+    const broken: string[] = [];
+    for (const [method, path, body] of checks) {
+      const r = await call(method, path, { token: tk, ...(body === undefined ? {} : { body }) });
+      if (r.status >= 500) broken.push(`${method} ${path} → ${r.status}`);
+    }
+    assert.deepEqual(broken, []);
+
+    // The finished mock exam earned a completion certificate that verifies publicly, with no pass/fail claim.
+    const certs = (await call('GET', '/me/certificates', { token: tk })).body.items;
+    assert.equal(certs.length, 1);
+    assert.equal(certs[0].attempt_id, attemptId);
+    assert.equal(certs[0].passed, null);
+    const pub = await call('GET', `/verify/${certs[0].token}`);
+    assert.equal(pub.status, 200);
+    assert.equal(pub.body.revoked, false);
+
+    const snap = (await call('GET', '/me/weekly-snapshots', { token: tk })).body.items;
+    assert.ok(snap.length >= 1 && snap[0].questions_answered > 0, 'this week shows the answers just given');
+    const streak = (await call('GET', '/me/streak', { token: tk })).body;
+    assert.ok(streak.currentStreak >= 1);
+  });
+
   it('lets a candidate download everything stored about them, without secrets or other people', async () => {
     const r = await fetch(`${base}/api/v1/me/export`, { headers: { authorization: `Bearer ${alice.accessToken}` } });
     assert.equal(r.status, 200);

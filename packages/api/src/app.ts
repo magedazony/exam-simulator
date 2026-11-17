@@ -134,13 +134,7 @@ const DISCLAIMER =
 /** Rule-based AI coach hint generator (no external API needed for MVP hints). */
 async function generateCoachHint(store: import('./api-store.ts').ApiStore, questionId: string, hintType: string): Promise<string> {
   // Pull minimal question metadata
-  const q = await store.one<{ taskCode: string; approach: string; difficulty: string; type: string }>(
-    `SELECT jsonb_build_object('taskCode', t.code, 'approach', qv.approach_code,
-       'difficulty', qv.difficulty_code, 'type', qv.type_code)
-     FROM question_versions qv JOIN tasks t ON t.id = qv.task_id
-     WHERE qv.question_id = '${questionId}'::uuid AND qv.workflow_state = 'published'
-     LIMIT 1;`,
-  );
+  const q = await store.coachQuestionMeta(questionId);
   if (!q) return 'Read the question carefully and eliminate obviously incorrect options first.';
   const { taskCode, approach, difficulty } = q;
   const hints: Record<string, string[]> = {
@@ -354,8 +348,6 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     const token = newOpaqueToken();
     await store.saveEmailToken(userId, 'verify', hashToken(token), iso(deps.now() + 86_400_000));
     sendMail({ to: email, purpose: 'verify', token, language: language === 'ar' ? 'ar' : 'en' });
-    // Welcome email (non-blocking, best-effort).
-    sendMail({ to: email, purpose: 'welcome', token: '', language: language === 'ar' ? 'ar' : 'en' });
     return { status: 201 };
   }, { auth: false, limited: true });
 
@@ -363,6 +355,9 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     const userId = await store.consumeEmailToken('verify', hashToken(str(c.body, 'token')), iso());
     if (!userId) throw invalid('token', 'is invalid or has expired');
     await store.markVerified(userId, iso());
+    // Welcome email once the address is confirmed (best effort).
+    const who = await store.profile(userId).catch(() => null);
+    if (who && typeof who.email === 'string') sendMail({ to: who.email, purpose: 'welcome', token: '', language: who.language === 'ar' ? 'ar' : 'en' });
     return { status: 204 };
   }, { auth: false, limited: true });
 
@@ -465,6 +460,9 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     if (!userId) throw invalid('token', 'is invalid or has expired');
     await store.setPassword(userId, hashPassword(c.body.newPassword as string), iso());
     await store.markVerified(userId, iso());
+    // Welcome email once the address is confirmed (best effort).
+    const who = await store.profile(userId).catch(() => null);
+    if (who && typeof who.email === 'string') sendMail({ to: who.email, purpose: 'welcome', token: '', language: who.language === 'ar' ? 'ar' : 'en' });
     return { status: 204 };
   }, { auth: false, limited: true });
 
@@ -763,6 +761,9 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
 
   add('GET', '/site', async () => ({ status: 200, body: config.site }), { auth: false });
 
+  // Exam tips, edited by staff in the admin panel. Published sections only.
+  add('GET', '/tips', async () => ({ status: 200, body: { items: await store.tips(false) } }), { auth: false });
+
   // ------------------------------------------------------------ access and plans
 
   add('GET', '/plans', async (c) => {
@@ -994,15 +995,25 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     body: statusBody(await service.resume(c.claims.sub, uuid(c.params.attemptId), deps.now())),
   }));
 
-  add('POST', '/exams/attempts/:attemptId/submit', async (c) => ({
-    status: 200,
-    body: resultBody(await service.submit(c.claims.sub, uuid(c.params.attemptId), deps.now())),
-  }));
+  // A completion certificate is issued once per finished mock exam. Issuing it
+  // must never break the result itself, so failures are only logged.
+  const certify = async (attemptId: string) => {
+    try { await store.issueCertificate(attemptId); } catch (e) { console.error('certificate issue failed', attemptId, e); }
+  };
 
-  add('GET', '/exams/attempts/:attemptId/result', async (c) => ({
-    status: 200,
-    body: resultBody(await service.result(c.claims.sub, uuid(c.params.attemptId), deps.now())),
-  }));
+  add('POST', '/exams/attempts/:attemptId/submit', async (c) => {
+    const id = uuid(c.params.attemptId);
+    const result = await service.submit(c.claims.sub, id, deps.now());
+    await certify(id);
+    return { status: 200, body: resultBody(result) };
+  });
+
+  add('GET', '/exams/attempts/:attemptId/result', async (c) => {
+    const id = uuid(c.params.attemptId);
+    const result = await service.result(c.claims.sub, id, deps.now());
+    await certify(id); // covers attempts that expired instead of being submitted
+    return { status: 200, body: resultBody(result) };
+  });
 
   add('GET', '/exams/attempts/:attemptId/review', async (c) => {
     const attemptId = uuid(c.params.attemptId);
@@ -1091,7 +1102,7 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
 
   // GET /me/certificates — list certificates for the signed-in user
   add('GET', '/me/certificates', async (c) => {
-    const rows = await store.query<{
+    const rows = await store.rows<{
       id: string; token: string; score_percent: number; passed: boolean;
       issued_at: string; revoked_at: string | null; attempt_id: string;
     }>(
@@ -1106,7 +1117,7 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
   add('GET', '/verify/:token', async (c) => {
     const token = c.params.token ?? '';
     if (!/^[0-9a-f]{32}$/.test(token)) throw notFound();
-    const rows = await store.query<{
+    const rows = await store.rows<{
       id: string; user_display: string; score_percent: number;
       passed: boolean; issued_at: string; revoked: boolean;
     }>(`SELECT * FROM public_certificate($1)`, [token]);
@@ -1116,7 +1127,7 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
 
   // GET /me/weekly-snapshots — last 12 weeks of study stats for the signed-in user
   add('GET', '/me/weekly-snapshots', async (c) => {
-    const rows = await store.query<{
+    const rows = await store.rows<{
       week_start: string; questions_answered: number; questions_correct: number;
       time_studied_min: number; domains: string; streak_days: number;
     }>(
@@ -1133,48 +1144,47 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
   add('POST', '/me/weekly-snapshots/refresh', async (c) => {
     const userId = c.claims.sub;
     const weekStart = new Date(startOfWeekMs(deps.now())).toISOString().slice(0, 10); // YYYY-MM-DD
-    // Use store.query which handles parameterisation safely
-    await store.query<Record<string, never>>(
+    // Built from the real answer tables: finished mock exams and answered practice items.
+    await store.rows<Record<string, never>>(
       `INSERT INTO weekly_snapshots (user_id, week_start, questions_answered, questions_correct, time_studied_min, domains, streak_days)
-       SELECT
-         $1::uuid,
-         $2::date,
-         COUNT(*)::int,
-         COUNT(*) FILTER (WHERE ea.is_correct)::int,
-         COALESCE(ROUND(SUM(EXTRACT(EPOCH FROM (ea.answered_at - ea.started_at))) / 60)::int, 0),
-         COALESCE((
-           SELECT jsonb_object_agg(qv2.eco_domain, cnt) FROM (
-             SELECT qv2.eco_domain, COUNT(*)::int AS cnt
-             FROM exam_answers ea2
-             JOIN question_versions qv2 ON qv2.id = ea2.question_version_id
-             WHERE ea2.user_id = $1::uuid
-               AND ea2.answered_at >= $2::date AND ea2.answered_at < $2::date + INTERVAL '7 days'
-             GROUP BY qv2.eco_domain
-           ) qv2
-         ), '{}'::jsonb),
-         (
-           /* streak_days: count consecutive weekly_snapshot weeks (incl this one) working backwards */
-           WITH ordered AS (
-             SELECT week_start,
-                    ROW_NUMBER() OVER (ORDER BY week_start DESC) AS rn
-             FROM weekly_snapshots
-             WHERE user_id = $1::uuid AND questions_answered > 0
-               AND week_start <= $2::date
-           ), consec AS (
-             SELECT week_start FROM ordered
-             WHERE week_start = ($2::date - INTERVAL '7 days' * (rn - 1))::date
-           )
-           SELECT COALESCE(COUNT(*) * 7, 0)::int FROM consec
-         )
-       FROM exam_answers ea
-       WHERE ea.user_id = $1::uuid
-         AND ea.answered_at >= $2::date AND ea.answered_at < $2::date + INTERVAL '7 days'
+       WITH ev AS (
+         SELECT aq.question_version_id, a.is_correct, coalesce(a.time_spent_ms, 0) AS ms
+           FROM answers a
+           JOIN attempt_questions aq ON aq.id = a.attempt_question_id
+           JOIN exam_attempts ea ON ea.id = aq.attempt_id
+          WHERE ea.user_id = $1::uuid AND ea.result IS NOT NULL AND a.is_correct IS NOT NULL
+            AND a.answered_at >= $2::date AND a.answered_at < $2::date + 7
+         UNION ALL
+         SELECT pi.question_version_id, pi.is_correct, coalesce(pi.time_spent_ms, 0)
+           FROM practice_items pi
+           JOIN practice_sessions ps ON ps.id = pi.session_id
+          WHERE ps.user_id = $1::uuid AND pi.answered_at IS NOT NULL
+            AND pi.answered_at >= $2::date AND pi.answered_at < $2::date + 7
+       ),
+       dom AS (
+         SELECT d.code, count(*)::int AS q, count(*) FILTER (WHERE ev.is_correct)::int AS c
+           FROM ev
+           JOIN question_versions qv ON qv.id = ev.question_version_id
+           JOIN tasks t ON t.id = qv.task_id
+           JOIN domains d ON d.id = t.domain_id
+          GROUP BY d.code
+       ),
+       days AS (SELECT DISTINCT (answered_at AT TIME ZONE 'UTC')::date AS day FROM user_answer_events($1::uuid)),
+       runs AS (SELECT day, day - (row_number() OVER (ORDER BY day))::integer AS grp FROM days)
+       SELECT $1::uuid, $2::date,
+              (SELECT count(*)::int FROM ev),
+              (SELECT count(*) FILTER (WHERE is_correct)::int FROM ev),
+              (SELECT coalesce(round(sum(ms) / 60000.0), 0)::int FROM ev),
+              coalesce((SELECT jsonb_object_agg(code, jsonb_build_object('q', q, 'c', c)) FROM dom), '{}'::jsonb),
+              coalesce((SELECT count(*)::int FROM runs WHERE grp = (
+                SELECT grp FROM runs WHERE day >= current_date - 1 ORDER BY day DESC LIMIT 1)), 0)
        ON CONFLICT (user_id, week_start) DO UPDATE SET
          questions_answered = EXCLUDED.questions_answered,
-         questions_correct   = EXCLUDED.questions_correct,
-         time_studied_min    = EXCLUDED.time_studied_min,
-         domains             = EXCLUDED.domains,
-         streak_days         = EXCLUDED.streak_days`,
+         questions_correct  = EXCLUDED.questions_correct,
+         time_studied_min   = EXCLUDED.time_studied_min,
+         domains            = EXCLUDED.domains,
+         streak_days        = EXCLUDED.streak_days,
+         updated_at         = now()`,
       [userId, weekStart],
     );
     return { status: 200, body: { ok: true } };

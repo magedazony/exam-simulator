@@ -106,6 +106,17 @@ const CHECKS = [["technical", "Technically correct"], ["outlineMapping", "Mapped
 // Interface text. English is the key; AR holds the Arabic. Question content is
 // never translated here: it is written by authors and keeps its own direction.
 const AR = {
+  "Minimum answers": "أقل عدد إجابات", "Measured from stored answers in practice and finished mock exams. 1 means nobody answered correctly.": "محسوبة من الإجابات المحفوظة في التدريب والاختبارات التجريبية المكتملة. القيمة 1 تعني أن أحداً لم يُجب إجابة صحيحة.",
+  "Domain": "المجال", "Answers": "الإجابات", "Correct": "صحيحة", "No question has enough answers yet.": "لا يوجد سؤال لديه إجابات كافية بعد.",
+  "A certificate records that a candidate finished a full mock exam, with the score. It does not say pass or fail.": "الشهادة تثبت أن المتدرب أكمل اختباراً تجريبياً كاملاً ونتيجته، ولا تقول ناجح أو راسب.",
+  // certificates and import
+  "Arabic columns (optional):": "أعمدة العربية (اختيارية):", "Certificates": "الشهادات", "Token": "الرمز", "User": "المستخدم", "Score": "النتيجة", "Issued": "تاريخ الإصدار", "Revoked": "ملغاة",
+  "Yes": "نعم", "No": "لا", "Un-revoke": "إلغاء الإلغاء", "Revoke": "إلغاء الشهادة", "← Previous": "→ السابق", "Next →": "التالي ←",
+  "Reason for revocation (optional):": "سبب الإلغاء (اختياري):", "Certificate revoked.": "تم إلغاء الشهادة.", "Revocation removed.": "تم التراجع عن الإلغاء.",
+  // exam tips
+  "Exam tips": "نصائح الامتحان", "Candidates see published sections in this order. Every tip needs English and Arabic text. Changes go live when you save.": "يرى المتدربون الأقسام المنشورة بهذا الترتيب. كل نصيحة تحتاج نصاً بالإنجليزية والعربية. التعديلات تظهر فور الحفظ.",
+  "Title (English)": "العنوان (إنجليزي)", "Title (Arabic)": "العنوان (عربي)", "Published": "منشور", "Delete section": "حذف القسم", "Add a tip": "إضافة نصيحة", "Add a section": "إضافة قسم", "Save all tips": "حفظ كل النصائح",
+  "Only content authors and administrators can change the tips.": "تعديل النصائح متاح لكتّاب المحتوى والمديرين فقط.", "Delete this section and all its tips?": "حذف هذا القسم وكل نصائحه؟", "Tips saved. Candidates see them now.": "تم حفظ النصائح، ويراها المتدربون الآن.",
   // sign-in
   "Question bank admin": "إدارة بنك الأسئلة", "Email": "البريد الإلكتروني", "Password": "كلمة المرور", "Code from authenticator app, or a recovery code": "الرمز من تطبيق المصادقة، أو رمز استرداد",
   "Sign in": "تسجيل الدخول", "Set up two-factor sign-in": "إعداد التحقق بخطوتين", "Staff tools need a code from an authenticator app. Add this key to the app, then enter the six-digit code it shows.": "أدوات فريق العمل تحتاج رمزاً من تطبيق المصادقة. أضف هذا المفتاح إلى التطبيق، ثم أدخل الرمز المكوّن من ستة أرقام الذي يظهر فيه.",
@@ -285,7 +296,7 @@ function loginView(step) {
 
 // ------------------------------------------------------------ shell
 
-const NAV = [["queue", "Work queue"], ["questions", "Questions"], ["new", "New question", isAuthor], ["cases", "Case studies"], ["import", "Import", isAuthor], ["blueprints", "Blueprints", isAdmin], ["reports", "Reports"], ["difficulty", "Difficulty", isAdmin], ["users", "Users", isAdmin], ["certificates", "Certificates", isAdmin], ["access", "Plans and access", isAdmin], ["audit", "Audit log", isAdmin], ["security", "Security"]];
+const NAV = [["queue", "Work queue"], ["questions", "Questions"], ["new", "New question", isAuthor], ["cases", "Case studies"], ["tips", "Exam tips"], ["import", "Import", isAuthor], ["blueprints", "Blueprints", isAdmin], ["reports", "Reports"], ["difficulty", "Difficulty", isAdmin], ["users", "Users", isAdmin], ["certificates", "Certificates", isAdmin], ["access", "Plans and access", isAdmin], ["audit", "Audit log", isAdmin], ["security", "Security"]];
 
 function shell(title, body) {
   const route = (location.hash.slice(1) || "queue").split("/")[0];
@@ -615,6 +626,82 @@ function importView() {
   $("#commit").onclick = () => send(true);
 }
 
+// ------------------------------------------------------------ exam tips
+
+// The whole tips document is edited here and saved in one PUT /admin/tips.
+async function tipsAdminView() {
+  const r = await api("GET", "/admin/tips");
+  const can = isAuthor();
+  let doc = r.items.map((g) => ({ titleEn: g.titleEn, titleAr: g.titleAr, published: g.published, items: (g.items || []).map((it) => ({ en: it.en, ar: it.ar })) }));
+  let dirty = false;
+  const dis = can ? "" : " disabled";
+  const read = () => {
+    document.querySelectorAll("[data-sec]").forEach((el) => {
+      const i = Number(el.dataset.sec), g = doc[i];
+      g.titleEn = el.querySelector("[data-f=titleEn]").value;
+      g.titleAr = el.querySelector("[data-f=titleAr]").value;
+      g.published = el.querySelector("[data-f=published]").checked;
+      el.querySelectorAll("[data-item]").forEach((row) => {
+        const j = Number(row.dataset.item);
+        g.items[j].en = row.querySelector("[data-f=en]").value;
+        g.items[j].ar = row.querySelector("[data-f=ar]").value;
+      });
+    });
+  };
+  const move = (list, i, d) => { const j = i + d; if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; };
+  const draw = () => {
+    shell(t("Exam tips"), `<p class="muted">${t("Candidates see published sections in this order. Every tip needs English and Arabic text. Changes go live when you save.")}</p>
+      ${doc.map((g, i) => `<section class="panel" data-sec="${i}">
+        <div class="row"><strong>${i + 1}.</strong>
+          <label style="flex:1">${t("Title (English)")}<input dir="ltr" data-f="titleEn" value="${esc(g.titleEn)}"${dis}></label>
+          <label style="flex:1">${t("Title (Arabic)")}<input dir="rtl" data-f="titleAr" value="${esc(g.titleAr)}"${dis}></label></div>
+        <div class="row"><label><input type="checkbox" data-f="published"${g.published ? " checked" : ""}${dis}> ${t("Published")}</label>
+          ${can ? `<button type="button" data-act="sec-up" data-i="${i}">↑</button><button type="button" data-act="sec-down" data-i="${i}">↓</button><button type="button" class="danger" data-act="sec-del" data-i="${i}">${t("Delete section")}</button>` : ""}</div>
+        ${g.items.map((it, j) => `<div class="row" data-item="${j}" style="align-items:flex-start;border-top:1px solid var(--border);padding-top:8px">
+          <span class="muted">${j + 1}</span>
+          <textarea dir="ltr" rows="3" style="flex:1" data-f="en"${dis}>${esc(it.en)}</textarea>
+          <textarea dir="rtl" rows="3" style="flex:1" data-f="ar"${dis}>${esc(it.ar)}</textarea>
+          ${can ? `<span style="display:flex;flex-direction:column;gap:4px"><button type="button" data-act="it-up" data-i="${i}" data-j="${j}">↑</button><button type="button" data-act="it-down" data-i="${i}" data-j="${j}">↓</button><button type="button" class="danger" data-act="it-del" data-i="${i}" data-j="${j}">✕</button></span>` : ""}
+        </div>`).join("")}
+        ${can ? `<button type="button" data-act="it-add" data-i="${i}">${t("Add a tip")}</button>` : ""}
+      </section>`).join("")}
+      ${can ? `<div class="row"><button type="button" data-act="sec-add">${t("Add a section")}</button><button type="button" class="primary" id="tips-save">${t("Save all tips")}</button></div>` : `<p class="muted">${t("Only content authors and administrators can change the tips.")}</p>`}`);
+    document.querySelectorAll("[data-sec] input, [data-sec] textarea").forEach((el) => { el.oninput = () => { dirty = true; }; });
+    document.querySelectorAll("[data-act]").forEach((b) => {
+      b.onclick = () => {
+        read();
+        const i = Number(b.dataset.i), j = Number(b.dataset.j), a = b.dataset.act;
+        if (a === "sec-up") move(doc, i, -1);
+        if (a === "sec-down") move(doc, i, 1);
+        if (a === "sec-del") { if (!confirm(t("Delete this section and all its tips?"))) return; doc.splice(i, 1); }
+        if (a === "sec-add") doc.push({ titleEn: "", titleAr: "", published: false, items: [{ en: "", ar: "" }] });
+        if (a === "it-up") move(doc[i].items, j, -1);
+        if (a === "it-down") move(doc[i].items, j, 1);
+        if (a === "it-del") doc[i].items.splice(j, 1);
+        if (a === "it-add") doc[i].items.push({ en: "", ar: "" });
+        dirty = true;
+        draw();
+      };
+    });
+    if ($("#tips-save")) $("#tips-save").onclick = async () => {
+      read();
+      try {
+        const out = await api("PUT", "/admin/tips", { sections: doc });
+        doc = out.items.map((g) => ({ titleEn: g.titleEn, titleAr: g.titleAr, published: g.published, items: g.items.map((it) => ({ en: it.en, ar: it.ar })) }));
+        dirty = false;
+        flash("ok", t("Tips saved. Candidates see them now."));
+        draw();
+      } catch (e) {
+        // Keep the unsaved edits on screen; showError() would reload the page.
+        flash("err", e instanceof ApiError ? e.describe() : t("Something went wrong. Check the server and try again."));
+        draw();
+      }
+    };
+  };
+  window.onbeforeunload = () => (dirty ? true : undefined);
+  draw();
+}
+
 async function blueprintsView() {
   const r = await api("GET", "/admin/blueprints");
   shell(t("Blueprints"), `<div class="panel"><p>${t("Upload a new blueprint version as JSON. It is stored as a draft, and activated only if 20 sample exams built from the current bank are all valid.")}</p><div class="row"><input type="file" id="bp-file" accept=".json,application/json"><button class="primary" id="bp-up">${t("Upload as draft")}</button></div></div>
@@ -759,84 +846,78 @@ async function difficultyAdminView() {
   shell(`<h1>Question Difficulty</h1><p class="muted">Loading…</p>`);
   let data;
   try { data = await api("GET", `/admin/question-difficulty?limit=100&min_attempts=${minAttempts}`); }
-  catch (e) { shell(`<h1>Question Difficulty</h1><p class="muted error">${esc(e.message)}</p>`); return; }
+  catch (e) { return showError(e); }
   const rows = data.items || [];
-  const domainColors = { "People": "var(--primary)", "Process": "#f59e0b", "Business": "#10b981" };
-  shell(`<h1>Question Difficulty</h1>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-      <label>Min attempts:
-        <select id="minSel" onchange="location.hash='#difficulty?min='+this.value">
-          ${[3,5,10,20,50].map((v) => `<option value="${v}"${v === minAttempts ? " selected" : ""}>${v}</option>`).join("")}
+  const domainColors = { PEOPLE: "var(--primary)", PROCESS: "#f59e0b", BUSINESS: "#10b981" };
+  shell(t("Difficulty"), `
+    <div class="row">
+      <label>${t("Minimum answers")}
+        <select id="minSel">
+          ${[3, 5, 10, 20, 50].map((v) => `<option value="${v}"${v === minAttempts ? " selected" : ""}>${v}</option>`).join("")}
         </select>
       </label>
-      <span class="muted">${rows.length} questions shown — highest difficulty_score first (1 = hardest)</span>
+      <span class="muted">${t("Measured from stored answers in practice and finished mock exams. 1 means nobody answered correctly.")}</span>
     </div>
-    <div style="overflow-x:auto"><table class="data-table">
-      <thead><tr><th>#</th><th>Ordinal</th><th>Domain</th><th>Task</th><th>Attempts</th><th>Correct</th><th>Score</th></tr></thead>
+    <div class="wrap"><table>
+      <thead><tr><th>#</th><th>${t("Code")}</th><th>${t("Domain")}</th><th>${t("Task")}</th><th>${t("Answers")}</th><th>${t("Correct")}</th><th>${t("Difficulty")}</th></tr></thead>
       <tbody>${rows.map((r, i) => {
         const pct = r.total_attempts ? Math.round((r.correct_attempts / r.total_attempts) * 100) : 0;
         const color = r.difficulty_score >= 0.7 ? "var(--bad)" : r.difficulty_score >= 0.4 ? "#f59e0b" : "var(--good)";
-        const domColor = domainColors[r.eco_domain] || "var(--muted)";
         return `<tr>
           <td>${i + 1}</td>
-          <td><a href="#question?id=${esc(r.question_id)}">${r.ordinal || "—"}</a></td>
-          <td><span style="color:${domColor};font-weight:600">${esc(r.eco_domain)}</span></td>
-          <td style="font-size:12px">${esc(r.eco_task || "—")}</td>
+          <td><a class="code" href="#question/${esc(r.latest_version_id)}">${esc(r.public_code)}</a></td>
+          <td><span style="color:${domainColors[r.domain_code] || "var(--muted)"};font-weight:600">${esc(r.domain_code)}</span></td>
+          <td class="code">${esc(r.task_code)}</td>
           <td>${r.total_attempts}</td>
           <td>${r.correct_attempts} (${pct}%)</td>
           <td style="font-weight:700;color:${color}">${r.difficulty_score}</td>
         </tr>`;
-      }).join("") || `<tr><td colspan="7" class="muted" style="text-align:center">No data yet — questions need ≥${minAttempts} attempts</td></tr>`}
+      }).join("") || `<tr><td colspan="7" class="muted">${t("No question has enough answers yet.")}</td></tr>`}
       </tbody>
     </table></div>`);
+  $("#minSel").onchange = (ev) => { location.hash = "#difficulty?min=" + ev.target.value; };
 }
 
 async function certificatesAdminView() {
-  const passed = new URLSearchParams(location.hash.split("?")[1] || "").get("passed");
+  // Completion certificates: one per finished mock exam, with the score. No pass/fail.
   const offset = Number(new URLSearchParams(location.hash.split("?")[1] || "").get("offset") || 0);
   const limit = 50;
-  const qs = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-  if (passed !== null) qs.set("passed", passed);
-  const r = await api("GET", "/admin/certificates?" + qs);
+  const r = await api("GET", "/admin/certificates?" + new URLSearchParams({ limit: String(limit), offset: String(offset) }));
   const items = r.items || [];
   shell(t("Certificates"), `
-    <div class="row" style="gap:8px;margin-bottom:12px">
-      <a class="btn small${passed === null ? " primary" : ""}" href="#certificates">${t("All")}</a>
-      <a class="btn small${passed === "true" ? " primary" : ""}" href="#certificates?passed=true">${t("Passed")}</a>
-      <a class="btn small${passed === "false" ? " primary" : ""}" href="#certificates?passed=false">${t("Not passed")}</a>
-    </div>
+    <p class="muted">${t("A certificate records that a candidate finished a full mock exam, with the score. It does not say pass or fail.")}</p>
     ${table(items, [
-      ["Token", (c) => `<span dir="ltr" style="font-size:12px">${esc(c.token)}</span>`],
-      ["User", (c) => `<span dir="ltr" style="font-size:12px">${esc(c.user_id)}</span>`],
+      ["Token", (c) => `<span dir="ltr" class="code">${esc(c.token)}</span>`],
+      ["User", (c) => `<span dir="ltr" class="code">${esc(c.user_id)}</span>`],
       ["Score", (c) => `${c.score_percent}%`],
-      ["Passed", (c) => c.passed ? "✅" : "❌"],
       ["Issued", (c) => new Date(c.issued_at).toLocaleDateString()],
-      ["Revoked", (c) => c.revoked_at ? `<span style="color:var(--bad)">Yes</span>` : "No"],
-      ["Action", (c) => c.revoked_at
-        ? `<button class="small" data-unrevoke="${c.id}">${t("Un-revoke")}</button>`
-        : `<button class="small danger" data-revoke="${c.id}">${t("Revoke")}</button>`],
+      ["Revoked", (c) => (c.revoked_at ? `<span style="color:var(--bad)">${t("Yes")}</span>` : t("No"))],
+      ["Action", (c) => (c.revoked_at
+        ? `<button type="button" data-unrevoke="${esc(c.id)}">${t("Un-revoke")}</button>`
+        : `<button type="button" class="danger" data-revoke="${esc(c.id)}">${t("Revoke")}</button>`)],
     ])}
-    <div style="display:flex;gap:8px;margin-top:12px">
-      ${offset > 0 ? `<a class="btn small" href="#certificates?${new URLSearchParams({ passed: passed || '', offset: String(Math.max(0, offset - limit)) })}">${t("← Previous")}</a>` : ""}
-      ${items.length === limit ? `<a class="btn small" href="#certificates?${new URLSearchParams({ passed: passed || '', offset: String(offset + limit) })}">${t("Next →")}</a>` : ""}
+    <div class="row">
+      ${offset > 0 ? `<a href="#certificates?offset=${Math.max(0, offset - limit)}">${t("← Previous")}</a>` : ""}
+      ${items.length === limit ? `<a href="#certificates?offset=${offset + limit}">${t("Next →")}</a>` : ""}
     </div>`);
-  document.addEventListener("click", async (ev) => {
-    const btn = ev.target.closest("[data-revoke],[data-unrevoke]");
-    if (!btn) return;
-    const id = btn.dataset.revoke || btn.dataset.unrevoke;
-    const isRevoke = !!btn.dataset.revoke;
-    btn.disabled = true;
-    try {
-      if (isRevoke) {
-        const reason = prompt(t("Reason for revocation (optional):")) || "admin_revoke";
-        await api("POST", `/admin/certificates/${id}/revoke`, { reason });
-      } else {
-        await api("DELETE", `/admin/certificates/${id}/revoke`);
-      }
-      flash("ok", isRevoke ? t("Certificate revoked.") : t("Revocation removed."));
-      render();
-    } catch (e) { btn.disabled = false; showError(e); }
-  }, { once: true });
+  document.querySelectorAll("[data-revoke],[data-unrevoke]").forEach((btn) => {
+    btn.onclick = async () => {
+      const id = btn.dataset.revoke || btn.dataset.unrevoke;
+      const isRevoke = Boolean(btn.dataset.revoke);
+      btn.disabled = true;
+      try {
+        if (isRevoke) {
+          const reason = prompt(t("Reason for revocation (optional):"));
+          if (reason === null) { btn.disabled = false; return; }
+          await api("POST", `/admin/certificates/${id}/revoke`, { reason: reason || "admin_revoke" });
+        } else {
+          await api("DELETE", `/admin/certificates/${id}/revoke`);
+        }
+        flash("ok", isRevoke ? t("Certificate revoked.") : t("Revocation removed."));
+        render();
+      } catch (e) { btn.disabled = false; showError(e); }
+    };
+  });
 }
 
 async function render() {
@@ -849,6 +930,7 @@ async function render() {
     if (route === "new") return await questionView(null);
     if (route === "cases") return await casesView();
     if (route === "case") return await caseView(arg);
+    if (route === "tips") return await tipsAdminView();
     if (route === "import") return importView();
     if (route === "blueprints") return await blueprintsView();
     if (route === "reports") return await reportsView();

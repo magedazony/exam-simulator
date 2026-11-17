@@ -83,6 +83,10 @@ $$;
 
 -- ---------------------------------------------------------------- Update streak when study activity recorded
 -- Called by refresh_learner_profile; also updates longest_streak.
+ALTER TABLE learner_profiles
+  ADD COLUMN IF NOT EXISTS longest_streak     integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS last_activity_date date;
+
 CREATE OR REPLACE FUNCTION update_streak(p_user uuid) RETURNS void LANGUAGE plpgsql AS $$
 DECLARE
   v_today        date := current_date;
@@ -90,7 +94,7 @@ DECLARE
   v_streak       int;
   v_longest      int;
 BEGIN
-  SELECT streak_days, longest_streak, last_activity_date
+  SELECT study_streak_days, longest_streak, last_activity_date
     INTO v_streak, v_longest, v_last
   FROM learner_profiles
   WHERE user_id = p_user;
@@ -111,7 +115,7 @@ BEGIN
   v_longest := GREATEST(v_longest, v_streak);
 
   UPDATE learner_profiles
-  SET streak_days = v_streak,
+  SET study_streak_days = v_streak,
       longest_streak = v_longest,
       last_activity_date = v_today
   WHERE user_id = p_user;

@@ -67,10 +67,9 @@ BEGIN
     v_label := 'hard';
   END IF;
 
-  -- Only update when it actually changed to avoid churn
-  UPDATE question_versions
-     SET difficulty = v_label
-   WHERE id = p_version_id AND difficulty IS DISTINCT FROM v_label;
+  -- The author's difficulty label on question_versions is left alone; the
+  -- measured difficulty is reported in the question_difficulty view (016).
+  PERFORM v_label;
 END;
 $$;
 
@@ -95,79 +94,38 @@ BEGIN
 END;
 $$;
 
--- Attach trigger to exam_answers (the table that holds candidate answers)
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_trigger
-    WHERE tgname = 'trg_on_answer_saved'
-      AND tgrelid = 'exam_answers'::regclass
-  ) THEN
-    CREATE TRIGGER trg_on_answer_saved
-      AFTER INSERT ON exam_answers
-      FOR EACH ROW EXECUTE FUNCTION on_answer_saved();
-  END IF;
-EXCEPTION WHEN undefined_table THEN
-  NULL; -- exam_answers not yet created; trigger is added by later migration
-END;
-$$;
+-- Measured difficulty is computed from stored answers by the question_difficulty view (016).
 
 -- ---------------------------------------------------------------- Helper: issue certificate after exam submission
+-- A certificate records that a candidate completed a full mock exam and their
+-- score. It makes no pass/fail claim: PMI does not publish a passing score.
+ALTER TABLE certificates ALTER COLUMN passed DROP NOT NULL, ALTER COLUMN passed DROP DEFAULT;
+
 CREATE OR REPLACE FUNCTION issue_certificate_if_passed(p_attempt_id uuid) RETURNS uuid
 LANGUAGE plpgsql AS $$
 DECLARE
-  v_user_id    uuid;
-  v_score      int;
-  v_passed     boolean;
-  v_token      text;
-  v_cert_id    uuid;
+  v_user_id uuid;
+  v_score   int;
+  v_cert_id uuid;
 BEGIN
-  SELECT ea.user_id,
-         ea.score_percent,
-         (ea.score_percent >= COALESCE((SELECT (config->>'passPercent')::int FROM blueprints ORDER BY created_at DESC LIMIT 1), 61))
-    INTO v_user_id, v_score, v_passed
+  SELECT ea.user_id, round(ea.score_percent)::int INTO v_user_id, v_score
   FROM exam_attempts ea
-  WHERE ea.id = p_attempt_id AND ea.status = 'submitted';
+  WHERE ea.id = p_attempt_id AND ea.result IS NOT NULL AND ea.score_percent IS NOT NULL;
+  IF NOT FOUND THEN RETURN NULL; END IF;
 
-  IF NOT FOUND THEN
-    RETURN NULL;
-  END IF;
-
-  -- Idempotent: return existing certificate if already issued
   SELECT id INTO v_cert_id FROM certificates WHERE attempt_id = p_attempt_id;
   IF FOUND THEN RETURN v_cert_id; END IF;
 
-  v_token := encode(gen_random_bytes(16), 'hex');
-
   INSERT INTO certificates(user_id, attempt_id, token, score_percent, passed)
-       VALUES (v_user_id, p_attempt_id, v_token, v_score, v_passed)
+  VALUES (v_user_id, p_attempt_id, encode(gen_random_bytes(16), 'hex'), v_score, NULL)
   RETURNING id INTO v_cert_id;
 
-  -- Notify the candidate
-  IF v_passed THEN
-    INSERT INTO notifications(user_id, type, title, title_ar, body, body_ar, action_url)
-    VALUES (
-      v_user_id,
-      'exam_result',
-      'You passed the mock exam!',
-      'لقد اجتزت الاختبار التجريبي!',
-      'Score: ' || v_score || '%. Your certificate is ready.',
-      'نتيجتك: ' || v_score || '%. شهادتك جاهزة.',
-      '/app/certificate/' || v_cert_id::text
-    );
-  ELSE
-    INSERT INTO notifications(user_id, type, title, title_ar, body, body_ar, action_url)
-    VALUES (
-      v_user_id,
-      'exam_result',
-      'Mock exam submitted',
-      'تم تسليم الاختبار التجريبي',
-      'Score: ' || v_score || '%. Review your answers to find gaps.',
-      'نتيجتك: ' || v_score || '%. راجع إجاباتك لتحديد الثغرات.',
-      '/app/answers/' || p_attempt_id::text
-    );
-  END IF;
-
+  INSERT INTO notifications(user_id, type, title, title_ar, body, body_ar, action_url)
+  VALUES (v_user_id, 'exam_result',
+          'Mock exam completed', 'تم إكمال الاختبار التجريبي',
+          'Score: ' || v_score || '%. Your completion certificate is ready.',
+          'نتيجتك: ' || v_score || '%. شهادة الإتمام جاهزة.',
+          '#result/' || p_attempt_id::text);
   RETURN v_cert_id;
 END;
 $$;
