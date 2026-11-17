@@ -138,6 +138,18 @@ loaded by these commands.
    per task, drafted with AI help, as a starting point for reviewers; each goes through expert review and language review, then
    an administrator publishes it. Case studies need 2 to 10 published
    questions each.
+
+   Additional content files in `content/`:
+   - `pdf-english-exam1.xlsx` — 180 English questions extracted from practice
+     PDFs, with correct answers and explanations. **Ready to import after
+     expert review and language review.**
+   - `pdf-arabic-agile.xlsx` — 192 Arabic questions extracted from an Agile
+     practice PDF. **The `correct` column is empty** (PDF extraction could not
+     reliably identify answer keys). A content reviewer must fill in the
+     correct answer (A/B/C/D) for every row before this file can be imported.
+   - `starter-drafts-2.xlsx` — 52 more AI-assisted draft questions plus 6
+     case studies (requires the same expert + language review as the first
+     batch).
 2. **Is the bank big enough?** Open **Blueprints** and press **Dry run** on
    the active blueprint. It builds 20 sample mock exams from the published
    questions. Until 20 of 20 are valid, starting a mock exam returns a clear
