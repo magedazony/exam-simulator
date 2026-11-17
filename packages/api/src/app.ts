@@ -474,12 +474,82 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     },
   }));
 
-  add('GET', '/me/dashboard', async (c) => ({ status: 200, body: { ...await store.dashboard(c.claims.sub, iso()), recommendation: null } }));
+  add('GET', '/me/dashboard', async (c) => ({
+    status: 200,
+    body: { ...await store.dashboard(c.claims.sub, iso()) },
+  }));
 
   add('GET', '/me/analytics', async (c) => {
     const dimension = c.query.get('dimension') ?? '';
     if (!DIMENSIONS.includes(dimension)) throw invalid('dimension', `must be one of ${DIMENSIONS.join(', ')}`);
     return { status: 200, body: { dimension, rows: await store.analytics(c.claims.sub, dimension) } };
+  });
+
+  // ------------------------------------------------------------ adaptive learning
+
+  /** GET /me/mastery — task-level mastery scores */
+  add('GET', '/me/mastery', async (c) => ({
+    status: 200,
+    body: { items: await store.taskMastery(c.claims.sub) },
+  }));
+
+  /** GET /me/readiness — computed readiness score 0–100 */
+  add('GET', '/me/readiness', async (c) => ({
+    status: 200,
+    body: { score: await store.readinessScore(c.claims.sub) },
+  }));
+
+  /** GET /me/spaced-reviews/due — count of items due for review */
+  add('GET', '/me/spaced-reviews/due', async (c) => ({
+    status: 200,
+    body: { count: await store.spacedReviewsDue(c.claims.sub, iso()) },
+  }));
+
+  /**
+   * POST /practice/sessions  (adaptive modes)
+   * mode: 'adaptive'       — targets weakest task
+   * mode: 'spaced_review'  — questions overdue for review
+   * mode: 'diagnostic'     — one question per unseen task (baseline)
+   * Falls through to existing session creation for mode: 'standard'
+   */
+  add('POST', '/practice/adaptive', async (c) => {
+    const body = c.body as Record<string, unknown>;
+    const mode = String(body.mode ?? 'adaptive');
+    const limit = Math.min(Number(body.limit ?? 20), 50);
+    const now = iso();
+    let questions: Array<Record<string, unknown>>;
+
+    if (mode === 'spaced_review') {
+      questions = await store.spacedReviewQuestions(c.claims.sub, now, limit);
+    } else if (mode === 'diagnostic') {
+      questions = await store.diagnosticQuestions(c.claims.sub, limit);
+    } else {
+      // 'adaptive' or default: target weakest task
+      const taskCode = typeof body.taskCode === 'string' ? body.taskCode : null;
+      questions = await store.adaptiveQuestions(c.claims.sub, taskCode, limit);
+    }
+
+    if (questions.length === 0) {
+      return { status: 200, body: { mode, questions: [], message: 'No questions available for this mode yet. Try standard practice first.' } };
+    }
+    return { status: 200, body: { mode, questions } };
+  });
+
+  /**
+   * POST /practice/adaptive/response — record an adaptive response
+   * Updates task mastery and spaced-repetition state
+   */
+  add('POST', '/practice/adaptive/response', async (c) => {
+    const body = c.body as Record<string, unknown>;
+    const { questionId, taskId, correct, source } = body as {
+      questionId: string;
+      taskId: string;
+      correct: boolean;
+      source?: string;
+    };
+    if (!questionId || !taskId || typeof correct !== 'boolean') throw invalid('body', 'questionId, taskId, and correct are required');
+    await store.recordAdaptiveResponse(c.claims.sub, questionId, taskId, correct, source ?? 'adaptive');
+    return { status: 200, body: { ok: true } };
   });
 
   // ------------------------------------------------------------ health
@@ -632,6 +702,11 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     // The answer is stored before anything about the key is returned.
     if (!await store.recordPracticeAnswer(sessionId, c.claims.sub, ordinal, selected, score.correct, timeMs, iso())) {
       throw new HttpError(409, 'already_answered', 'This question was already answered');
+    }
+    // Update adaptive learning signals (task mastery + spaced repetition)
+    // Fire-and-forget: do not block the response on this
+    if (item.question.taskId) {
+      store.recordAdaptiveResponse(c.claims.sub, item.question.id, item.question.taskId, score.correct, 'practice').catch(() => { /* non-fatal */ });
     }
     return { status: 200, body: await feedback(item.question, score.correct, c.claims.sub, c.language) };
   });

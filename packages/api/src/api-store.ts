@@ -547,4 +547,110 @@ export class ApiStore extends PsqlStore {
   async activateBlueprint(blueprintId: string, actorId: string): Promise<void> {
     await this.admin(async () => await this.run(`SELECT activate_blueprint(${lit.uuid(blueprintId)}, ${lit.uuid(actorId)});`));
   }
+
+  // ---------------------------------------------------------------- adaptive learning
+
+  /** Record a question response and update task mastery + spaced-repetition state. */
+  async recordAdaptiveResponse(userId: string, questionId: string, taskId: string, correct: boolean, source: string): Promise<void> {
+    const quality = correct ? 4 : 1;   // SM-2 quality: 4 = correct, 1 = incorrect
+    // Update task mastery
+    await this.run(`SELECT update_task_mastery(${lit.uuid(userId)}, ${lit.uuid(taskId)}, ${lit.int(correct ? 1 : 0)});`);
+    // Insert spaced review record (trigger handles spaced_state)
+    await this.run(
+      `INSERT INTO spaced_reviews (user_id, question_id, quality, interval_days, next_review_at, source)
+       VALUES (${lit.uuid(userId)}, ${lit.uuid(questionId)}, ${lit.int(quality)}, 1, now() + '1 day'::interval, ${lit.text(source)});`,
+    );
+  }
+
+  /** Return task mastery rows sorted weakest first. */
+  async taskMastery(userId: string): Promise<Array<Record<string, unknown>>> {
+    return (
+      (await this.one<Array<Record<string, unknown>>>(
+        `SELECT coalesce(jsonb_agg(jsonb_build_object(
+          'taskCode', t.code, 'taskName', t.name, 'domainCode', d.code,
+          'score', tm.weighted_score, 'attempts', tm.attempts,
+          'correct', tm.correct, 'nextReviewAt', tm.next_review_at
+        ) ORDER BY tm.weighted_score ASC), '[]'::jsonb)
+        FROM task_mastery tm
+        JOIN tasks t ON t.id = tm.task_id
+        JOIN domains d ON d.id = t.domain_id
+        WHERE tm.user_id = ${lit.uuid(userId)};`,
+      )) ?? []
+    );
+  }
+
+  /** Count of spaced-review items currently due. */
+  async spacedReviewsDue(userId: string, now: string): Promise<number> {
+    const r = await this.run(
+      `SELECT count(*) FROM spaced_state WHERE user_id = ${lit.uuid(userId)} AND next_review_at <= ${ts(now)};`,
+    );
+    return parseInt(r ?? '0', 10);
+  }
+
+  /** Next-best-action recommendation for the dashboard. */
+  async nextBestAction(userId: string, now: string): Promise<Record<string, unknown>> {
+    return (await this.one(`SELECT next_best_action(${lit.uuid(userId)}, ${ts(now)});`)) ?? { type: 'general', message: 'Keep practising!', action: 'practice', params: {} };
+  }
+
+  /** Computed readiness score 0–100. */
+  async readinessScore(userId: string): Promise<number> {
+    const r = await this.run(`SELECT readiness_score(${lit.uuid(userId)});`);
+    return parseFloat(r ?? '0');
+  }
+
+  /** Questions due for spaced review for this user, up to `limit`. */
+  async spacedReviewQuestions(userId: string, now: string, limit: number): Promise<Array<Record<string, unknown>>> {
+    return (
+      (await this.one<Array<Record<string, unknown>>>(
+        `SELECT coalesce(jsonb_agg(engine_question(qv.id, 'live') ORDER BY ss.next_review_at ASC), '[]'::jsonb)
+         FROM spaced_state ss
+         JOIN questions q ON q.id = ss.question_id
+         JOIN question_versions qv ON qv.question_id = q.id AND qv.workflow_state = 'published'
+         WHERE ss.user_id = ${lit.uuid(userId)} AND ss.next_review_at <= ${ts(now)}
+         LIMIT ${lit.int(limit)};`,
+      )) ?? []
+    );
+  }
+
+  /** Questions targeting a specific weak task (adaptive selection). */
+  async adaptiveQuestions(userId: string, taskCode: string | null, limit: number): Promise<Array<Record<string, unknown>>> {
+    const taskFilter = taskCode
+      ? `AND t.code = ${lit.text(taskCode)}`
+      : `AND t.id = (SELECT task_id FROM task_mastery WHERE user_id = ${lit.uuid(userId)} ORDER BY weighted_score ASC LIMIT 1)`;
+    return (
+      (await this.one<Array<Record<string, unknown>>>(
+        `SELECT coalesce(jsonb_agg(engine_question(qv.id, 'live') ORDER BY random()), '[]'::jsonb)
+         FROM question_versions qv
+         JOIN tasks t ON t.id = qv.task_id
+         WHERE qv.workflow_state = 'published'
+           ${taskFilter}
+           AND qv.question_id NOT IN (
+             SELECT question_id FROM spaced_state
+             WHERE user_id = ${lit.uuid(userId)} AND next_review_at > now()
+           )
+         LIMIT ${lit.int(limit)};`,
+      )) ?? []
+    );
+  }
+
+  /** Diagnostic mode: one question per task to assess baseline. */
+  async diagnosticQuestions(userId: string, limit: number): Promise<Array<Record<string, unknown>>> {
+    return (
+      (await this.one<Array<Record<string, unknown>>>(
+        `SELECT coalesce(jsonb_agg(engine_question(qv.id, 'live') ORDER BY random()), '[]'::jsonb)
+         FROM (
+           SELECT DISTINCT ON (qv.task_id) qv.id
+           FROM question_versions qv
+           WHERE qv.workflow_state = 'published'
+             AND qv.task_id NOT IN (
+               SELECT task_id FROM task_mastery
+               WHERE user_id = ${lit.uuid(userId)} AND attempts >= 1
+             )
+           ORDER BY qv.task_id, random()
+         ) sub
+         JOIN question_versions qv ON qv.id = sub.id
+         LIMIT ${lit.int(limit)};`,
+      )) ?? []
+    );
+  }
 }

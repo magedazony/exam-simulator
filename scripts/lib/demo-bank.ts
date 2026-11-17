@@ -42,7 +42,8 @@ export function demoBankSql(root: URL): string {
   const b = sheetRows(new URL('content/starter-drafts-2.xlsx', root));
   // DOCX-extracted Arabic questions (stemAr present, English stem is a stub)
   const c = sheetRows(new URL('content/starter-drafts-docx.xlsx', root));
-  const all = [...(a.Questions ?? []), ...(b.Questions ?? []), ...(c.Questions ?? [])].filter((q) => q.stem && q.optionA && q.correct);
+  const d = sheetRows(new URL('content/starter-drafts-docx2.xlsx', root));
+  const all = [...(a.Questions ?? []), ...(b.Questions ?? []), ...(c.Questions ?? []), ...(d.Questions ?? [])].filter((q) => q.stem && q.optionA && q.correct);
   const cases = b['Case studies'] ?? [];
   const standalone = all.filter((q) => !q.caseKey);
   if (standalone.length === 0 || cases.length === 0) throw new Error('starter drafts are missing or empty');
