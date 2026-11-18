@@ -204,6 +204,7 @@ describe('admin panel in a browser', { skip: configured ? false : 'PGDATABASE is
 
   it('admin: checks and imports a CSV file, storing only valid rows', async () => {
     await page.click('a[href="#import"]');
+    await page.uncheck('#upd');
     const csv = [
       'taskCode,approach,difficulty,type,stem,optionA,optionB,optionC,optionD,correct,whyCorrect',
       'PEOPLE-4,agile,easy,single,"A new stakeholder joins mid-project and feels left out of decisions. What should the project manager do first?",Meet the stakeholder to understand their interests,Ignore it,Escalate,Send the charter,A,Engagement starts by understanding the stakeholder.',
@@ -278,6 +279,7 @@ describe('admin panel in a browser', { skip: configured ? false : 'PGDATABASE is
 
   it('admin: imports an Excel file through the server-side reader', async () => {
     await page.click('a[href="#import"]');
+    await page.uncheck('#upd');
     await page.setInputFiles('#file', new URL('../../api/test/fixtures/questions.xlsx', import.meta.url).pathname);
     await page.waitForSelector('text=3 rows read from questions.xlsx');
     await page.click('#check');
@@ -304,6 +306,7 @@ describe('admin panel in a browser', { skip: configured ? false : 'PGDATABASE is
 
   it('admin: imports the 52 starter drafts from Excel, marked as drafted with AI help', async () => {
     await page.click('a[href="#import"]');
+    await page.uncheck('#upd');
     await page.setInputFiles('#file', new URL('../../../content/starter-drafts.xlsx', import.meta.url).pathname);
     await page.waitForSelector('text=52 rows read from starter-drafts.xlsx');
     await page.click('#check');
@@ -316,7 +319,9 @@ describe('admin panel in a browser', { skip: configured ? false : 'PGDATABASE is
 
   it('admin: imports the second batch with its Case studies sheet, creating six case-study drafts', async () => {
     await page.click('a[href="#queue"]');
+    await page.waitForSelector('h1:has-text("Work queue")');
     await page.click('a[href="#import"]');
+    await page.uncheck('#upd');
     await page.setInputFiles('#file', new URL('../../../content/starter-drafts-2.xlsx', import.meta.url).pathname);
     await page.waitForSelector('text=70 rows read from starter-drafts-2.xlsx. 6 case studies.');
     await page.click('#check');
