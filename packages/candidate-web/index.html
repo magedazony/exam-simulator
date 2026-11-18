@@ -278,7 +278,7 @@ function shell(body, opts = {}) {
 document.addEventListener("click", async (e) => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   const act = el.dataset.act;
-  if (act === "lang") { setLang(S.lang === "en" ? "ar" : "en"); if (S.access && S.me) { try { await api("PATCH", "/me", { language: S.lang }); } catch {} } render(); }
+  if (act === "lang") { setLang(S.lang === "en" ? "ar" : "en"); S.qlang = S.lang; try { localStorage.setItem("qlang", S.qlang); } catch {} if (S.access && S.me) { try { await api("PATCH", "/me", { language: S.lang }); } catch {} } render(); }
   if (act === "qlang") {
     S.qlang = qLang() === "ar" ? "en" : "ar";
     try { localStorage.setItem("qlang", S.qlang); } catch {}
@@ -297,7 +297,7 @@ const bi = (en, ar, cls = "") => ar
   ? `<span class="ql-en${cls}" dir="ltr">${esc(en)}</span><span class="ql-ar${cls}" dir="rtl">${esc(ar)}</span>`
   : `<span class="${cls.trim()}" dir="auto">${esc(en)}</span>`;
 function qlangToggle(hasAr) {
-  if (!hasAr) return "";
+  if (!hasAr) return `<div class="row ql-bar"><span class="muted" style="font-size:13px">${S.lang === "ar" ? "السؤال ده لسه مالوش ترجمة عربي" : "No Arabic translation for this question yet"}</span></div>`;
   return `<div class="row ql-bar"><button type="button" class="small" data-act="qlang"><span class="ql-en">عرض بالعربي</span><span class="ql-ar">Show in English</span></button></div>`;
 }
 function questionHtml(q, selected, reveal, feedback) {

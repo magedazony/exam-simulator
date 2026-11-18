@@ -154,6 +154,25 @@ describe('candidate app in a browser', { skip: configured ? false : 'PGDATABASE 
     await page.waitForSelector('nav a:has-text("Home")');
   });
 
+  it('switches each translated question between English and Arabic with one button', async () => {
+    store.query(`ALTER TABLE question_versions DISABLE TRIGGER USER;
+      UPDATE question_versions SET stem_ar = 'نص عربي: ' || left(stem, 20) WHERE workflow_state = 'published';
+      ALTER TABLE question_versions ENABLE TRIGGER USER;
+      UPDATE options SET text_ar = 'خيار عربي ' || ordinal WHERE question_version_id IN (SELECT id FROM question_versions WHERE workflow_state = 'published');`);
+    await page.click('nav a[href="#practice"]');
+    await page.click('button[type=submit]');
+    await page.waitForSelector('[data-act=qlang]');
+    const visibleStem = () => page.$eval('.qwrap .stem', (el: Element) => [...el.children].filter((c) => getComputedStyle(c).display !== 'none').map((c) => c.textContent).join(''));
+    assert.doesNotMatch(await visibleStem(), /نص عربي/);
+    await page.click('[data-act=qlang]');
+    assert.match(await visibleStem(), /^نص عربي/);
+    assert.equal(await page.isVisible('text=خيار عربي 1'), true);
+    await page.click('[data-act=qlang]');
+    assert.doesNotMatch(await visibleStem(), /نص عربي/);
+    store.query(`ALTER TABLE question_versions DISABLE TRIGGER USER; UPDATE question_versions SET stem_ar = NULL; ALTER TABLE question_versions ENABLE TRIGGER USER; UPDATE options SET text_ar = NULL;`);
+    await page.click('nav a[href="#home"]');
+  });
+
   it('on the free plan shows the daily allowance and locks mock exams until an access code is redeemed', async () => {
     await page.click('nav a[href="#practice"]');
     await page.waitForSelector('#allowance');
