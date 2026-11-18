@@ -110,7 +110,7 @@ const AR = {
   "Domain": "المجال", "Answers": "الإجابات", "Correct": "صحيحة", "No question has enough answers yet.": "لا يوجد سؤال لديه إجابات كافية بعد.",
   "A certificate records that a candidate finished a full mock exam, with the score. It does not say pass or fail.": "الشهادة تثبت أن المتدرب أكمل اختباراً تجريبياً كاملاً ونتيجته، ولا تقول ناجح أو راسب.",
   // certificates and import
-  "Arabic columns (optional):": "أعمدة العربية (اختيارية):", "Certificates": "الشهادات", "Token": "الرمز", "User": "المستخدم", "Score": "النتيجة", "Issued": "تاريخ الإصدار", "Revoked": "ملغاة",
+  "Arabic columns (optional):": "أعمدة العربية (اختيارية):", "Arabic translation (optional)": "الترجمة العربية (اختياري)", "Arabic translation of the stem (optional)": "الترجمة العربية لنص السؤال (اختياري)", "Arabic translation of the explanation (optional)": "الترجمة العربية للشرح (اختياري)", "Certificates": "الشهادات", "Token": "الرمز", "User": "المستخدم", "Score": "النتيجة", "Issued": "تاريخ الإصدار", "Revoked": "ملغاة",
   "Yes": "نعم", "No": "لا", "Un-revoke": "إلغاء الإلغاء", "Revoke": "إلغاء الشهادة", "← Previous": "→ السابق", "Next →": "التالي ←",
   "Reason for revocation (optional):": "سبب الإلغاء (اختياري):", "Certificate revoked.": "تم إلغاء الشهادة.", "Revocation removed.": "تم التراجع عن الإلغاء.",
   // exam tips
@@ -420,7 +420,7 @@ async function questionView(versionId) {
   const sel = (id, label, values, cur, keep) => `<label>${t(label)}<select id="${id}"${dis}>${values.map((v) => `<option value="${v[0]}"${v[0] === cur ? " selected" : ""}>${esc(keep ? v[1] : t(v[1]))}</option>`).join("")}</select></label>`;
   const tasks = S.blueprint.domains.flatMap((d) => d.tasks.map((t) => [t.code, t.code + " " + t.name]));
   const optsHtml = (opts) => opts.map((o, i) => `<div class="opt-row" data-i="${i}"><span class="letter">${"ABCDEF"[i]}</span>
-      <div class="row" style="flex-direction:column;align-items:stretch"><textarea dir="auto" class="o-text" aria-label="${t("Option {l}", { l: "ABCDEF"[i] })}"${dis}>${esc(o.text)}</textarea><input dir="auto" class="o-why" placeholder="${t("Why this option is right or wrong")}" value="${esc(o.rationale)}"${dis}></div>
+      <div class="row" style="flex-direction:column;align-items:stretch"><textarea dir="auto" class="o-text" aria-label="${t("Option {l}", { l: "ABCDEF"[i] })}"${dis}>${esc(o.text)}</textarea><textarea dir="rtl" class="o-text-ar" rows="2" placeholder="${t("Arabic translation (optional)")}" aria-label="${t("Option {l}", { l: "ABCDEF"[i] })} (AR)"${dis}>${esc(o.textAr || "")}</textarea><input dir="auto" class="o-why" placeholder="${t("Why this option is right or wrong")}" value="${esc(o.rationale)}"${dis}></div>
       <label class="inline"><input type="checkbox" class="o-key"${o.isCorrect ? " checked" : ""}${dis}> ${t("Correct")}</label></div>`).join("");
 
   let actions = "";
@@ -443,11 +443,13 @@ async function questionView(versionId) {
       <div class="row">${sel("approach", "Approach", [["predictive", "Predictive"], ["agile", "Agile"], ["hybrid", "Hybrid"]], q.approach)}${sel("difficulty", "Difficulty", [["easy", "Easy"], ["medium", "Medium"], ["hard", "Hard"]], q.difficulty)}${sel("type", "Type", [["single", "Single choice"], ["multiple", "Multiple response"]], q.type)}${sel("language", "Language", [["en", "English"], ["ar", "Arabic"]], q.language)}</div>
       <div class="row"><label class="inline"><input type="checkbox" id="graphic"${q.graphic ? " checked" : ""}${dis}> ${t("Needs an exhibit")}</label><label class="inline"><input type="checkbox" id="ai"${q.aiAssisted ? " checked" : ""}${dis}> ${t("Drafted with AI help")}</label></div>
       <label>${t("Stem")}<textarea dir="auto" id="stem" rows="5"${dis}>${esc(q.stem)}</textarea></label>
+      <label>${t("Arabic translation of the stem (optional)")}<textarea dir="rtl" id="stemAr" rows="4"${dis}>${esc(q.stemAr || "")}</textarea></label>
       <h2>${t("Exhibits")}</h2><div id="exhibits"></div>
       <h2>${t("Options")}</h2><div id="opts">${optsHtml(q.options)}</div>
       ${editable ? `<div class="row"><button type="button" id="add-opt">${t("Add option")}</button><button type="button" id="del-opt">${t("Remove last option")}</button></div>` : ""}
       <h2>${t("Explanation")}</h2>
       <label>${t("Why the correct answer is correct")}<textarea dir="auto" id="why"${dis}>${esc(q.explanation.whyCorrect)}</textarea></label>
+      <label>${t("Arabic translation of the explanation (optional)")}<textarea dir="rtl" id="whyAr"${dis}>${esc((q.explanationAr && q.explanationAr.whyCorrect) || "")}</textarea></label>
       <label>${t("Mindset")}<input dir="auto" id="mindset" value="${esc(q.explanation.mindset)}"${dis}></label>
       <div class="row"><label style="flex:1">${t("Key concept")}<input dir="auto" id="concept" value="${esc(q.explanation.keyConcept)}"${dis}></label><label style="flex:1">${t("Learning objective")}<input dir="auto" id="objective" value="${esc(q.explanation.learningObjective)}"${dis}></label></div>
       ${editable ? `<button class="primary" type="submit">${versionId ? t("Save draft") : t("Create draft")}</button>` : ""}
@@ -457,10 +459,11 @@ async function questionView(versionId) {
 
   const exhibits = (q.exhibits || []).slice();
   const collect = () => {
-    const opts = [...document.querySelectorAll(".opt-row")].map((r) => ({ text: $(".o-text", r).value, isCorrect: $(".o-key", r).checked, rationale: $(".o-why", r).value }));
-    const doc = { taskCode: $("#taskCode").value, approach: $("#approach").value, difficulty: $("#difficulty").value, type: $("#type").value, language: $("#language").value, graphic: $("#graphic").checked, aiAssisted: $("#ai").checked, stem: $("#stem").value, options: opts,
+    const opts = [...document.querySelectorAll(".opt-row")].map((r) => ({ text: $(".o-text", r).value, textAr: $(".o-text-ar", r).value, isCorrect: $(".o-key", r).checked, rationale: $(".o-why", r).value }));
+    const doc = { taskCode: $("#taskCode").value, approach: $("#approach").value, difficulty: $("#difficulty").value, type: $("#type").value, language: $("#language").value, graphic: $("#graphic").checked, aiAssisted: $("#ai").checked, stem: $("#stem").value, stemAr: $("#stemAr").value, options: opts,
       explanation: { whyCorrect: $("#why").value, mindset: $("#mindset").value || null, keyConcept: $("#concept").value || null, learningObjective: $("#objective").value || null } };
     if (!doc.explanation.whyCorrect.trim()) delete doc.explanation;
+    if ($("#whyAr").value.trim()) doc.explanationAr = { whyCorrect: $("#whyAr").value };
     if (q.caseStudyId && !versionId) doc.caseStudyId = q.caseStudyId;
     doc.exhibitIds = exhibits.map((e) => e.id);
     return doc;
@@ -468,7 +471,7 @@ async function questionView(versionId) {
   const preview = () => {
     const d = collect();
     const n = d.options.filter((o) => o.isCorrect).length;
-    $("#preview").innerHTML = `<div dir="${d.language === "ar" ? "rtl" : "ltr"}" style="display:flex;flex-direction:column;gap:8px"><p class="stem">${esc(d.stem) || `<span class="muted">${t("The stem appears here.")}</span>`}</p>${exhibits.map((e) => exhibitHtml(e, 0, false)).join("")}${d.type === "multiple" ? `<p class="muted">${t("Choose {n}.", { n })}</p>` : ""}<ol type="A">${d.options.map((o) => `<li class="${o.isCorrect ? "key" : ""}">${esc(o.text)}</li>`).join("")}</ol></div><p class="muted">${t("Correct options are highlighted here only; candidates never see them before answering.")}</p>`;
+    $("#preview").innerHTML = `<div dir="${d.language === "ar" ? "rtl" : "ltr"}" style="display:flex;flex-direction:column;gap:8px"><p class="stem">${esc(d.stem) || `<span class="muted">${t("The stem appears here.")}</span>`}</p>${exhibits.map((e) => exhibitHtml(e, 0, false)).join("")}${d.type === "multiple" ? `<p class="muted">${t("Choose {n}.", { n })}</p>` : ""}<ol type="A">${d.options.map((o) => `<li class="${o.isCorrect ? "key" : ""}">${esc(o.text)}${o.textAr ? `<div dir="rtl" class="muted">${esc(o.textAr)}</div>` : ""}</li>`).join("")}</ol>${d.stemAr ? `<p class="muted">${t("Arabic")}:</p><p class="stem" dir="rtl">${esc(d.stemAr)}</p>` : ""}</div><p class="muted">${t("Correct options are highlighted here only; candidates never see them before answering.")}</p>`;
   };
   mountExhibits($("#exhibits"), exhibits, 3, editable, preview);
   preview();

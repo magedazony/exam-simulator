@@ -83,6 +83,10 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 /* Question content is written in English and always reads left to right. */
 .content { direction: ltr; text-align: left; }
 .stem { white-space: pre-wrap; }
+.qwrap[data-ql="ar"] .ql-en, .qwrap[data-ql="en"] .ql-ar { display: none; }
+.qwrap .ql-ar { display: block; text-align: right; }
+.qwrap[data-ql="ar"] .opt { flex-direction: row-reverse; text-align: right; }
+.ql-bar { justify-content: flex-end; margin-bottom: 6px; }
 .stem-ar { color: var(--muted); font-size: 15px; border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px; }
 .opts { display: flex; flex-direction: column; gap: 8px; }
 .opt { display: flex; gap: 10px; align-items: flex-start; text-align: left; font: inherit; line-height: 1.45; padding: 12px 14px; min-height: 48px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; width: 100%; font-weight: 400; justify-content: flex-start; }
@@ -137,7 +141,7 @@ a { color: var(--primary); }
 // in memory: after a reload the candidate signs in again and an unfinished
 // exam resumes where the server left it.
 const API = "/api/v1";
-const S = { lang: "en", access: null, refresh: null, me: null, blueprint: null, flash: null, practice: null, exam: null, timers: [], unreadCount: 0 };
+const S = { qlang: (() => { try { return localStorage.getItem("qlang"); } catch { return null; } })(), lang: "en", access: null, refresh: null, me: null, blueprint: null, flash: null, practice: null, exam: null, timers: [], unreadCount: 0 };
 
 const T = {
   en: {
@@ -249,6 +253,13 @@ function setLang(lang) { S.lang = lang; document.documentElement.lang = lang; do
 // Paints only if no newer render started while this screen was loading, so a
 // slow earlier response never replaces the screen the person has moved to.
 function paint(seq, body, opts) { if (seq === S.seq) shell(body, opts); }
+// Staff roles live in the signed access token (shown only as a shortcut; the admin API checks them).
+function isStaff() {
+  try {
+    const p = JSON.parse(atob(S.access.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return (p.roles || []).some((r) => ["content_author", "content_reviewer", "administrator"].includes(r));
+  } catch { return false; }
+}
 function shell(body, opts = {}) {
   const route = (location.hash.slice(1) || "home").split(/[/?]/)[0];
   const msg = S.flash ? `<p class="msg ${S.flash.kind}" role="status">${esc(S.flash.text)}</p>` : "";
@@ -259,6 +270,7 @@ function shell(body, opts = {}) {
   $("#app").innerHTML = `<header class="top"><span class="brand">${t("brand")}</span>
       <button class="small" data-act="lang">${S.lang === "en" ? "العربية" : "English"}</button><button class="small" data-act="theme">${dark ? t("light") : t("dark")}</button>
       ${S.access && !opts.exam ? `<a href="#notifications" class="btn small" aria-label="${t("notifications")}" title="${t("notifications")}">🔔${unread}</a>` : ""}
+      ${S.access && !opts.exam && isStaff() ? `<a href="/admin" class="btn small">${S.lang === "ar" ? "🛠 لوحة الأدمن" : "🛠 Admin"}</a>` : ""}
       ${S.access && !opts.exam ? `<button class="small" data-act="signout">${t("signOut")}</button>` : ""}</header>
     ${S.access && !opts.exam ? `<nav class="tabs" aria-label="Sections">${tabs.map(([id, n]) => `<a href="#${id}"${route === id ? ' aria-current="page"' : ""}>${n}</a>`).join("")}</nav>` : ""}
     <main>${msg}${body}</main>`;
@@ -267,23 +279,40 @@ document.addEventListener("click", async (e) => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   const act = el.dataset.act;
   if (act === "lang") { setLang(S.lang === "en" ? "ar" : "en"); if (S.access && S.me) { try { await api("PATCH", "/me", { language: S.lang }); } catch {} } render(); }
+  if (act === "qlang") {
+    S.qlang = qLang() === "ar" ? "en" : "ar";
+    try { localStorage.setItem("qlang", S.qlang); } catch {}
+    document.querySelectorAll(".qwrap").forEach((el) => { el.dataset.ql = S.qlang; });
+    return;
+  }
   if (act === "theme") { const r = document.documentElement; r.dataset.theme = getComputedStyle(r).colorScheme.includes("dark") ? "light" : "dark"; render(); }
   if (act === "signout") { try { await api("POST", "/auth/logout"); } catch {} S.access = S.refresh = S.me = null; S.exam = S.practice = null; clearTimers(); location.hash = "#signin"; render(); }
 });
 
+// Question language: each question carries English and (when translated) Arabic.
+// Both are in the page; the wrapper's data-ql decides which one shows, so the
+// toggle never re-renders or loses the candidate's selection.
+const qLang = () => S.qlang || S.lang;
+const bi = (en, ar, cls = "") => ar
+  ? `<span class="ql-en${cls}" dir="ltr">${esc(en)}</span><span class="ql-ar${cls}" dir="rtl">${esc(ar)}</span>`
+  : `<span class="${cls.trim()}" dir="auto">${esc(en)}</span>`;
+function qlangToggle(hasAr) {
+  if (!hasAr) return "";
+  return `<div class="row ql-bar"><button type="button" class="small" data-act="qlang"><span class="ql-en">عرض بالعربي</span><span class="ql-ar">Show in English</span></button></div>`;
+}
 function questionHtml(q, selected, reveal, feedback) {
   const multi = q.type === "multiple";
+  const hasAr = Boolean(q.stemAr);
   const exhibits = (q.exhibits || []).map(exhibitHtml).join("");
   const opts = q.options.map((o, i) => {
     const on = selected.includes(o.id);
     const fb = feedback ? feedback.explanation.options.find((x) => x.id === o.id) : null;
     const cls = reveal ? (fb && fb.isCorrect ? " is-right" : on ? " is-wrong" : "") : "";
-    const optTextAr = (o.textAr && S.lang === "ar") ? `<span class="stem-ar" dir="rtl">${esc(o.textAr)}</span>` : "";
-    const rationaleAr = (fb && fb.rationaleAr && S.lang === "ar") ? `<span class="why" dir="rtl">${fb.isCorrect ? "✓ " : on ? "✗ " : ""}${esc(fb.rationaleAr)}</span>` : "";
-    return `<button class="opt${multi ? " multi" : ""}${cls}" role="${multi ? "checkbox" : "radio"}" aria-checked="${on}" data-opt="${esc(o.id)}"${reveal ? " disabled" : ""}><span class="mark">${"ABCDEF"[i]}</span><span>${esc(o.text)}${optTextAr}${reveal && fb && fb.rationale ? `<span class="why">${fb.isCorrect ? "✓ " : on ? "✗ " : ""}${esc(fb.rationale)}</span>` : ""}${rationaleAr}</span></button>`;
+    const mark = fb ? (fb.isCorrect ? "✓ " : on ? "✗ " : "") : "";
+    const why = reveal && fb && (fb.rationale || fb.rationaleAr) ? `<span class="why">${mark}${bi(fb.rationale || fb.rationaleAr, fb.rationale ? fb.rationaleAr : "")}</span>` : "";
+    return `<button class="opt${multi ? " multi" : ""}${cls}" role="${multi ? "checkbox" : "radio"}" aria-checked="${on}" data-opt="${esc(o.id)}"${reveal ? " disabled" : ""}><span class="mark">${"ABCDEF"[i]}</span><span>${bi(o.text, hasAr ? o.textAr : "")}${why}</span></button>`;
   }).join("");
-  const stemArHtml = (q.stemAr && S.lang === "ar") ? `<p class="stem stem-ar" dir="rtl">${esc(q.stemAr)}</p>` : "";
-  return `<div class="content"><p class="stem" dir="auto">${esc(q.stem)}</p>${stemArHtml}${exhibits}${multi ? `<p class="muted">${t("choose", q.selectCount)}</p>` : ""}<div class="opts" role="${multi ? "group" : "radiogroup"}">${opts}</div></div>`;
+  return `<div class="content qwrap" data-ql="${qLang()}">${qlangToggle(hasAr)}<p class="stem">${bi(q.stem, q.stemAr)}</p>${exhibits}${multi ? `<p class="muted">${t("choose", q.selectCount)}</p>` : ""}<div class="opts" role="${multi ? "group" : "radiogroup"}">${opts}</div></div>`;
 }
 function exhibitHtml(e) {
   if (e.kind === "image") return `<div class="exhibit"><img src="${esc(e.url)}" alt="${esc(e.altText)}"></div>`;
@@ -291,10 +320,10 @@ function exhibitHtml(e) {
 }
 function feedbackHtml(q, selected, fb) {
   const ex = fb.explanation;
-  const exAr = (S.lang === "ar" && fb.explanationAr) ? fb.explanationAr : null;
+  const exAr = fb.explanationAr && fb.explanationAr.whyCorrect ? fb.explanationAr : null;
   const qid = q.id || q.questionId || "";
   return `<p class="verdict ${fb.correct ? "ok" : "no"}">${fb.correct ? t("correct") : t("incorrect")}</p>${questionHtml(q, selected, true, fb)}
-    <div class="card"><h2>${t("why")}</h2><p class="content">${esc(ex.whyCorrect)}</p>${exAr ? `<p class="content stem-ar" dir="rtl">${esc(exAr.whyCorrect)}</p>` : ""}${ex.mindset ? `<p><strong>${t("mindset")}:</strong> <span class="content">${esc(ex.mindset)}</span></p>` : ""}${ex.keyConcept ? `<p><strong>${t("concept")}:</strong> <span class="content">${esc(ex.keyConcept)}</span></p>` : ""}
+    <div class="card qwrap" data-ql="${qLang()}"><h2>${t("why")}</h2><p class="content">${bi(ex.whyCorrect || (exAr ? exAr.whyCorrect : ""), ex.whyCorrect && exAr ? exAr.whyCorrect : "")}</p>${ex.mindset ? `<p><strong>${t("mindset")}:</strong> <span class="content">${esc(ex.mindset)}</span></p>` : ""}${ex.keyConcept ? `<p><strong>${t("concept")}:</strong> <span class="content">${esc(ex.keyConcept)}</span></p>` : ""}
     <div class="row"><span class="tag">${esc(ex.domainName || "")}</span><span class="tag">${t("task")}: ${esc(ex.taskName || "")}</span></div>
     ${qid ? `<div class="row" style="margin-top:8px;gap:8px">
       <button class="btn small bm-toggle" data-qid="${esc(qid)}" data-bm="0">🔖 ${t("bookmark")}</button>
@@ -508,13 +537,16 @@ async function practiceSetupView() {
   const out = !acc.entitled && acc.practiceLeftToday === 0;
   const allowance = acc.entitled ? "" : `<p class="msg ${out ? "err" : "info"}" id="allowance">${out ? t("freeOut") : esc(t("freeLeft", acc.practiceLeftToday, acc.freeDailyPractice))} <a href="#plan">${t("seePlans")}</a></p>`;
   paint(seq, `<h1>${t("pTitle")}</h1><p class="muted">${t("pIntro")}</p>${allowance}<form class="card" id="setup">
+    <p class="muted">${S.lang === "ar" ? "اختار مجال أو أكتر عشان تتدرب عليه بس، أو سيبهم فاضيين لكل المجالات." : "Pick one or more domains to practise only those, or leave them empty for all."}</p>
     <label>${t("mode")}<select id="mode">${Object.entries(T[S.lang].modes).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>
     <fieldset id="filters" style="border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:10px"><div><span class="muted">${t("domains")}</span><div class="row">${doms.map((d) => `<label class="inline"><input type="checkbox" class="f-dom" value="${d.code}"> ${esc(d.name)}</label>`).join("")}</div></div>
     <div><span class="muted">${t("approaches")}</span><div class="row">${["predictive", "agile", "hybrid"].map((a) => `<label class="inline"><input type="checkbox" class="f-app" value="${a}"> ${t(a)}</label>`).join("")}</div></div></fieldset>
     <label>${t("count")}<select id="count">${[5, 10, 20, 50].map((n) => `<option${n === 10 ? " selected" : ""}>${n}</option>`).join("")}</select></label>
     <button class="primary" type="submit"${out ? " disabled" : ""}>${t("startPractice")}</button><div id="msg"></div></form>`);
-  const sync = () => { $("#filters").disabled = $("#mode").value !== "focused"; };
-  $("#mode").onchange = sync; sync();
+  // Picking a domain or approach turns the session into focused practice.
+  document.querySelectorAll(".f-dom, .f-app").forEach((el) => el.addEventListener("change", () => {
+    if (document.querySelector(".f-dom:checked, .f-app:checked")) $("#mode").value = "focused";
+  }));
   $("#setup").onsubmit = (ev) => {
     ev.preventDefault();
     const req = { mode: $("#mode").value, questionCount: Number($("#count").value) };
