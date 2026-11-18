@@ -140,16 +140,14 @@ loaded by these commands.
    questions each.
 
    Additional content files in `content/`:
-   - `english-exam1-questions.xlsx` — 175 English questions from the owner's
-     own practice deck (EXAM No.1), rebuilt slide by slide: stem, options and the
-     answer written on each "Ans." slide. Import from Admin → Import; check
-     `approach` (keyword guess) and `taskCode` during review. 5 drag-and-drop
-     questions are listed on the "Not imported" sheet.
-   - `agile-arabic-questions.xlsx` — 181 Arabic Agile questions from the owner's
-     own deck, transcribed slide by slide; the key is the option with the green
-     border. Sheet "Needs your answer" holds 3 slides with no marked answer;
-     "Not imported" lists drag-and-drop, chart-based and duplicate slides.
-     No explanations yet: add them during review.
+   - `pmp-questions-all.xlsx` — the owner's own questions, all in one file:
+     336 questions from the English practice deck (EXAM No.1) and the Arabic
+     Agile deck, merged and de-duplicated. Every row is bilingual (stem,
+     options and explanation in English and Arabic) with the answer key.
+     Explanations and translations are AI drafts (`aiAssisted` = TRUE): review
+     them on Admin → Bulk review before publishing. Sheet "Check the key" lists
+     doubtful keys, "Needs your answer" 3 slides with no marked answer, and
+     "Not imported" duplicates and drag-and-drop or chart questions.
    - `starter-drafts-2.xlsx` — 52 more AI-assisted draft questions plus 6
      case studies (requires the same expert + language review as the first
      batch).

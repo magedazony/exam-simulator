@@ -45,7 +45,7 @@ Options:
   --limit <n>            Import only the first N rows (useful for testing)
 
 Examples:
-  node scripts/import-questions.ts content/english-exam1-questions.xlsx --dry-run
+  node scripts/import-questions.ts content/pmp-questions-all.xlsx --dry-run
   node scripts/import-questions.ts content/starter-drafts-docx2.xlsx \\
     --url https://exam.example.com --token eyJhbG...
 
