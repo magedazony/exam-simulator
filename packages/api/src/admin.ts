@@ -354,6 +354,17 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
     return { status: 200, body: await aq(id) };
   });
 
+  // One owner, nobody else to review: administrators approve and publish many at once.
+  add('POST', '/admin/questions/bulk-approve', ROLES.admins, async (c) => {
+    if (c.body.reviewedConfirmed !== true) throw invalid('reviewedConfirmed', 'confirm that you reviewed these questions');
+    if (c.body.originalityDeclared !== true) throw invalid('originalityDeclared', 'confirm that these questions are original');
+    const ids = c.body.versionIds;
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > 500) throw invalid('versionIds', 'must list 1 to 500 version ids');
+    const clean = ids.map((v) => uuid(String(v)));
+    const result = await store.bulkApprovePublish(clean, c.claims.sub);
+    return { status: 200, body: result };
+  });
+
   // ------------------------------------------------------------ import
 
   // Excel files are turned into rows here; the panel then maps the columns

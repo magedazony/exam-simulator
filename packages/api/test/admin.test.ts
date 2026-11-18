@@ -297,6 +297,33 @@ describe('staff tools', { skip: configured ? false : 'PGDATABASE is not set; see
     assert.equal(self.body.code, 'self_review');
   });
 
+  it('lets an administrator approve and publish many questions at once, and only administrators', async () => {
+    const a1 = await call('POST', '/admin/questions', tk('admin'), draft({ stem: 'Bulk approval: the first of two questions the owner wrote himself.' }));
+    const a2 = await call('POST', '/admin/questions', tk('author'), draft({ stem: 'Bulk approval: a second question written by another author.' }));
+    const noWhy = draft({ stem: 'Bulk approval: this one has no explanation and must be refused.' });
+    delete (noWhy as Record<string, unknown>).explanation;
+    const a3 = await call('POST', '/admin/questions', tk('admin'), noWhy);
+    assert.equal(a3.status, 201, JSON.stringify(a3.body));
+    const ids = [a1.body.id, a2.body.id, a3.body.id];
+    const denied = await call('POST', '/admin/questions/bulk-approve', tk('reviewer'), { versionIds: ids, reviewedConfirmed: true, originalityDeclared: true });
+    assert.equal(denied.status, 403);
+    const unconfirmed = await call('POST', '/admin/questions/bulk-approve', tk('admin'), { versionIds: ids, originalityDeclared: true });
+    assert.equal(unconfirmed.status, 422);
+    const r = await call('POST', '/admin/questions/bulk-approve', tk('admin'), { versionIds: ids, reviewedConfirmed: true, originalityDeclared: true });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual(r.body.published.sort(), [a1.body.id, a2.body.id].sort());
+    assert.equal(r.body.failed.length, 1);
+    assert.equal(r.body.failed[0].code, 'E_EXPLANATION');
+    for (const id of [a1.body.id, a2.body.id]) {
+      const q = await call('GET', `/admin/question-versions/${id}`, tk('admin'));
+      assert.equal(q.body.workflowState, 'published');
+    }
+    // The ordinary path still refuses self-review.
+    const own = await call('POST', '/admin/questions', tk('admin'), draft({ stem: 'Bulk approval: after the bulk call the self-review block is back on.' }));
+    await move('admin', own.body.id, { action: 'submit', originalityDeclared: true });
+    assert.equal((await move('admin', own.body.id, { action: 'approve', checklist: CHECKS })).status, 403);
+  });
+
   it('does not count approvals given before a return', async () => {
     const b = await call('POST', '/admin/questions', tk('author'), draft({ stem: 'This question is approved once, returned, and then forced to approved.' }));
     await move('author', b.body.id, { action: 'submit', originalityDeclared: true });

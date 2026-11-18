@@ -420,6 +420,11 @@ export class ApiStore extends PsqlStore {
     );
   }
 
+  async bulkApprovePublish(versionIds: string[], actorId: string): Promise<{ published: string[]; failed: Array<{ id: string; code: string; publicCode: string | null }> }> {
+    const arr = versionIds.length ? `ARRAY[${versionIds.map((v) => lit.uuid(v)).join(',')}]::uuid[]` : `ARRAY[]::uuid[]`;
+    return await this.admin(async () => (await this.one(`SELECT bulk_approve_publish(${arr}, ${lit.uuid(actorId)});`)) ?? { published: [], failed: [] });
+  }
+
   async existingStems(normalized: string[]): Promise<string[]> {
     return await this.one<string[]>(`SELECT existing_stems(${lit.json(normalized)});`) ?? [];
   }

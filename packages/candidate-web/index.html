@@ -415,6 +415,7 @@ function authView(kind) {
   const params = new URLSearchParams(location.hash.split("?")[1] || "");
   const forms = {
     signin: `<h1>${t("signIn")}</h1><label>${t("email")}<input id="email" type="email" autocomplete="username" required></label><label>${t("password")}<input id="password" type="password" autocomplete="current-password" required></label>
+      <label id="otp-wrap" hidden>${S.lang === "ar" ? "الكود من تطبيق المصادقة (6 أرقام) أو كود استرداد" : "Code from your authenticator app (6 digits) or a recovery code"}<input id="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="20" dir="ltr"></label>
       <button class="primary" type="submit">${t("signIn")}</button><div class="links"><a href="#register">${t("noAccount")}</a><a href="#forgot">${t("forgot")}</a></div>`,
     register: `<h1>${t("register")}</h1><label>${t("email")}<input id="email" type="email" autocomplete="username" required></label><label>${t("password")}<input id="password" type="password" autocomplete="new-password" minlength="10" required><span class="muted">${t("pwHint")}</span></label>
       <label class="inline"><input type="checkbox" id="terms"> ${t("acceptTerms")}</label>${S.site && (S.site.termsUrl || S.site.privacyUrl) ? `<div class="links">${S.site.termsUrl ? `<a href="${esc(S.site.termsUrl)}" target="_blank" rel="noopener" id="terms-link">${t("termsLink")}</a>` : ""}${S.site.privacyUrl ? `<a href="${esc(S.site.privacyUrl)}" target="_blank" rel="noopener" id="privacy-link">${t("privacyLink")}</a>` : ""}</div>` : ""}<button class="primary" type="submit">${t("register")}</button><div class="links"><a href="#signin">${t("haveAccount")}</a></div>`,
@@ -427,7 +428,11 @@ function authView(kind) {
     const show = (k, text) => ($("#msg").innerHTML = `<p class="msg ${k}">${esc(text)}</p>`);
     try {
       if (kind === "signin") {
-        const tk = await raw("POST", "/auth/login", { email: $("#email").value.trim(), password: $("#password").value });
+        const body = { email: $("#email").value.trim(), password: $("#password").value };
+        if (!$("#otp-wrap").hidden && $("#otp").value.trim()) body.otp = $("#otp").value.trim();
+        let tk;
+        try { tk = await raw("POST", "/auth/login", body); }
+        catch (e) { if (e.code === "mfa_required") { $("#otp-wrap").hidden = false; $("#otp").focus(); } throw e; }
         S.access = tk.accessToken; S.refresh = tk.refreshToken;
         await afterSignIn();
       } else if (kind === "register") {

@@ -110,7 +110,7 @@ const AR = {
   "Domain": "المجال", "Answers": "الإجابات", "Correct": "صحيحة", "No question has enough answers yet.": "لا يوجد سؤال لديه إجابات كافية بعد.",
   "A certificate records that a candidate finished a full mock exam, with the score. It does not say pass or fail.": "الشهادة تثبت أن المتدرب أكمل اختباراً تجريبياً كاملاً ونتيجته، ولا تقول ناجح أو راسب.",
   // certificates and import
-  "Arabic columns (optional):": "أعمدة العربية (اختيارية):", "Arabic translation (optional)": "الترجمة العربية (اختياري)", "Arabic translation of the stem (optional)": "الترجمة العربية لنص السؤال (اختياري)", "Arabic translation of the explanation (optional)": "الترجمة العربية للشرح (اختياري)", "Certificates": "الشهادات", "Token": "الرمز", "User": "المستخدم", "Score": "النتيجة", "Issued": "تاريخ الإصدار", "Revoked": "ملغاة",
+  "Arabic columns (optional):": "أعمدة العربية (اختيارية):", "Arabic translation (optional)": "الترجمة العربية (اختياري)", "Bulk review": "مراجعة جماعية", "No explanation": "مفيش شرح", "Answer key is not set": "الإجابة الصحيحة مش محددة", "Open and edit": "فتح وتعديل", "All questions that are not published yet, on one page. Read them, tick the ones you approve, then approve and publish them in one step. The correct answer is highlighted.": "كل الأسئلة اللي لسه متنشرتش في صفحة واحدة. اقراها، علّم على اللي موافق عليه، واعتمدها وانشرها مرة واحدة. الإجابة الصحيحة متعلّم عليها.", "{n} questions waiting · {m} ready to publish": "{n} سؤال مستني · {m} جاهز للنشر", "Select all that are ready": "اختار كل الجاهز", "I reviewed the selected questions (wording, answer key, translation) and they are original, not copied from any exam, course or book": "راجعت الأسئلة المختارة (الصياغة والإجابة والترجمة) وهي أصلية ومش منقولة من امتحان أو كورس أو كتاب", "Approve and publish selected": "اعتماد ونشر المختار", "Nothing waiting for review.": "مفيش أسئلة مستنية مراجعة.", "{n} selected": "{n} مختار", "Select at least one question.": "اختار سؤال واحد على الأقل.", "Tick the confirmation first.": "علّم على التأكيد الأول.", "Working…": "جاري التنفيذ…", "{n} questions published.": "تم نشر {n} سؤال.", "Not published: {list}": "متنشرش: {list}", "Arabic translation of the stem (optional)": "الترجمة العربية لنص السؤال (اختياري)", "Arabic translation of the explanation (optional)": "الترجمة العربية للشرح (اختياري)", "Certificates": "الشهادات", "Token": "الرمز", "User": "المستخدم", "Score": "النتيجة", "Issued": "تاريخ الإصدار", "Revoked": "ملغاة",
   "Yes": "نعم", "No": "لا", "Un-revoke": "إلغاء الإلغاء", "Revoke": "إلغاء الشهادة", "← Previous": "→ السابق", "Next →": "التالي ←",
   "Reason for revocation (optional):": "سبب الإلغاء (اختياري):", "Certificate revoked.": "تم إلغاء الشهادة.", "Revocation removed.": "تم التراجع عن الإلغاء.",
   // exam tips
@@ -296,7 +296,7 @@ function loginView(step) {
 
 // ------------------------------------------------------------ shell
 
-const NAV = [["queue", "Work queue"], ["questions", "Questions"], ["new", "New question", isAuthor], ["cases", "Case studies"], ["tips", "Exam tips"], ["import", "Import", isAuthor], ["blueprints", "Blueprints", isAdmin], ["reports", "Reports"], ["difficulty", "Difficulty", isAdmin], ["users", "Users", isAdmin], ["certificates", "Certificates", isAdmin], ["access", "Plans and access", isAdmin], ["audit", "Audit log", isAdmin], ["security", "Security"]];
+const NAV = [["queue", "Work queue"], ["questions", "Questions"], ["new", "New question", isAuthor], ["cases", "Case studies"], ["tips", "Exam tips"], ["import", "Import", isAuthor], ["bulk", "Bulk review", isAdmin], ["blueprints", "Blueprints", isAdmin], ["reports", "Reports"], ["difficulty", "Difficulty", isAdmin], ["users", "Users", isAdmin], ["certificates", "Certificates", isAdmin], ["access", "Plans and access", isAdmin], ["audit", "Audit log", isAdmin], ["security", "Security"]];
 
 function shell(title, body) {
   const route = (location.hash.slice(1) || "queue").split("/")[0];
@@ -923,6 +923,56 @@ async function certificatesAdminView() {
   });
 }
 
+async function bulkView() {
+  const states = ["draft", "expert_review", "language_qa", "approved"];
+  const items = [];
+  for (const st of states) {
+    let cursor = null;
+    do {
+      const r = await api("GET", `/admin/questions?workflowState=${st}&limit=100${cursor ? "&cursor=" + encodeURIComponent(cursor) : ""}`);
+      items.push(...r.items); cursor = r.nextCursor;
+    } while (cursor && items.length < 2000);
+  }
+  const L = "ABCDEF";
+  const card = (q) => {
+    const issues = [];
+    if (!q.explanation || !q.explanation.whyCorrect) issues.push(t("No explanation"));
+    const nKey = q.options.filter((o) => o.isCorrect).length;
+    if (q.type === "single" ? nKey !== 1 : nKey < 2) issues.push(t("Answer key is not set"));
+    return `<article class="panel bq" data-id="${esc(q.id)}" data-ok="${issues.length ? 0 : 1}">
+      <label class="inline"><input type="checkbox" class="bsel"${issues.length ? " disabled" : ""}> <strong>${esc(q.publicCode)}</strong> · ${esc(q.taskCode)} · ${esc(t(q.approach[0].toUpperCase() + q.approach.slice(1)))} · ${pill(q.workflowState)}${issues.length ? ` <span class="msg err" style="display:inline;padding:2px 8px">${esc(issues.join(" · "))}</span>` : ""}</label>
+      <p class="stem" dir="auto">${esc(q.stem)}</p>${q.stemAr ? `<p class="stem muted" dir="rtl">${esc(q.stemAr)}</p>` : ""}
+      <ol type="A">${q.options.map((o) => `<li class="${o.isCorrect ? "key" : ""}"><span dir="auto">${esc(o.text)}</span>${o.textAr ? `<div dir="rtl" class="muted">${esc(o.textAr)}</div>` : ""}</li>`).join("")}</ol>
+      ${q.explanation && q.explanation.whyCorrect ? `<p class="muted" dir="auto">${esc(q.explanation.whyCorrect)}</p>` : ""}
+      <a href="#question/${esc(q.id)}">${t("Open and edit")}</a></article>`;
+  };
+  const ready = items.filter((q) => q.explanation && q.explanation.whyCorrect).length;
+  shell(t("Bulk review"), `<div class="panel"><p>${t("All questions that are not published yet, on one page. Read them, tick the ones you approve, then approve and publish them in one step. The correct answer is highlighted.")}</p>
+    <p>${t("{n} questions waiting · {m} ready to publish", { n: items.length, m: ready })}</p>
+    <div class="row"><label class="inline"><input type="checkbox" id="ball"> ${t("Select all that are ready")}</label><span id="bcount" class="muted"></span></div>
+    <label class="inline"><input type="checkbox" id="bconf"> ${t("I reviewed the selected questions (wording, answer key, translation) and they are original, not copied from any exam, course or book")}</label>
+    <div class="row"><button class="primary" id="bgo">${t("Approve and publish selected")}</button></div><div id="bout"></div></div>
+    <div id="blist" style="display:flex;flex-direction:column;gap:12px">${items.map(card).join("") || `<p class="muted">${t("Nothing waiting for review.")}</p>`}</div>`);
+  const count = () => { $("#bcount").textContent = t("{n} selected", { n: document.querySelectorAll(".bsel:checked").length }); };
+  $("#ball").onchange = (e) => { document.querySelectorAll(".bsel:not(:disabled)").forEach((c) => { c.checked = e.target.checked; }); count(); };
+  $("#blist").onchange = count; count();
+  $("#bgo").onclick = async () => {
+    const ids = [...document.querySelectorAll(".bsel:checked")].map((c) => c.closest(".bq").dataset.id);
+    if (!ids.length) return ($("#bout").innerHTML = `<p class="msg err">${t("Select at least one question.")}</p>`);
+    if (!$("#bconf").checked) return ($("#bout").innerHTML = `<p class="msg err">${t("Tick the confirmation first.")}</p>`);
+    $("#bgo").disabled = true; $("#bout").innerHTML = `<p class="muted">${t("Working…")}</p>`;
+    let published = 0; const failed = [];
+    try {
+      for (let i = 0; i < ids.length; i += 100) {
+        const r = await api("POST", "/admin/questions/bulk-approve", { versionIds: ids.slice(i, i + 100), reviewedConfirmed: true, originalityDeclared: true });
+        published += r.published.length; failed.push(...r.failed);
+      }
+      flash(failed.length ? "err" : "ok", t("{n} questions published.", { n: published }) + (failed.length ? " " + t("Not published: {list}", { list: failed.map((f) => `${f.publicCode || f.id} (${f.code})`).join(", ") }) : ""));
+      render();
+    } catch (e) { $("#bgo").disabled = false; showError(e); }
+  };
+}
+
 async function render() {
   if (!S.access) return loginView();
   const [route, arg] = location.hash.slice(1).split("?")[0].split("/");
@@ -934,6 +984,7 @@ async function render() {
     if (route === "cases") return await casesView();
     if (route === "case") return await caseView(arg);
     if (route === "tips") return await tipsAdminView();
+    if (route === "bulk") return await bulkView();
     if (route === "import") return importView();
     if (route === "blueprints") return await blueprintsView();
     if (route === "reports") return await reportsView();
