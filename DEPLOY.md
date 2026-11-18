@@ -140,13 +140,16 @@ loaded by these commands.
    questions each.
 
    Additional content files in `content/`:
-   - `pdf-english-exam1.xlsx` — 180 English questions extracted from practice
-     PDFs, with correct answers and explanations. **Ready to import after
-     expert review and language review.**
-   - `pdf-arabic-agile.xlsx` — 192 Arabic questions extracted from an Agile
-     practice PDF. **The `correct` column is empty** (PDF extraction could not
-     reliably identify answer keys). A content reviewer must fill in the
-     correct answer (A/B/C/D) for every row before this file can be imported.
+   - `english-exam1-questions.xlsx` — 175 English questions from the owner's
+     own practice deck (EXAM No.1), rebuilt slide by slide: stem, options and the
+     answer written on each "Ans." slide. Import from Admin → Import; check
+     `approach` (keyword guess) and `taskCode` during review. 5 drag-and-drop
+     questions are listed on the "Not imported" sheet.
+   - `agile-arabic-questions.xlsx` — 181 Arabic Agile questions from the owner's
+     own deck, transcribed slide by slide; the key is the option with the green
+     border. Sheet "Needs your answer" holds 3 slides with no marked answer;
+     "Not imported" lists drag-and-drop, chart-based and duplicate slides.
+     No explanations yet: add them during review.
    - `starter-drafts-2.xlsx` — 52 more AI-assisted draft questions plus 6
      case studies (requires the same expert + language review as the first
      batch).
