@@ -425,6 +425,19 @@ export class ApiStore extends PsqlStore {
     return await this.admin(async () => (await this.one(`SELECT bulk_approve_publish(${arr}, ${lit.uuid(actorId)});`)) ?? { published: [], failed: [] });
   }
 
+  async questionIdByStem(norms: string[]): Promise<string | null> {
+    const out = await this.run(`SELECT find_question_by_stem(${lit.json(norms)});`);
+    return out === '' ? null : out;
+  }
+
+  async updateQuestionByStem(actorId: string, blueprintId: string, norms: string[], doc: Record<string, unknown>): Promise<{ action: string; versionId: string | null }> {
+    return await this.admin(async () =>
+      (await this.one<{ action: string; versionId: string | null }>(
+        `SELECT update_question_by_stem(${lit.uuid(actorId)}, ${lit.uuid(blueprintId)}, ${lit.json(norms)}, ${lit.json(doc)});`,
+      )) ?? { action: 'skipped', versionId: null },
+    );
+  }
+
   async existingStems(normalized: string[]): Promise<string[]> {
     return await this.one<string[]>(`SELECT existing_stems(${lit.json(normalized)});`) ?? [];
   }

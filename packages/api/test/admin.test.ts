@@ -371,7 +371,7 @@ describe('staff tools', { skip: configured ? false : 'PGDATABASE is not set; see
 
     const dry = await call('POST', '/admin/imports', tk('author'), { rows });
     assert.equal(dry.status, 200);
-    assert.deepEqual(dry.body.summary, { rows: 5, valid: 2, invalid: 1, duplicates: 2, committed: 0 });
+    assert.deepEqual(dry.body.summary, { rows: 5, valid: 2, invalid: 1, duplicates: 2, update: 0, skipped: 0, updated: 0, committed: 0 });
     assert.deepEqual(dry.body.rows.map((r: Json) => r.status), ['valid', 'invalid', 'duplicate', 'duplicate', 'valid']);
     assert.equal(dry.body.rows[1].errors[0].field, 'taskCode');
     assert.match(dry.body.rows[3].errors[0].message, /row 1/);
@@ -385,6 +385,23 @@ describe('staff tools', { skip: configured ? false : 'PGDATABASE is not set; see
     assert.equal(one.body.workflowState, 'draft');
     assert.equal(one.body.authorId, STAFF.author.id);
     assert.equal((await call('POST', '/admin/imports', tk('author'), { rows: [] })).status, 422);
+  });
+
+  it('adds Arabic to questions that already exist when the import is told to update them', async () => {
+    const existing = (await call('GET', `/admin/question-versions/${qA.id}`, tk('author'))).body.stem as string;
+    const rows = [draft({ stem: existing, stemAr: 'سؤال عربي مضاف إلى سؤال موجود بالفعل في البنك' })];
+    const plain = await call('POST', '/admin/imports', tk('author'), { rows, commit: true });
+    assert.equal(plain.body.summary.duplicates, 1);
+    const dry = await call('POST', '/admin/imports', tk('author'), { rows, updateExisting: true });
+    assert.equal(dry.body.rows[0].status, 'update');
+    assert.equal(dry.body.summary.update, 1);
+    const before = Number(store.query('SELECT count(*) FROM question_versions;'));
+    const real = await call('POST', '/admin/imports', tk('author'), { rows, commit: true, updateExisting: true });
+    assert.equal(real.status, 200);
+    assert.equal(real.body.summary.updated, 1);
+    assert.equal(real.body.summary.committed, 0);
+    assert.equal(Number(store.query('SELECT count(*) FROM question_versions;')), before + 1);
+    assert.equal(store.query("SELECT count(*) FROM question_versions WHERE stem_ar LIKE 'سؤال عربي مضاف%';"), '1');
   });
 
   it('turns an Excel file into rows for import, and explains files it cannot read', async () => {
