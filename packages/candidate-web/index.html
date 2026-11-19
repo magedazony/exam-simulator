@@ -106,7 +106,7 @@ td.hot button[aria-checked="true"] { outline: 3px solid var(--accent, #1f6feb); 
 .opt[aria-checked="true"] .mark { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .opt.is-right { border-color: var(--good); background: var(--good-soft); }
 .opt.is-wrong { border-color: var(--bad); background: var(--bad-soft); }
-.opt .why { display: block; font-size: 14px; color: var(--muted); margin-top: 4px; }
+.opt .why, .why { display: block; font-size: 14px; color: var(--muted); margin-top: 4px; font-weight: normal; }
 .verdict { font-weight: 600; padding: 10px 14px; border-radius: 8px; }
 .verdict.ok { background: var(--good-soft); color: var(--good); }
 .verdict.no { background: var(--bad-soft); color: var(--bad); }
@@ -176,7 +176,7 @@ const T = {
     breakTitle: "Break", breakText: "The exam clock is paused. The previous section is locked.", resumeNow: "Resume now",
     result: "Result", expiredMsg: "Time ran out. The answers you saved were submitted.", byDomain: "By domain", byApproach: "By approach", byTask: "By task", reviewAnswers: "Review answers", filterAll: "All", filterWrong: "Incorrect", filterFlagged: "Flagged", filterBlank: "Unanswered", yours: "Your answer", none: "none", more: "Show more",
     statsTitle: "Your results", noStats: "Answer some questions and your results appear here.", estimate: "Educational estimate. It is not a prediction or guarantee of the official exam result.",
-    studyPlan: "Study Plan", studyPlanIntro: "Your personalised weekly study plan.", refreshPlan: "Refresh plan", planWeekOf: "Week of", planGoal: "Goal", planSessions: "Sessions", planTopic: "Topic", planMins: "min", noStudyPlan: "Complete your profile to get a study plan.", domainAnalytics: "Domain Analytics", difficultyAnalytics: "Difficulty Analytics", masteryLevel: "Mastery", totalAtt: "Attempts", correctAtt: "Correct", diffEasy: "Easy", diffMedium: "Medium", diffHard: "Hard",
+    studyPlan: "Study Plan", studyPlanIntro: "Your personalised weekly study plan.", refreshPlan: "Refresh plan", planWeekOf: "Week of", planGoal: "Goal", planSessions: "Sessions", planTopic: "Topic", planMins: "min", noStudyPlan: "Complete your profile to get a study plan.", domainAnalytics: "Domain Analytics", difficultyAnalytics: "Difficulty Analytics", masteryLevel: "Mastery", totalAtt: "answered", correctAtt: "Correct", diffEasy: "Easy", diffMedium: "Medium", diffHard: "Hard",
     language: "Interface language", saved2: "Saved.", deleteAccount: "Delete my account", deleteWarn: "This ends all your sessions and removes your account.", confirmDelete: "Yes, delete my account",
     predictive: "Predictive", agile: "Agile", hybrid: "Hybrid", serverDown: "Cannot reach the server. Check your connection and try again.",
     plan: "Your plan", planFree: "Free plan", planPass: "Full access", until: (d) => "Until " + d, freeLeft: (n, max) => n + " of " + max + " free practice questions left today",
@@ -208,7 +208,7 @@ const T = {
     breakTitle: "استراحة", breakText: "ساعة الاختبار متوقفة. القسم السابق أصبح مقفلاً.", resumeNow: "استأنف الآن",
     result: "النتيجة", expiredMsg: "انتهى الوقت. تم تسليم الإجابات المحفوظة.", byDomain: "حسب المجال", byApproach: "حسب المنهج", byTask: "حسب المهمة", reviewAnswers: "مراجعة الإجابات", filterAll: "الكل", filterWrong: "الخاطئة", filterFlagged: "عليها علامة", filterBlank: "بدون إجابة", yours: "إجابتك", none: "لا شيء", more: "عرض المزيد",
     statsTitle: "نتائجك", noStats: "أجب عن بعض الأسئلة لتظهر نتائجك هنا.", estimate: "تقدير تعليمي. ليس توقعاً ولا ضماناً لنتيجة الاختبار الرسمي.",
-    studyPlan: "خطة الدراسة", studyPlanIntro: "خطة دراستك الأسبوعية المخصصة.", refreshPlan: "تحديث الخطة", planWeekOf: "أسبوع", planGoal: "الهدف", planSessions: "الجلسات", planTopic: "الموضوع", planMins: "دقيقة", noStudyPlan: "أكمل ملفك الشخصي للحصول على خطة دراسية.", domainAnalytics: "تحليل المجالات", difficultyAnalytics: "تحليل الصعوبة", masteryLevel: "مستوى الإتقان", totalAtt: "المحاولات", correctAtt: "الصحيحة", diffEasy: "سهل", diffMedium: "متوسط", diffHard: "صعب",
+    studyPlan: "خطة الدراسة", studyPlanIntro: "خطة دراستك الأسبوعية المخصصة.", refreshPlan: "تحديث الخطة", planWeekOf: "أسبوع", planGoal: "الهدف", planSessions: "الجلسات", planTopic: "الموضوع", planMins: "دقيقة", noStudyPlan: "أكمل ملفك الشخصي للحصول على خطة دراسية.", domainAnalytics: "تحليل المجالات", difficultyAnalytics: "تحليل الصعوبة", masteryLevel: "مستوى الإتقان", totalAtt: "إجابة", correctAtt: "الصحيحة", diffEasy: "سهل", diffMedium: "متوسط", diffHard: "صعب",
     language: "لغة الواجهة", saved2: "تم الحفظ.", deleteAccount: "حذف حسابي", deleteWarn: "سيؤدي ذلك إلى إنهاء كل جلساتك وحذف حسابك.", confirmDelete: "نعم، احذف حسابي",
     predictive: "Predictive", agile: "Agile", hybrid: "Hybrid", serverDown: "تعذّر الوصول إلى الخادم. تحقق من الاتصال وحاول مرة أخرى.",
     plan: "خطتك", planFree: "الخطة المجانية", planPass: "وصول كامل", until: (d) => "حتى " + d, freeLeft: (n, max) => "متبقٍ " + n + " من " + max + " سؤال تدريب مجاني اليوم",
@@ -227,8 +227,11 @@ const t = (k, ...a) => { const v = T[S.lang][k]; return typeof v === "function" 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmt = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ":" : "") + String(m).padStart(2, "0") + ":" + String(x).padStart(2, "0"); };
-const domainName = (code) => (S.blueprint?.domains.find((d) => d.code === code)?.name) || code;
-const taskName = (code) => { for (const d of S.blueprint?.domains || []) { const x = d.tasks.find((t2) => t2.code === code); if (x) return x.name; } return code; };
+// Arabic names of the outline's domains and tasks (the blueprint holds the English names).
+const NAMES_AR = {"People": "الأفراد", "Process": "العمليات", "Business Environment": "بيئة الأعمال", "Develop a common vision": "تطوير رؤية مشتركة", "Manage conflicts": "إدارة الخلافات", "Lead the project team": "قيادة فريق المشروع", "Engage stakeholders": "إشراك أصحاب المصلحة", "Align stakeholder expectations": "مواءمة توقعات أصحاب المصلحة", "Manage stakeholder expectations": "إدارة توقعات أصحاب المصلحة", "Help ensure knowledge transfer": "المساعدة في ضمان نقل المعرفة", "Plan and manage communication": "تخطيط التواصل وإدارته", "Develop an integrated project management plan and plan delivery": "إعداد خطة متكاملة لإدارة المشروع وتخطيط التسليم", "Develop and manage project scope": "إعداد نطاق المشروع وإدارته", "Help ensure value-based delivery": "المساعدة في ضمان تسليم قائم على القيمة", "Plan and manage resources": "تخطيط الموارد وإدارتها", "Plan and manage procurement": "تخطيط المشتريات وإدارتها", "Plan and manage finance": "تخطيط الشؤون المالية وإدارتها", "Plan and optimize quality of products/deliverables": "تخطيط جودة المنتجات والمخرجات وتحسينها", "Plan and manage schedule": "تخطيط الجدول الزمني وإدارته", "Evaluate project status": "تقييم حالة المشروع", "Manage project closure": "إدارة إغلاق المشروع", "Define and establish project governance": "تحديد حوكمة المشروع وإرساؤها", "Plan and manage project compliance": "تخطيط امتثال المشروع وإدارته", "Manage and control changes": "إدارة التغييرات وضبطها", "Remove impediments and manage issues": "إزالة العوائق وإدارة المشكلات", "Plan and manage risk": "تخطيط المخاطر وإدارتها", "Continuous improvement": "التحسين المستمر", "Support organizational change": "دعم التغيير المؤسسي", "Evaluate external business environment changes": "تقييم التغيرات في بيئة الأعمال الخارجية"};
+const trName = (en) => (S.lang === "ar" && en && NAMES_AR[en]) || en;
+const domainName = (code) => trName(S.blueprint?.domains.find((d) => d.code === code)?.name) || code;
+const taskName = (code) => { for (const d of S.blueprint?.domains || []) { const x = d.tasks.find((t2) => t2.code === code); if (x) return trName(x.name); } return code; };
 
 class ApiError extends Error {
   constructor(status, body) { super(body.title || "Request failed"); this.status = status; this.code = body.code; this.errors = body.errors || []; }
@@ -337,7 +340,7 @@ function questionHtml(q, selected, reveal, feedback) {
       const ok = reveal && right[o.id] === mine;
       const cls = reveal ? (ok ? " is-right" : " is-wrong") : "";
       const control = reveal
-        ? `<span class="grow">${right[o.id] && tgt[right[o.id]] ? bi(tgt[right[o.id]].text, hasAr ? tgt[right[o.id]].textAr : "") : ""}${!ok && mine && tgt[mine] ? ` <span class="muted">(${t("yourAnswer")}: ${esc(tgt[mine].text)})</span>` : ""}</span>`
+        ? `<span class="grow">${right[o.id] && tgt[right[o.id]] ? bi(tgt[right[o.id]].text, hasAr ? tgt[right[o.id]].textAr : "") : ""}${!ok && mine && tgt[mine] ? ` <span class="muted">(${t("yourAnswer")}: ${esc(S.lang === "ar" && tgt[mine].textAr ? tgt[mine].textAr : tgt[mine].text)})</span>` : ""}</span>`
         : `<select data-left="${esc(o.id)}" aria-label="${esc(o.text)}"><option value="">${t("pick")}</option>${(q.targets || []).map((x) => `<option value="${esc(x.id)}"${mine === x.id ? " selected" : ""}>${esc(qLang() === "ar" && x.textAr ? x.textAr : x.text)}</option>`).join("")}</select>`;
       return `<div class="match-row${cls}"><span class="grow">${bi(o.text, hasAr ? o.textAr : "")}${why(o.id)}</span>${control}</div>`;
     }).join("");
@@ -388,7 +391,7 @@ function feedbackHtml(q, selected, fb) {
   const qid = q.id || q.questionId || "";
   return `<p class="verdict ${fb.correct ? "ok" : "no"}">${fb.correct ? t("correct") : t("incorrect")}</p>${questionHtml(q, selected, true, fb)}
     <div class="card qwrap" data-ql="${qLang()}"><h2>${t("why")}</h2><p class="content">${bi(ex.whyCorrect || (exAr ? exAr.whyCorrect : ""), ex.whyCorrect && exAr ? exAr.whyCorrect : "")}</p>${ex.mindset ? `<p><strong>${t("mindset")}:</strong> <span class="content">${esc(ex.mindset)}</span></p>` : ""}${ex.keyConcept ? `<p><strong>${t("concept")}:</strong> <span class="content">${esc(ex.keyConcept)}</span></p>` : ""}
-    <div class="row"><span class="tag">${esc(ex.domainName || "")}</span><span class="tag">${t("task")}: ${esc(ex.taskName || "")}</span></div>
+    <div class="row"><span class="tag">${esc(trName(ex.domainName) || "")}</span><span class="tag">${t("task")}: ${esc(trName(ex.taskName) || "")}</span></div>
     ${qid ? `<div class="row" style="margin-top:8px;gap:8px">
       <button class="btn small bm-toggle" data-qid="${esc(qid)}" data-bm="0">🔖 ${t("bookmark")}</button>
       <button class="btn small note-toggle" data-qid="${esc(qid)}">📝 ${t("addNote")}</button>
@@ -668,7 +671,7 @@ async function practiceRunView() {
     S.practice = null; return;
   }
   if (!p.q) { p.q = await api("GET", `/practice/sessions/${p.session.id}/questions/${p.i}`); p.started = Date.now(); }
-  const head = `<div class="examhead"><span class="grow">${t("ofq", p.i, p.session.questionCount)}</span>${p.q.taskName ? `<span class="tag">${esc(p.q.taskName)}</span>` : ""}${p.deadline ? `<span class="timer" id="ptimer">${fmt(p.deadline - Date.now())}</span>` : ""}</div><div class="progress"><i style="width:${Math.round(((p.i - 1) / p.session.questionCount) * 100)}%"></i></div>`;
+  const head = `<div class="examhead"><span class="grow">${t("ofq", p.i, p.session.questionCount)}</span>${p.q.taskName ? `<span class="tag">${esc(trName(p.q.taskName))}</span>` : ""}${p.deadline ? `<span class="timer" id="ptimer">${fmt(p.deadline - Date.now())}</span>` : ""}</div><div class="progress"><i style="width:${Math.round(((p.i - 1) / p.session.questionCount) * 100)}%"></i></div>`;
   if (p.fb) {
     paint(seq, head + feedbackHtml(p.q, p.sel, p.fb) + errorHint(p.fb) + `<button class="primary" id="next">${p.i < p.session.questionCount ? t("next") : t("finish")}</button>`);
     bindReport();
@@ -847,7 +850,7 @@ async function examView() {
   const cs = q.caseKey ? ex.section.caseStudies[q.caseKey] : null;
   paint(seq, `<div class="examhead"><span class="grow">${t("section", st.currentSection + 1)} · ${sections[st.currentSection].kind === "case" ? t("secCase") : t("secInd")} · ${t("ofq", q.ordinal, 180)}</span>${timer}</div>
     <div class="progress"><i style="width:${Math.round((q.ordinal / 180) * 100)}%"></i></div>
-    ${cs ? `<details class="case"${q.ordinal === cs.firstOrdinal ? " open" : ""}><summary>${t("scenario")}: <span class="content">${esc(cs.title)}</span></summary><div class="content" style="margin-top:8px"><p class="stem">${esc(cs.scenario)}</p>${(cs.exhibits || []).map(exhibitHtml).join("")}</div></details>` : ""}
+    ${cs ? `<details class="case"${q.ordinal === cs.firstOrdinal ? " open" : ""}><summary>${t("scenario")}: <span class="content">${esc(S.lang === "ar" && cs.titleAr ? cs.titleAr : cs.title)}</span></summary><div class="content" style="margin-top:8px"><p class="stem">${esc(cs.scenario)}</p>${S.lang === "ar" && cs.scenarioAr ? `<p class="stem" dir="rtl" lang="ar">${esc(cs.scenarioAr)}</p>` : ""}${(cs.exhibits || []).map(exhibitHtml).join("")}</div></details>` : ""}
     ${questionHtml(q, sel, false)}
     <div class="examhead"><button class="small" id="clear"${sel.length ? "" : " disabled"}>${t("clear")}</button><span class="grow"></span><span class="saving" id="saving" aria-live="polite"></span></div>
     <div class="foot"><button class="small" id="prev"${ex.i === 0 ? " disabled" : ""}>${t("prev")}</button><button class="small" id="flag" aria-pressed="${ex.flags.has(q.ordinal)}">${t("flag")}</button><button class="small" id="navb">${t("navigator")}</button><button class="small primary" id="next">${ex.i === qs.length - 1 ? t("reviewBtn") : t("next")}</button></div>`, { exam: true });
@@ -1498,7 +1501,7 @@ async function analyticsView() {
     const masteryLabel = item.mastery || item.masteryLevel || "";
     const name = domainName(item.domainCode || item.domain || "") || item.domain || "";
     return `<div style="margin-bottom:10px">
-      <div class="row" style="margin-bottom:4px"><span>${esc(name)}</span>${masteryLabel ? `<span class="tag" style="font-size:11px">${esc(masteryLabel)}</span>` : ""}<span class="muted" style="font-size:12px;margin-left:auto">${item.total || 0} ${t("totalAtt")} · ${pct}%</span></div>
+      <div class="row" style="margin-bottom:4px"><span>${esc(name)}</span>${masteryLabel ? `<span class="tag" style="font-size:11px">${esc(masteryLabel)}</span>` : ""}<span class="muted" style="font-size:12px;margin-left:auto">${item.answered || 0} ${t("totalAtt")} · ${item.accuracy === null || item.accuracy === undefined ? "–" : pct + "%"}</span></div>
       <div class="track" style="height:8px;border-radius:4px"><i style="width:${Math.min(pct,100)}%;height:8px;border-radius:4px;background:${pctColor(pct)};display:block"></i></div>
     </div>`;
   };

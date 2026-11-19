@@ -142,6 +142,8 @@ export const AR_MESSAGES: Record<string, string> = {
   'must be text of 1 to 1000 characters': 'يجب أن يكون نصاً من 1 إلى 1000 حرف',
   'must be text of 1 to 4000 characters': 'يجب أن يكون نصاً من 1 إلى 4000 حرف',
   'must be text of 3 to 200 characters': 'يجب أن يكون نصاً من 3 إلى 200 حرف',
+  'must be at most 200 characters': 'يجب ألا يزيد عن 200 حرف',
+  'must be at most 6000 characters': 'يجب ألا يزيد عن 6000 حرف',
   'must be text of 100 to 6000 characters': 'يجب أن يكون نصاً من 100 إلى 6000 حرف',
   'must be a task code of the active blueprint': 'يجب أن يكون رمز مهمة من المخطط المفعّل',
   'must hold 2 to 6 options': 'يجب أن يحتوي على 2 إلى 6 خيارات',

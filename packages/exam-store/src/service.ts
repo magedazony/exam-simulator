@@ -75,7 +75,7 @@ export interface SectionQuestionsView {
   /** Scenarios of the case studies in this section, keyed by the same per-attempt labels as `caseKey`. */
   caseStudies: Record<
     string,
-    { title: string; scenario: string; firstOrdinal: number; lastOrdinal: number; exhibits: CandidateQuestion['exhibits'] }
+    { title: string; scenario: string; titleAr?: string; scenarioAr?: string; firstOrdinal: number; lastOrdinal: number; exhibits: CandidateQuestion['exhibits'] }
   >;
 }
 
@@ -140,7 +140,7 @@ export class MockExamService {
         const c = found.get(id);
         if (!c) continue;
         const ords = questions.filter((q) => q.caseKey === key).map((q) => q.ordinal);
-        caseStudies[key] = { title: c.title, scenario: c.scenario, firstOrdinal: Math.min(...ords), lastOrdinal: Math.max(...ords), exhibits: toCandidateExhibits(c.exhibits ?? []) };
+        caseStudies[key] = { title: c.title, scenario: c.scenario, ...(c.titleAr ? { titleAr: c.titleAr } : {}), ...(c.scenarioAr ? { scenarioAr: c.scenarioAr } : {}), firstOrdinal: Math.min(...ords), lastOrdinal: Math.max(...ords), exhibits: toCandidateExhibits(c.exhibits ?? []) };
       }
     }
     return {

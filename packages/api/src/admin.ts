@@ -431,12 +431,14 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
   // completed (translations, explanations) and imported again with "update existing".
   add('GET', '/admin/exports/questions', ROLES.admins, async () => {
     const qs = await store.exportQuestions();
+    const cases = await store.exportCases();
+    const caseKey = new Map(cases.map((c) => [c.id as string, c.caseKey as string]));
     const L = 'ABCDEF';
     const head = ['publicCode', 'workflowState', 'taskCode', 'approach', 'difficulty', 'type', 'language', 'aiAssisted', 'stem', 'stemAr',
       ...[...L].map((x) => 'option' + x), ...[...L].map((x) => 'option' + x + 'Ar'), 'correct',
       ...[...L].map((x) => 'rationale' + x), ...[...L].map((x) => 'rationale' + x + 'Ar'),
       'whyCorrect', 'mindset', 'keyConcept', 'learningObjective', 'whyCorrectAr', 'mindsetAr', 'keyConceptAr', 'learningObjectiveAr',
-      ...[...L].map((x) => 'match' + x), ...[...L].map((x) => 'match' + x + 'Ar'), ...[...L].map((x) => 'cell' + x), 'tolerance', 'graphic', 'tableAlt', 'tableHeader', 'tableRows', 'missing'];
+      ...[...L].map((x) => 'match' + x), ...[...L].map((x) => 'match' + x + 'Ar'), ...[...L].map((x) => 'cell' + x), 'tolerance', 'graphic', 'tableAlt', 'tableHeader', 'tableRows', 'caseKey', 'missing'];
     const rows = qs.map((q) => {
       const opts: Array<Record<string, any>> = q.options ?? [];
       const at = (i: number, k: string) => (opts[i] ? opts[i]![k] ?? '' : '');
@@ -459,6 +461,7 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
         ...[...L].map((_, i) => (Array.isArray(opts[i]?.meta?.cell) ? opts[i]!.meta.cell.join(',') : '')),
         q.type === 'numeric' ? String(opts[0]?.meta?.tolerance ?? 0) : '', q.graphic ? 'TRUE' : 'FALSE',
         tbl ? tbl.altText ?? '' : '', tbl ? tbl.table.header.join(' | ') : '', tbl ? tbl.table.rows.map((row: string[]) => row.join(' | ')).join(' || ') : '',
+        q.caseStudyId ? caseKey.get(q.caseStudyId) ?? '' : '',
         missing.join('; ')];
     });
     const count = (f: (r: any[]) => boolean) => rows.filter(f).length;
@@ -477,7 +480,11 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
       [],
       ['How to use', 'Fill the empty cells, keep the stem column unchanged, then import this file with "Update questions that already exist". The publicCode, workflowState and missing columns are ignored on import.']];
     const widths = head.map((h) => (/^(stem|why|rationale|option|mindset|key|learning)/i.test(h) ? 40 : 14));
-    const file = writeXlsx([{ name: 'Questions', rows: [head, ...rows], widths }, { name: 'Summary', rows: summary, widths: [34, 90] }]);
+    // Case studies travel with their questions (caseKey), so the file is a full copy of the bank.
+    const used = new Set(qs.map((q) => q.caseStudyId).filter(Boolean));
+    const caseRows = [['caseKey', 'title', 'scenario', 'titleAr', 'scenarioAr'],
+      ...cases.filter((c) => used.has(c.id)).map((c) => [c.caseKey, c.title, c.scenario, c.titleAr, c.scenarioAr])];
+    const file = writeXlsx([{ name: 'Questions', rows: [head, ...rows], widths }, { name: 'Case studies', rows: caseRows, widths: [14, 30, 90, 30, 90] }, { name: 'Summary', rows: summary, widths: [34, 90] }]);
     const day = new Date().toISOString().slice(0, 10);
     return { status: 200, body: { fileName: `question-bank-${day}.xlsx`, dataBase64: file.toString('base64'), count: rows.length } };
   });
@@ -662,8 +669,12 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
     const idsOk = Array.isArray(ids) && ids.length <= 5 && new Set(ids).size === ids.length &&
       ids.every((x) => typeof x === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x));
     if (!idsOk) errors.push({ field: 'exhibitIds', message: 'must be a list of at most 5 different exhibit ids' });
+    const titleAr = typeof b.titleAr === 'string' ? b.titleAr.trim() : '';
+    const scenarioAr = typeof b.scenarioAr === 'string' ? b.scenarioAr.trim() : '';
+    if (titleAr.length > 200) errors.push({ field: 'titleAr', message: 'must be at most 200 characters' });
+    if (scenarioAr.length > 6000) errors.push({ field: 'scenarioAr', message: 'must be at most 6000 characters' });
     if (errors.length) throw invalidMany(errors);
-    return { title, scenario, language, exhibitIds: ids as string[] };
+    return { title, scenario, titleAr, scenarioAr, language, exhibitIds: ids as string[] };
   };
 
   add('GET', '/admin/case-studies', ROLES.anyStaff, async (c) => {

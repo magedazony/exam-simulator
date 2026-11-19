@@ -411,12 +411,12 @@ describe('staff tools', { skip: configured ? false : 'PGDATABASE is not set; see
     assert.equal(ex.status, 200);
     assert.match(ex.body.fileName, /^question-bank-\d{4}-\d{2}-\d{2}\.xlsx$/);
     const sheets = readXlsxSheets(Buffer.from(ex.body.dataBase64, 'base64'));
-    assert.deepEqual(sheets.map((x) => x.name), ['Questions', 'Summary']);
+    assert.deepEqual(sheets.map((x) => x.name), ['Questions', 'Case studies', 'Summary']);
     const [head, ...rows] = sheets[0]!.rows;
     assert.ok(head!.includes('stemAr') && head!.includes('rationaleBAr') && head!.includes('whyCorrectAr'));
     assert.equal(rows.length, ex.body.count);
     assert.ok(rows.some((r) => r[head!.indexOf('stemAr')] === 'سؤال عربي مضاف إلى سؤال موجود بالفعل في البنك'));
-    assert.equal(sheets[1]!.rows[1]![1], String(ex.body.count));
+    assert.equal(sheets[2]!.rows[1]![1], String(ex.body.count));
 
     const row = draft({ stem: 'A brand-new question published straight from the import by an administrator.' });
     const noConfirm = await call('POST', '/admin/imports', tk('admin'), { rows: [row], commit: true, publishNow: true });

@@ -1662,6 +1662,8 @@ components:
       properties:
         title: { type: string }
         scenario: { type: string }
+        titleAr: { type: string }
+        scenarioAr: { type: string }
         exhibits:
           type: array
           items: { $ref: '#/components/schemas/CandidateExhibit' }
@@ -1990,6 +1992,8 @@ components:
       properties:
         title: { type: string, minLength: 3, maxLength: 200 }
         scenario: { type: string, minLength: 100, maxLength: 6000 }
+        titleAr: { type: string, maxLength: 200 }
+        scenarioAr: { type: string, maxLength: 6000 }
         language: { $ref: '#/components/schemas/Language' }
         exhibitIds:
           type: array
@@ -2003,6 +2007,8 @@ components:
         publicCode: { type: string }
         title: { type: string }
         scenario: { type: string }
+        titleAr: { type: string }
+        scenarioAr: { type: string }
         language: { $ref: '#/components/schemas/Language' }
         status: { type: string, enum: [draft, published, withdrawn] }
         createdBy: { type: string, format: uuid }

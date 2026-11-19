@@ -38,7 +38,7 @@ export interface ExamStore {
   /** Resolves to false when someone else changed the attempt since it was loaded. */
   saveProgress(attemptId: string, state: AttemptState, expectedVersion: number, ordinal?: number): Promise<boolean>;
   /** Title and scenario of case studies, for the questions of an open section. */
-  caseStudies(ids: string[]): Promise<Array<{ id: string; title: string; scenario: string; exhibits?: ExhibitRef[] }>>;
+  caseStudies(ids: string[]): Promise<Array<{ id: string; title: string; scenario: string; titleAr?: string; scenarioAr?: string; exhibits?: ExhibitRef[] }>>;
   /** Resolves to false when the attempt was already scored. */
   finalizeAttempt(attemptId: string, state: AttemptState, result: AttemptResult): Promise<boolean>;
 }

@@ -140,7 +140,7 @@ export class PsqlStore implements ExamStore {
     );
   }
 
-  async caseStudies(ids: string[]): Promise<Array<{ id: string; title: string; scenario: string; exhibits?: import('../../exam-engine/src/index.ts').ExhibitRef[] }>> {
+  async caseStudies(ids: string[]): Promise<Array<{ id: string; title: string; scenario: string; titleAr?: string; scenarioAr?: string; exhibits?: import('../../exam-engine/src/index.ts').ExhibitRef[] }>> {
     if (ids.length === 0) return [];
     ids.forEach((id) => lit.uuid(id));
     return await this.json(`SELECT case_study_views(${lit.json(ids)});`) ?? [];

@@ -163,7 +163,7 @@ const AR = {
   "holds letters, such as": "يحتوي على حروف، مثل", "or": "أو", "Excel files: questions on the first sheet, first row for column names. Optional columns aiAssisted and caseKey; a sheet named Case studies (caseKey, title, scenario) creates case-study drafts.": "ملفات Excel: الأسئلة في الورقة الأولى والصف الأول لأسماء الأعمدة. أعمدة اختيارية aiAssisted وcaseKey؛ وورقة باسم Case studies (caseKey وtitle وscenario) تنشئ مسودات دراسات حالة.",
   "Every imported row becomes a draft and goes through the full review.": "كل صف مستورد يصبح مسودة ويمر بالمراجعة الكاملة.", "Check rows": "فحص الصفوف", "Import valid rows as drafts": "استيراد الصفوف الصالحة كمسودات",
   "{n} rows read from {file}.": "تمت قراءة {n} صف من {file}.", "The file could not be read. Check that it is a valid Excel, CSV or JSON file.": "تعذّرت قراءة الملف. تأكد أنه ملف Excel أو CSV أو JSON صالح.",
-  "Imported": "تم الاستيراد", "{n} case studies.": "{n} دراسات حالة.", "Unknown case keys: {keys}": "مفاتيح دراسات حالة غير معروفة: {keys}", "{n} case studies created as drafts.": "تم إنشاء {n} دراسات حالة كمسودات.", "Check result": "نتيجة الفحص", "{v} valid, {i} invalid, {d} duplicates": "{v} صالح، {i} غير صالح، {d} مكرر", ", {c} stored as drafts": "، وحُفظ {c} كمسودات", "Row": "الصف", "Result": "النتيجة", "Problems": "المشكلات",
+  "Imported": "تم الاستيراد", "{n} case studies.": "{n} دراسات حالة.", "Unknown case keys: {keys}": "مفاتيح دراسات حالة غير معروفة: {keys}", "{n} case studies created as drafts.": "تم إنشاء {n} دراسات حالة كمسودات.", "{n} case studies published.": "تم نشر {n} دراسات حالة.", "Check result": "نتيجة الفحص", "{v} valid, {i} invalid, {d} duplicates": "{v} صالح، {i} غير صالح، {d} مكرر", ", {c} stored as drafts": "، وحُفظ {c} كمسودات", "Row": "الصف", "Result": "النتيجة", "Problems": "المشكلات",
   // blueprints
   "Upload a new blueprint version as JSON. It is stored as a draft, and activated only if 20 sample exams built from the current bank are all valid.": "ارفع إصداراً جديداً من المخطط بصيغة JSON. يُحفظ كمسودة، ولا يُفعّل إلا إذا كانت 20 عينة اختبار من البنك الحالي كلها صالحة.",
   "Upload as draft": "رفع كمسودة", "Version": "الإصدار", "Effective from": "يسري من", "Dry run": "تجربة", "Activate": "تفعيل", "Blueprint stored as a draft.": "تم حفظ المخطط كمسودة.", "{v} of {a} sample exams valid": "{v} من {a} عينات اختبار صالحة", "Blueprint activated.": "تم تفعيل المخطط.",
@@ -532,13 +532,13 @@ async function caseView(id) {
   const c = await api("GET", "/admin/case-studies/" + id);
   const editable = c.status === "draft" && isAuthor() && (c.createdBy === S.me.id || isAdmin());
   shell(`${c.publicCode} · ${c.title}`, `<div class="row">${pill(c.status)}<span class="muted">${t("Needs 2 to 10 questions, each published, before the case study can be published.")}</span></div>
-    <form class="panel" id="case-form"><label>${t("Title")}<input dir="auto" id="c-title" value="${esc(c.title)}"${editable ? "" : " disabled"}></label><label>${t("Scenario")}<textarea dir="auto" id="c-scenario" rows="8"${editable ? "" : " disabled"}>${esc(c.scenario)}</textarea></label><h2>${t("Exhibits")}</h2><div id="case-exhibits"></div>${editable ? `<button class="primary" type="submit">${t("Save")}</button>` : ""}</form>
+    <form class="panel" id="case-form"><label>${t("Title")}<input dir="auto" id="c-title" value="${esc(c.title)}"${editable ? "" : " disabled"}></label><label>${t("Scenario")}<textarea dir="auto" id="c-scenario" rows="8"${editable ? "" : " disabled"}>${esc(c.scenario)}</textarea></label><label>${t("Title")} (AR)<input dir="rtl" id="c-title-ar" value="${esc(c.titleAr || "")}"${editable ? "" : " disabled"}></label><label>${t("Scenario")} (AR)<textarea dir="rtl" id="c-scenario-ar" rows="8"${editable ? "" : " disabled"}>${esc(c.scenarioAr || "")}</textarea></label><h2>${t("Exhibits")}</h2><div id="case-exhibits"></div>${editable ? `<button class="primary" type="submit">${t("Save")}</button>` : ""}</form>
     <div class="panel"><h2>${t("Questions")}</h2>${table(c.questions, [["#", (q) => q.caseOrdinal], ["Code", (q) => `<span class="code">${esc(q.publicCode)}</span>`], ["State", (q) => pill(q.workflowState)], ["Stem", (q) => `<span dir="auto">${esc(short(q.stem))}</span>`]], true)}
     <div class="row">${editable ? `<a href="#new?case=${esc(c.id)}"><button type="button">${t("Add a question")}</button></a>` : ""}${isAdmin() && c.status === "draft" ? `<button class="primary" id="pub">${t("Publish case study")}</button>` : ""}${isAdmin() && c.status === "published" ? `<button class="danger" id="wd">${t("Withdraw case study")}</button>` : ""}</div></div>`);
   bindRows(c.questions, (q) => (location.hash = "#question/" + q.versionId));
   const caseExhibits = (c.exhibits || []).slice();
   mountExhibits($("#case-exhibits"), caseExhibits, 5, editable, () => {});
-  if (editable) $("#case-form").onsubmit = async (ev) => { ev.preventDefault(); try { await api("PUT", "/admin/case-studies/" + id, { title: $("#c-title").value, scenario: $("#c-scenario").value, exhibitIds: caseExhibits.map((e) => e.id) }); flash("ok", t("Saved.")); render(); } catch (e) { showError(e); } };
+  if (editable) $("#case-form").onsubmit = async (ev) => { ev.preventDefault(); try { await api("PUT", "/admin/case-studies/" + id, { title: $("#c-title").value, scenario: $("#c-scenario").value, titleAr: $("#c-title-ar").value, scenarioAr: $("#c-scenario-ar").value, exhibitIds: caseExhibits.map((e) => e.id) }); flash("ok", t("Saved.")); render(); } catch (e) { showError(e); } };
   if ($("#pub")) $("#pub").onclick = async () => { try { await api("POST", `/admin/case-studies/${id}/publish`); flash("ok", t("Case study published.")); render(); } catch (e) { showError(e); } };
   if ($("#wd")) $("#wd").onclick = async () => { try { await api("POST", `/admin/case-studies/${id}/withdraw`); flash("ok", t("Case study withdrawn.")); render(); } catch (e) { showError(e); } };
 }
@@ -606,7 +606,7 @@ function gridToCases(grid) {
   const [head, ...body] = grid.map((r) => r.map((c) => String(c ?? "").trim()));
   if (!head) return [];
   const idx = Object.fromEntries(head.map((h, i) => [h.toLowerCase(), i]));
-  return body.map((r) => ({ key: r[idx.casekey] || "", title: r[idx.title] || "", scenario: r[idx.scenario] || "" })).filter((c) => c.key);
+  return body.map((r) => ({ key: r[idx.casekey] || "", title: r[idx.title] || "", scenario: r[idx.scenario] || "", titleAr: r[idx.titlear] || "", scenarioAr: r[idx.scenarioar] || "" })).filter((c) => c.key);
 }
 
 function importView() {
@@ -649,13 +649,20 @@ function importView() {
   const send = async (commit) => {
     try {
       let payload = rows.map(({ caseKey, ...d }) => d);
+      let createdCases = {};
       if (commit && cases.length) {
         // Create each case study that valid rows use, then attach those rows to it.
-        const check = await api("POST", "/admin/imports", { rows: payload, commit: false, updateExisting: $("#upd").checked, translateOnly: $("#tronly").checked });
-        const used = new Set(rows.filter((r, i) => r.caseKey && check.rows[i].status === "valid").map((r) => r.caseKey));
+        // Check in parts too: the server takes up to 500 rows a request.
+        const statuses = [];
+        for (let i = 0; i < payload.length; i += 300) {
+          const part = await api("POST", "/admin/imports", { rows: payload.slice(i, i + 300), commit: false, updateExisting: $("#upd").checked, translateOnly: $("#tronly").checked });
+          statuses.push(...part.rows.map((x) => x.status));
+        }
+        const used = new Set(rows.filter((r, i) => r.caseKey && statuses[i] === "valid").map((r) => r.caseKey));
         const ids = {};
-        for (const c of cases.filter((c) => used.has(c.key))) ids[c.key] = (await api("POST", "/admin/case-studies", { title: c.title, scenario: c.scenario })).id;
+        for (const c of cases.filter((c) => used.has(c.key))) ids[c.key] = (await api("POST", "/admin/case-studies", { title: c.title, scenario: c.scenario, titleAr: c.titleAr, scenarioAr: c.scenarioAr })).id;
         payload = rows.map(({ caseKey, ...d }) => (caseKey && ids[caseKey] ? { ...d, caseStudyId: ids[caseKey] } : d));
+        createdCases = ids;
         flash("ok", t("{n} case studies created as drafts.", { n: Object.keys(ids).length }));
       }
       const pub = commit && $("#pubnow") && $("#pubnow").checked;
@@ -666,6 +673,12 @@ function importView() {
         for (const k of Object.keys(r.summary)) r.summary[k] += part.summary[k] || 0;
         r.rows.push(...part.rows.map((x) => ({ ...x, row: x.row + i })));
         r.publishFailed.push(...(part.publishFailed || []));
+      }
+      // Published questions of a new case study: publish the case study too, so mock exams can use it.
+      let casesPublished = 0;
+      if (pub && cases.length) {
+        for (const id of Object.values(createdCases)) { try { await api("POST", `/admin/case-studies/${id}/publish`); casesPublished++; } catch (e) { /* shown in the case studies page */ } }
+        if (casesPublished) flash("ok", t("{n} case studies published.", { n: casesPublished }));
       }
       const sum = r.summary;
       $("#report").innerHTML = `<div class="panel"><h2>${commit ? t("Imported") : t("Check result")}: ${t("{v} valid, {i} invalid, {d} duplicates", { v: sum.valid, i: sum.invalid, d: sum.duplicates })}${sum.update ? t(", {u} existing questions to update", { u: sum.update }) : ""}${commit ? t(", {c} stored as drafts", { c: sum.committed }) + (sum.updated ? t(", {u} existing questions updated", { u: sum.updated }) : "") : ""}${sum.published ? t(", {p} published", { p: sum.published }) : ""}</h2>
