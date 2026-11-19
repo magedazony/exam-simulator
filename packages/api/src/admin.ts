@@ -445,6 +445,8 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
     const norms = checked.map((r) => (r.doc ? normalizeStem(String(r.doc.stem)) : ''));
     const inBank = new Set(await store.existingStems(norms.filter(Boolean)));
     const translateOnly = c.body.translateOnly === true;
+    const applyKey = translateOnly && c.body.applyKey === true;
+    if (commit && applyKey && !isAdmin(c)) throw new HttpError(403, 'forbidden', 'Only administrators can change answer keys while importing');
     const updateExisting = c.body.updateExisting === true || translateOnly;
     const stemNorms = checked.map((r) => {
       if (!r.doc) return [] as string[];
@@ -481,7 +483,7 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
     if (commit) {
       for (const [i, r] of report.entries()) {
         if (r.status === 'update' && translateOnly) {
-          const res = await run(async () => await store.translateByStem(c.claims.sub, stemNorms[i]!, checked[i]!.doc!));
+          const res = await run(async () => await store.translateByStem(c.claims.sub, stemNorms[i]!, checked[i]!.doc!, applyKey));
           if (res.versions.length === 0) r.status = 'skipped';
           updated += res.versions.length;
           toPublish.push(...res.versions);

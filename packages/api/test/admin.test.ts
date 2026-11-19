@@ -449,6 +449,17 @@ describe('staff tools', { skip: configured ? false : 'PGDATABASE is not set; see
     assert.deepEqual(after.body.options.map((o: Json) => o.text), before.body.options.map((o: Json) => o.text), 'order kept');
     assert.equal(after.body.options[0].textAr, 'اختيار 3', 'matched by English text');
     assert.equal(after.body.explanationAr.whyCorrect, 'شرح عربي');
+
+    // With applyKey the key moves to the option named in the file, matched by text.
+    const wrong = row.options.find((o: Json) => !o.isCorrect).text;
+    const rekey = { ...row, options: row.options.map((o: Json) => ({ ...o, isCorrect: o.text === wrong })), explanation: { whyCorrect: 'New English explanation.' } };
+    const k = await call('POST', '/admin/imports', tk('admin'), { rows: [rekey], commit: true, translateOnly: true, applyKey: true, publishNow: true, reviewedConfirmed: true, originalityDeclared: true });
+    assert.equal(k.body.summary.published, 1);
+    const v3 = store.query(`SELECT id FROM question_versions WHERE question_id = '${qid}' ORDER BY version_no DESC LIMIT 1;`);
+    const third = await call('GET', `/admin/question-versions/${v3}`, tk('admin'));
+    assert.deepEqual(third.body.options.filter((o: Json) => o.isCorrect).map((o: Json) => o.text), [wrong]);
+    assert.equal(third.body.explanation.whyCorrect, 'New English explanation.');
+    assert.equal(third.body.stemAr, 'سؤال مترجم بدون تغييرات أخرى');
   });
 
   it('turns an Excel file into rows for import, and explains files it cannot read', async () => {
