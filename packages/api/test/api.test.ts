@@ -363,6 +363,9 @@ describe('HTTP API', { skip: configured ? false : 'PGDATABASE is not set; see sc
     const wrong = [item2.question.options.find((o) => !o.isCorrect)!.id];
     const b = await call('POST', `/practice/sessions/${practiceId}/questions/2/answer`, { token: alice.accessToken, body: { selectedOptionIds: wrong } });
     assert.equal(b.body.correct, false);
+    conforms('AnswerFeedback', b.body);
+    assert.equal(typeof b.body.errorType, 'string'); // a wrong answer gets a likely error type
+    assert.equal(a.body.errorType, null);
 
     const report = await call('POST', '/question-reports', { token: alice.accessToken, body: { reportToken: a.body.reportToken, reason: 'ambiguous', comment: 'Two options look right' } });
     assert.equal(report.status, 202);
@@ -706,6 +709,10 @@ describe('HTTP API', { skip: configured ? false : 'PGDATABASE is not set; see sc
     const ad = await call('POST', '/practice/sessions', { token: tk, body: { mode: 'adaptive', questionCount: 10 } });
     assert.equal(ad.status, 201);
     assert.equal(ad.body.mode, 'adaptive');
+    // Wrong answers get a rule-based error type, shown in the summary.
+    const errs = await call('GET', '/me/errors', { token: tk });
+    assert.ok(errs.body.items.length > 0, 'wrong answers are classified');
+    assert.ok(errs.body.items.every((e: { errorType: string; count: number }) => e.errorType && e.count > 0));
     const plan = await call('POST', '/me/study-plan/refresh', { token: tk });
     assert.ok(Array.isArray(plan.body.days) && plan.body.days.length === 7);
     assert.ok(plan.body.focusAreas.length <= 3);

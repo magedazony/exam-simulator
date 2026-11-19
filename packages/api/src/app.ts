@@ -553,7 +553,7 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
   /** GET /me/profile — learner intelligence profile */
   add('GET', '/me/profile', async (c) => {
     // Refresh profile in background
-    store.refreshLearnerProfile(c.claims.sub).catch(() => { /* non-fatal */ });
+    await store.refreshLearnerProfile(c.claims.sub).catch(() => { /* non-fatal */ });
     const profile = await store.learnerProfile(c.claims.sub);
     return { status: 200, body: profile ?? { message: 'No profile yet — answer some questions first.' } };
   });
@@ -903,12 +903,15 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     if (!await store.recordPracticeAnswer(sessionId, c.claims.sub, ordinal, selected, score.correct, timeMs, iso())) {
       throw new HttpError(409, 'already_answered', 'This question was already answered');
     }
-    // Update adaptive learning signals (task mastery + spaced repetition)
-    // Fire-and-forget: do not block the response on this
+    // Update adaptive learning signals (task mastery + spaced repetition).
+    // Awaited so answers given in quick succession are learned in order.
     if (item.question.taskId) {
-      store.recordAdaptiveResponse(c.claims.sub, item.question.id, item.question.taskId, score.correct, 'practice').catch(() => { /* non-fatal */ });
+      await store.recordAdaptiveResponse(c.claims.sub, item.question.id, item.question.taskId, score.correct, 'practice').catch((e) => console.error('learning failed', e));
     }
-    return { status: 200, body: await feedback(item.question, score.correct, c.claims.sub, c.language) };
+    // A wrong answer gets a likely error type (rule based, no external service).
+    let errorType: string | null = null;
+    try { errorType = await store.recordAnswerError(c.claims.sub, item.question.versionId, selected, score.correct, timeMs, 'practice'); } catch (e) { console.error('error analysis failed', e); }
+    return { status: 200, body: { ...await feedback(item.question, score.correct, c.claims.sub, c.language), errorType } };
   });
 
   add('GET', '/practice/sessions/:sessionId/summary', async (c) => {

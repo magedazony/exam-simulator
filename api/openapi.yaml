@@ -1811,6 +1811,7 @@ components:
       type: object
       required: [correct, correctOptionIds, explanation, reportToken]
       properties:
+        errorType: { type: [string, 'null'], description: Likely error type of a wrong answer, found by simple rules }
         correct: { type: boolean }
         correctOptionIds: { type: array, items: { type: string } }
         correctAnswer:

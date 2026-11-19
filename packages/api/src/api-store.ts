@@ -725,14 +725,14 @@ export class ApiStore extends PsqlStore {
 
   /** Error type distribution for a user. */
   async errorDistribution(userId: string): Promise<Array<Record<string, unknown>>> {
-    return (await this.one<Array<Record<string, unknown>>>(
-      `SELECT coalesce(jsonb_agg(jsonb_build_object('errorType', error_type, 'count', cnt) ORDER BY cnt DESC), '[]'::jsonb)
-       FROM (
-         SELECT error_type, count(*) AS cnt
-         FROM error_classifications WHERE user_id = ${lit.uuid(userId)} AND error_type IS NOT NULL
-         GROUP BY error_type
-       ) x;`,
-    )) ?? [];
+    return (await this.one<Array<Record<string, unknown>>>(`SELECT error_summary(${lit.uuid(userId)});`)) ?? [];
+  }
+
+  /** Classify a wrong answer by simple rules and record it. Returns the error type, or null. */
+  async recordAnswerError(userId: string, versionId: string, selected: string[], correct: boolean, timeMs: number, source: string): Promise<string | null> {
+    if (correct) return null;
+    return await this.one<string | null>(
+      `SELECT to_jsonb(record_answer_error(${lit.uuid(userId)}, ${lit.uuid(versionId)}, ${lit.json(selected)}, false, ${lit.int(timeMs)}, ${lit.text(source)}));`);
   }
 
   /** Classify errors for a batch of responses (from the API). */

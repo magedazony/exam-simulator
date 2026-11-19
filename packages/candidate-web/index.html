@@ -626,6 +626,30 @@ async function practiceSetupView() {
     startPractice(req);
   };
 }
+// Likely error types of wrong answers (found by simple rules on the server), with advice.
+const ERRS = {
+  knowledge_gap: ["Knowledge gap", "فجوة في المعرفة", "Review the explanation and the key concept, then practise more questions on this task.", "راجع الشرح والمفهوم الأساسي، وبعدين حل أسئلة أكتر على نفس المهمة."],
+  terminology_confusion: ["Terms mixed up", "خلط بين المصطلحات", "Make a short list of similar terms and write what each one is used for, not just its name.", "اعمل قائمة قصيرة بالمصطلحات المتشابهة واكتب وظيفة كل واحد، مش اسمه بس."],
+  process_misorder: ["Steps in the wrong order", "ترتيب خاطئ للخطوات", "Think in the order: understand and assess, decide with the right people, act, then follow up.", "فكّر بالترتيب: افهم وقيّم، قرّر مع الأشخاص المناسبين، نفّذ، وبعدين تابع."],
+  formula_error: ["Calculation error", "خطأ في الحساب", "Write the formula first, put EV first in variances and indexes, and check the sign of the result.", "اكتب المعادلة الأول، وخلي EV أولًا في الانحرافات والمؤشرات، وراجع إشارة الناتج."],
+  reading_comprehension: ["Misread the question or exhibit", "قراءة غير دقيقة للسؤال أو الجدول", "Read the last line of the question first, then compare every row of the exhibit before you choose.", "اقرأ آخر سطر في السؤال الأول، وقارن كل صفوف الجدول قبل ما تختار."],
+  distractor_chosen: ["Extreme answer chosen", "اختيار إجابة متطرفة", "Answers that ignore, refuse, punish or say always/never are rarely right. Prefer the answer that assesses and collaborates.", "الإجابات اللي فيها تجاهل أو رفض أو عقاب أو دائمًا/أبدًا نادرًا ما تكون صح. فضّل الإجابة اللي بتقيّم وبتتعاون."],
+  second_best_chosen: ["Good answer, but not the best", "إجابة جيدة لكنها ليست الأفضل", "Several options may be true. Choose the one that solves the root cause and fits the role of the project manager.", "أكتر من اختيار ممكن يكون صح. اختار اللي بيحل السبب الجذري ويناسب دور مدير المشروع."],
+  missed_keyword: ["Missed a key word", "فاتتك كلمة مفتاحية", "Underline words like FIRST, NEXT and BEFORE. The right action is often to assess or talk before acting.", "ركّز على كلمات زي FIRST و NEXT و BEFORE. الصح غالبًا إنك تقيّم أو تتكلم قبل ما تتصرف."],
+  misapplied_framework: ["Framework applied in the wrong place", "تطبيق إطار عمل في غير مكانه", "Check which approach the scenario uses before choosing a tool.", "اعرف النهج المستخدم في السيناريو قبل ما تختار الأداة."],
+  over_reliance_on_pmi_phrasing: ["Chose by the wording only", "الاختيار بالصياغة فقط", "Judge each option by what it does in the scenario, not by familiar words.", "قيّم كل اختيار باللي بيعمله في السيناريو، مش بالكلمات المألوفة."],
+  time_pressure: ["Answered too quickly", "إجابة متسرعة", "You answered in a few seconds. Read the whole question once; you have about 75 seconds per question.", "جاوبت في ثواني. اقرأ السؤال كله مرة؛ عندك حوالي 75 ثانية لكل سؤال."],
+  overthinking: ["Overthinking", "تفكير زائد", "You spent over 3 minutes. Pick the best answer from the scenario, mark it for review and move on.", "قضيت أكتر من 3 دقائق. اختار أفضل إجابة من السيناريو، علّم السؤال للمراجعة وكمّل."],
+  agile_predictive_confusion: ["Agile and predictive mixed up", "خلط بين agile و predictive", "Check the approach first: agile changes go through the product owner and backlog; predictive changes go through change control.", "حدّد النهج الأول: التغيير في agile بيعدّي على الـ product owner والـ backlog، وفي predictive على ضبط التغيير."],
+  scope_creep_confusion: ["Change accepted without analysis", "قبول تغيير بدون تحليل", "Never just add a requested change. Assess its impact first, then follow the agreed change process.", "متضيفش التغيير المطلوب على طول. قيّم أثره الأول، وبعدين امشي في إجراء التغيير المتفق عليه."],
+  stakeholder_identification_error: ["Stakeholder handling", "التعامل مع أصحاب المصلحة", "Ask who is affected and how much power and interest they have, then engage them at the right level.", "اسأل مين المتأثر وقد إيه تأثيره واهتمامه، وبعدين اشركه بالمستوى المناسب."],
+  risk_vs_issue_confusion: ["Risk and issue mixed up", "خلط بين الخطر والمشكلة", "A risk may happen (risk register, response plan). An issue has happened (issue log, act now).", "الخطر ممكن يحصل (سجل المخاطر، خطة استجابة). المشكلة حصلت فعلًا (سجل المشكلات، تصرّف دلوقتي)."],
+};
+const errLabel = (k) => { const e = ERRS[k]; return e ? (S.lang === "ar" ? e[1] : e[0]) : k; };
+const errTip = (k) => { const e = ERRS[k]; return e ? (S.lang === "ar" ? e[3] : e[2]) : ""; };
+const errorHint = (fb) => fb && !fb.correct && fb.errorType && ERRS[fb.errorType]
+  ? `<div class="msg info" style="font-size:14px"><strong>${S.lang === "ar" ? "السبب المحتمل للخطأ:" : "Likely reason:"} ${esc(errLabel(fb.errorType))}</strong><br>${esc(errTip(fb.errorType))}</div>` : "";
+
 async function startPractice(req) {
   try {
     const s = await api("POST", "/practice/sessions", req);
@@ -646,7 +670,7 @@ async function practiceRunView() {
   if (!p.q) { p.q = await api("GET", `/practice/sessions/${p.session.id}/questions/${p.i}`); p.started = Date.now(); }
   const head = `<div class="examhead"><span class="grow">${t("ofq", p.i, p.session.questionCount)}</span>${p.q.taskName ? `<span class="tag">${esc(p.q.taskName)}</span>` : ""}${p.deadline ? `<span class="timer" id="ptimer">${fmt(p.deadline - Date.now())}</span>` : ""}</div><div class="progress"><i style="width:${Math.round(((p.i - 1) / p.session.questionCount) * 100)}%"></i></div>`;
   if (p.fb) {
-    paint(seq, head + feedbackHtml(p.q, p.sel, p.fb) + `<button class="primary" id="next">${p.i < p.session.questionCount ? t("next") : t("finish")}</button>`);
+    paint(seq, head + feedbackHtml(p.q, p.sel, p.fb) + errorHint(p.fb) + `<button class="primary" id="next">${p.i < p.session.questionCount ? t("next") : t("finish")}</button>`);
     bindReport();
     $("#next").onclick = () => { p.i++; p.q = null; p.sel = []; p.fb = null; render(); };
   } else {
@@ -1470,7 +1494,7 @@ async function analyticsView() {
 
   const pctColor = (p) => p >= 75 ? "var(--good)" : p >= 50 ? "#f59e0b" : "var(--bad)";
   const masteryBar = (item) => {
-    const pct = typeof item.accuracy === "number" ? Math.round(item.accuracy * 100) : 0;
+    const pct = typeof item.accuracy === "number" ? Math.round(item.accuracy) : 0;
     const masteryLabel = item.mastery || item.masteryLevel || "";
     const name = domainName(item.domainCode || item.domain || "") || item.domain || "";
     return `<div style="margin-bottom:10px">
@@ -1481,48 +1505,45 @@ async function analyticsView() {
 
   const diffBands = { easy: t("diffEasy"), medium: t("diffMedium"), hard: t("diffHard") };
   const diffRow = (item) => {
-    const pct = typeof item.accuracy === "number" ? Math.round(item.accuracy * 100) : 0;
+    const pct = typeof item.accuracy === "number" ? Math.round(item.accuracy) : 0;
     const band = item.difficulty || item.band || "";
     const label = diffBands[band] || band;
     return `<div class="row" style="margin-bottom:8px">
       <span style="min-width:70px">${esc(label)}</span>
       <div class="track" style="flex:1;height:8px;border-radius:4px"><i style="width:${Math.min(pct,100)}%;height:8px;border-radius:4px;background:${pctColor(pct)};display:block"></i></div>
       <span style="min-width:40px;text-align:right;font-size:13px;color:${pctColor(pct)}">${pct}%</span>
-      <span class="muted" style="font-size:12px">${item.total || 0}</span>
+      <span class="muted" style="font-size:12px">${item.answered || 0}</span>
     </div>`;
   };
 
   // Task mastery breakdown (from /me/mastery)
   const taskMasteryHtml = mastItems.length ? mastItems.slice(0, 20).map((item) => {
-    const taskLabel = item.taskName || item.taskCode || item.task_id || "";
-    const pct = typeof item.accuracy === "number" ? Math.round(item.accuracy * 100) : (typeof item.percent === "number" ? Math.round(item.percent) : 0);
-    const level = item.level || item.masteryLevel || "";
-    const levelColor = level === "mastered" ? "var(--good)" : level === "learning" ? "#f59e0b" : "var(--muted)";
+    const taskLabel = taskName(item.taskCode) || item.taskName || "";
+    const pct = typeof item.score === "number" || typeof item.score === "string" ? Math.round(Number(item.score) * 100) : 0;
+    const level = pct >= 75 ? (S.lang === "ar" ? "متقن" : "mastered") : pct >= 50 ? (S.lang === "ar" ? "قيد التعلم" : "learning") : (S.lang === "ar" ? "يحتاج تدريب" : "needs work");
+    const levelColor = pctColor(pct);
     return `<div style="margin-bottom:8px">
       <div class="row" style="margin-bottom:3px"><span style="font-size:13px">${esc(taskLabel)}</span>${level ? `<span style="font-size:11px;color:${levelColor}">${esc(level)}</span>` : ""}<span class="muted" style="font-size:11px;margin-left:auto">${pct}%</span></div>
       <div class="track" style="height:5px;border-radius:3px"><i style="width:${Math.min(pct,100)}%;height:5px;border-radius:3px;background:${pctColor(pct)};display:block"></i></div>
     </div>`;
   }).join("") : "";
 
-  // Error distribution
-  const errHtml = errItems.length ? errItems.map((e) => {
-    const label = e.errorType || e.type || "";
-    const count = e.count || 0;
-    const total = errItems.reduce((s, x) => s + (x.count || 0), 0) || 1;
-    const pct = Math.round((count / total) * 100);
-    return `<div class="row" style="margin-bottom:6px">
-      <span style="min-width:120px;font-size:13px">${esc(label)}</span>
-      <div class="track" style="flex:1;height:6px;border-radius:3px"><i style="width:${pct}%;height:6px;border-radius:3px;background:var(--bad);display:block"></i></div>
-      <span class="muted" style="font-size:12px">${count}</span>
+  // Error distribution, with advice for the most common types
+  const errHtml = errItems.length ? errItems.map((e, i) => {
+    const pct = Math.round(Number(e.percent) || 0);
+    return `<div style="margin-bottom:10px">
+      <div class="row" style="margin-bottom:3px"><span style="font-size:14px"><strong>${esc(errLabel(e.errorType))}</strong></span><span class="muted" style="font-size:12px;margin-inline-start:auto">${e.count} · ${pct}%</span></div>
+      <div class="track" style="height:6px;border-radius:3px"><i style="width:${pct}%;height:6px;border-radius:3px;background:var(--bad);display:block"></i></div>
+      ${i < 3 ? `<p class="muted" style="font-size:13px;margin:4px 0 0">${esc(errTip(e.errorType))}</p>` : ""}
     </div>`;
-  }).join("") : "";
+  }).join("") + `<p class="muted" style="font-size:12px">${S.lang === "ar" ? "آخر 60 يوم. التصنيف تقديري ومبني على قواعد بسيطة." : "Last 60 days. The type is an estimate based on simple rules."}</p><button id="redoWrong">${S.lang === "ar" ? "حل الأسئلة اللي غلطت فيها" : "Practise the questions I got wrong"}</button>` : "";
 
   // Learner profile summary
-  const profileHtml = profile && profile.learningStyle ? `<div class="card"><h2>${S.lang === "ar" ? "ملف المتعلم" : "Learner Profile"}</h2>
-    ${profile.learningStyle ? `<p style="font-size:14px"><strong>${S.lang === "ar" ? "أسلوب التعلم:" : "Learning style:"}</strong> ${esc(profile.learningStyle)}</p>` : ""}
-    ${profile.strengths?.length ? `<p style="font-size:14px"><strong>${S.lang === "ar" ? "نقاط القوة:" : "Strengths:"}</strong> ${esc(profile.strengths.join(", "))}</p>` : ""}
-    ${profile.weaknesses?.length ? `<p style="font-size:14px"><strong>${S.lang === "ar" ? "نقاط الضعف:" : "Areas to improve:"}</strong> ${esc(profile.weaknesses.join(", "))}</p>` : ""}
-    ${profile.recommendation ? `<p style="font-size:14px;color:var(--primary)">${esc(profile.recommendation)}</p>` : ""}
+  const profileHtml = profile && (profile.weakestTask || profile.dominantErrorType) ? `<div class="card"><h2>${S.lang === "ar" ? "ملخص مستواك" : "Your learning summary"}</h2>
+    ${profile.strongestTask ? `<p style="font-size:14px"><strong>${S.lang === "ar" ? "أقوى مهمة:" : "Strongest task:"}</strong> ${esc(taskName(profile.strongestTask.code))}</p>` : ""}
+    ${profile.weakestTask ? `<p style="font-size:14px"><strong>${S.lang === "ar" ? "أضعف مهمة:" : "Weakest task:"}</strong> ${esc(taskName(profile.weakestTask.code))}</p>` : ""}
+    ${profile.dominantErrorType ? `<p style="font-size:14px"><strong>${S.lang === "ar" ? "أكثر سبب لأخطائك:" : "Most common reason for mistakes:"}</strong> ${esc(errLabel(profile.dominantErrorType))}</p>` : ""}
+    ${profile.weakestTask ? `<button class="primary" id="trainWeak">${S.lang === "ar" ? "تدرّب على أضعف مهمة" : "Practise my weakest task"}</button>` : ""}
   </div>` : "";
 
   paint(seq, `<h1>${t("statsTitle")}</h1>
@@ -1530,9 +1551,11 @@ async function analyticsView() {
     ${domItems.length ? `<div class="card"><h2>${t("domainAnalytics")}</h2>${domItems.map(masteryBar).join("")}</div>` : ""}
     ${diffItems.length ? `<div class="card"><h2>${t("difficultyAnalytics")}</h2>${diffItems.map(diffRow).join("")}</div>` : ""}
     ${taskMasteryHtml ? `<div class="card"><h2>${S.lang === "ar" ? "إتقان المهام" : "Task mastery"}</h2>${taskMasteryHtml}</div>` : ""}
-    ${errHtml ? `<div class="card"><h2>${S.lang === "ar" ? "أنواع الأخطاء" : "Error types"}</h2>${errHtml}</div>` : ""}
+    ${errHtml ? `<div class="card"><h2>${S.lang === "ar" ? "ليه بتغلط؟" : "Why you get questions wrong"}</h2>${errHtml}</div>` : ""}
     ${!domItems.length && !diffItems.length && !taskMasteryHtml && !errHtml ? `<p class="muted">${t("noStats")}</p>` : ""}
     <p class="muted">${t("estimate")}</p>`);
+  $("#redoWrong")?.addEventListener("click", () => startPractice({ mode: "incorrect_only", questionCount: 20 }));
+  $("#trainWeak")?.addEventListener("click", () => startPractice({ mode: "adaptive", questionCount: 10, taskCodes: [profile.weakestTask.code] }));
 }
 
 // ------------------------------------------------------------ router
