@@ -457,7 +457,7 @@ describe('staff tools', { skip: configured ? false : 'PGDATABASE is not set; see
   it('lets staff edit the exam tips, and candidates see only published sections', async () => {
     const pub = await call('GET', '/tips');
     assert.equal(pub.status, 200);
-    assert.equal(pub.body.items.length, 8, 'seeded with eight sections');
+    assert.equal(pub.body.items.length, 24, 'seeded with twenty-four sections');
     assert.equal(pub.body.items[7].titleEn, 'What is new in the July 2026 exam');
     assert.ok(pub.body.items.every((g: Json) => g.items.length > 0 && g.items.every((it: Json) => it.en && it.ar)));
 
