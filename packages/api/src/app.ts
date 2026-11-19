@@ -753,7 +753,7 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     const started = Date.now();
     try {
       await Promise.race([store.run('SELECT 1;'), new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))]);
-      return { status: 200, body: { status: 'ok', database: 'ok', databaseMs: Date.now() - started } };
+      return { status: 200, body: { status: 'ok', database: 'ok', databaseMs: Date.now() - started, version: (process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7) || null } };
     } catch {
       return { status: 503, body: { status: 'degraded', database: 'unreachable', databaseMs: Date.now() - started } };
     }

@@ -282,3 +282,17 @@ Not verified here:
   staging server and keep this document's commands as the checklist.
 - A managed cloud database, a real SMTP provider and real email delivery.
 - Load beyond the rough check in the README.
+
+## Publishing changes with one click
+
+`tools/publish.bat` (Windows) or `tools/publish.sh` (Mac/Linux) does the whole round trip:
+
+1. gets the latest version from GitHub, keeping your local changes;
+2. lists the changed files and asks for a short description;
+3. commits and pushes to `main`, which makes Render build;
+4. polls `/api/v1/health` until its `version` equals the pushed commit, then opens the app.
+
+Run outside the project folder, it downloads the project to `%USERPROFILE%\exam-simulator` first.
+Optional: put a Render *Deploy Hook* URL (Render > service > Settings > Deploy Hook) in
+`tools/deploy-hook.txt` (git-ignored) to redeploy with no code change.
+Questions, translations, prices and tips are edited in the admin panel and need no publish.

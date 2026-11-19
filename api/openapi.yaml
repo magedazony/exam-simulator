@@ -1373,6 +1373,7 @@ components:
         status: { type: string, enum: [ok, degraded] }
         database: { type: string, enum: [ok, unreachable] }
         databaseMs: { type: integer }
+        version: { type: [string, 'null'], description: Short git commit of the running build (null outside Render). }
     Price:
       type: object
       required: [currency, amountMinor, storeProductId]
