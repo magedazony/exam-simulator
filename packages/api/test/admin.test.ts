@@ -429,6 +429,28 @@ describe('staff tools', { skip: configured ? false : 'PGDATABASE is not set; see
     assert.equal(v.body.workflowState, 'published');
   });
 
+  it('adds only translations to existing questions, matching options by text, and publishes them', async () => {
+    const row = draft({ stem: 'A question whose copies get an Arabic translation without other changes.' });
+    const made = await call('POST', '/admin/imports', tk('admin'), { rows: [row], commit: true, publishNow: true, reviewedConfirmed: true, originalityDeclared: true });
+    const v1 = made.body.committed[0].versionId as string;
+    const before = await call('GET', `/admin/question-versions/${v1}`, tk('admin'));
+    const opts = [...row.options].reverse().map((o: Json, i: number) => ({ ...o, textAr: `اختيار ${i}`, rationaleAr: `سبب ${i}` }));
+    const tr = { ...row, taskCode: 'BUSINESS-5', stemAr: 'سؤال مترجم بدون تغييرات أخرى', options: opts, explanationAr: { whyCorrect: 'شرح عربي' } };
+    const res = await call('POST', '/admin/imports', tk('admin'), { rows: [tr], commit: true, translateOnly: true, publishNow: true, reviewedConfirmed: true, originalityDeclared: true });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.summary.updated, 1);
+    assert.equal(res.body.summary.published, 1);
+    const qid = before.body.questionId;
+    const latest = store.query(`SELECT id FROM question_versions WHERE question_id = '${qid}' ORDER BY version_no DESC LIMIT 1;`);
+    const after = await call('GET', `/admin/question-versions/${latest}`, tk('admin'));
+    assert.equal(after.body.workflowState, 'published');
+    assert.equal(after.body.stemAr, 'سؤال مترجم بدون تغييرات أخرى');
+    assert.equal(after.body.taskCode, before.body.taskCode, 'task kept');
+    assert.deepEqual(after.body.options.map((o: Json) => o.text), before.body.options.map((o: Json) => o.text), 'order kept');
+    assert.equal(after.body.options[0].textAr, 'اختيار 3', 'matched by English text');
+    assert.equal(after.body.explanationAr.whyCorrect, 'شرح عربي');
+  });
+
   it('turns an Excel file into rows for import, and explains files it cannot read', async () => {
     const { readFileSync } = await import('node:fs');
     const xlsx = readFileSync(new URL('./fixtures/questions.xlsx', import.meta.url)).toString('base64');

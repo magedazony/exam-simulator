@@ -444,7 +444,8 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
     const checked = rows.map((row: unknown, i: number) => ({ row: i + 1, ...validateDraft(row, codes) }));
     const norms = checked.map((r) => (r.doc ? normalizeStem(String(r.doc.stem)) : ''));
     const inBank = new Set(await store.existingStems(norms.filter(Boolean)));
-    const updateExisting = c.body.updateExisting === true;
+    const translateOnly = c.body.translateOnly === true;
+    const updateExisting = c.body.updateExisting === true || translateOnly;
     const stemNorms = checked.map((r) => {
       if (!r.doc) return [] as string[];
       const list = [normalizeStem(String(r.doc.stem))];
@@ -479,6 +480,13 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
     const toPublish: string[] = [];
     if (commit) {
       for (const [i, r] of report.entries()) {
+        if (r.status === 'update' && translateOnly) {
+          const res = await run(async () => await store.translateByStem(c.claims.sub, stemNorms[i]!, checked[i]!.doc!));
+          if (res.versions.length === 0) r.status = 'skipped';
+          updated += res.versions.length;
+          toPublish.push(...res.versions);
+          continue;
+        }
         if (r.status === 'update') {
           const res = await run(async () => await store.updateQuestionByStem(c.claims.sub, a.id, stemNorms[i]!, checked[i]!.doc!));
           if (res.action === 'skipped') r.status = 'skipped';
