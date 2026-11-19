@@ -292,7 +292,8 @@ Not verified here:
 3. commits and pushes to `main`, which makes Render build;
 4. polls `/api/v1/health` until its `version` equals the pushed commit, then opens the app.
 
-Run outside the project folder, it downloads the project to `%USERPROFILE%\exam-simulator` first.
+Run outside the project folder, it downloads the project to `%USERPROFILE%\<repo name>` first.
+Settings (repo, site, health page) are in `tools/publish.config`; copy the `tools` folder into another project and edit them to reuse the tool.
 Optional: put a Render *Deploy Hook* URL (Render > service > Settings > Deploy Hook) in
 `tools/deploy-hook.txt` (git-ignored) to redeploy with no code change.
 Questions, translations, prices and tips are edited in the admin panel and need no publish.
