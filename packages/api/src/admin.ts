@@ -392,7 +392,7 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
       if (opts.some((o) => !o.rationaleAr)) missing.push('Arabic option rationales');
       return [q.publicCode, q.workflowState, q.taskCode, q.approach, q.difficulty, q.type, q.language, q.aiAssisted ? 'TRUE' : 'FALSE', q.stem, q.stemAr,
         ...[...L].map((_, i) => at(i, 'text')), ...[...L].map((_, i) => at(i, 'textAr')),
-        opts.map((o, i) => (o.isCorrect ? L[i] : '')).join(''),
+        opts.map((o, i) => (o.isCorrect ? L[i] : '')).filter(Boolean).join(', '),
         ...[...L].map((_, i) => at(i, 'rationale')), ...[...L].map((_, i) => at(i, 'rationaleAr')),
         ex.whyCorrect ?? '', ex.mindset ?? '', ex.keyConcept ?? '', ex.learningObjective ?? '',
         ar.whyCorrect ?? '', ar.mindset ?? '', ar.keyConcept ?? '', ar.learningObjective ?? '', missing.join('; ')];

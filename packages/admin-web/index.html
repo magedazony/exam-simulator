@@ -552,7 +552,7 @@ function gridToDrafts(grid) {
   const idx = Object.fromEntries(head.map((h, i) => [h.trim().toLowerCase(), i]));
   const get = (r, k) => (idx[k] === undefined ? "" : (r[idx[k]] || "").trim());
   return body.map((r) => {
-    const correct = get(r, "correct").toUpperCase().split(/[;\s,]+/).filter(Boolean);
+    const correct = get(r, "correct").toUpperCase().split(/[;\s,]+/).filter(Boolean).flatMap((k) => (/^[A-F]{2,6}$/.test(k) ? k.split("") : [k]));
     const options = [];
     for (const L of "ABCDEF") { const t = get(r, "option" + L.toLowerCase()); if (t) { const o = { text: t, isCorrect: correct.includes(L), rationale: get(r, "rationale" + L.toLowerCase()) }; const tar = get(r, "option" + L.toLowerCase() + "ar"); if (tar) o.textAr = tar; const rar = get(r, "rationale" + L.toLowerCase() + "ar"); if (rar) o.rationaleAr = rar; options.push(o); } }
     const d = { taskCode: get(r, "taskcode"), approach: get(r, "approach").toLowerCase(), difficulty: get(r, "difficulty").toLowerCase(), type: get(r, "type").toLowerCase() || (correct.length > 1 ? "multiple" : "single"), stem: get(r, "stem"), options };
