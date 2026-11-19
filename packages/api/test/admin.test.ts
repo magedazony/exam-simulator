@@ -371,7 +371,7 @@ describe('staff tools', { skip: configured ? false : 'PGDATABASE is not set; see
 
     const dry = await call('POST', '/admin/imports', tk('author'), { rows });
     assert.equal(dry.status, 200);
-    assert.deepEqual(dry.body.summary, { rows: 5, valid: 2, invalid: 1, duplicates: 2, update: 0, skipped: 0, updated: 0, committed: 0 });
+    assert.deepEqual(dry.body.summary, { rows: 5, valid: 2, invalid: 1, duplicates: 2, update: 0, skipped: 0, updated: 0, committed: 0, published: 0, publishFailed: 0 });
     assert.deepEqual(dry.body.rows.map((r: Json) => r.status), ['valid', 'invalid', 'duplicate', 'duplicate', 'valid']);
     assert.equal(dry.body.rows[1].errors[0].field, 'taskCode');
     assert.match(dry.body.rows[3].errors[0].message, /row 1/);
@@ -402,6 +402,31 @@ describe('staff tools', { skip: configured ? false : 'PGDATABASE is not set; see
     assert.equal(real.body.summary.committed, 0);
     assert.equal(Number(store.query('SELECT count(*) FROM question_versions;')), before + 1);
     assert.equal(store.query("SELECT count(*) FROM question_versions WHERE stem_ar LIKE 'سؤال عربي مضاف%';"), '1');
+  });
+
+  it('exports the whole bank to Excel and lets an administrator import and publish in one step', async () => {
+    const { readXlsxSheets } = await import('../src/xlsx.ts');
+    assert.equal((await call('GET', '/admin/exports/questions', tk('author'))).status, 403);
+    const ex = await call('GET', '/admin/exports/questions', tk('admin'));
+    assert.equal(ex.status, 200);
+    assert.match(ex.body.fileName, /^question-bank-\d{4}-\d{2}-\d{2}\.xlsx$/);
+    const sheets = readXlsxSheets(Buffer.from(ex.body.dataBase64, 'base64'));
+    assert.deepEqual(sheets.map((x) => x.name), ['Questions', 'Summary']);
+    const [head, ...rows] = sheets[0]!.rows;
+    assert.ok(head!.includes('stemAr') && head!.includes('rationaleBAr') && head!.includes('whyCorrectAr'));
+    assert.equal(rows.length, ex.body.count);
+    assert.ok(rows.some((r) => r[head!.indexOf('stemAr')] === 'سؤال عربي مضاف إلى سؤال موجود بالفعل في البنك'));
+    assert.equal(sheets[1]!.rows[1]![1], String(ex.body.count));
+
+    const row = draft({ stem: 'A brand-new question published straight from the import by an administrator.' });
+    const noConfirm = await call('POST', '/admin/imports', tk('admin'), { rows: [row], commit: true, publishNow: true });
+    assert.equal(noConfirm.status, 422);
+    assert.equal((await call('POST', '/admin/imports', tk('author'), { rows: [row], commit: true, publishNow: true, reviewedConfirmed: true, originalityDeclared: true })).status, 403);
+    const pub = await call('POST', '/admin/imports', tk('admin'), { rows: [row], commit: true, publishNow: true, reviewedConfirmed: true, originalityDeclared: true });
+    assert.equal(pub.status, 200);
+    assert.equal(pub.body.summary.published, 1);
+    const v = await call('GET', `/admin/question-versions/${pub.body.committed[0].versionId}`, tk('admin'));
+    assert.equal(v.body.workflowState, 'published');
   });
 
   it('turns an Excel file into rows for import, and explains files it cannot read', async () => {

@@ -9,6 +9,7 @@ import { AdminError } from './api-store.ts';
 import type { ApiStore } from './api-store.ts';
 import { hashToken, newAccessCodes, normalizeAccessCode, sniffImage } from './auth.ts';
 import { SpreadsheetError, readXlsxSheets } from './xlsx.ts';
+import { writeXlsx } from './xlsx-write.ts';
 import { HttpError, invalid, invalidMany, notFound } from './http.ts';
 import type { Ctx, Handler, RouteOptions } from './http.ts';
 
@@ -369,6 +370,54 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
 
   // Excel files are turned into rows here; the panel then maps the columns
   // exactly as it does for CSV and sends them to /admin/imports.
+  // The whole bank in one Excel file, in the same columns the import reads, so it can be
+  // completed (translations, explanations) and imported again with "update existing".
+  add('GET', '/admin/exports/questions', ROLES.admins, async () => {
+    const qs = await store.exportQuestions();
+    const L = 'ABCDEF';
+    const head = ['publicCode', 'workflowState', 'taskCode', 'approach', 'difficulty', 'type', 'language', 'aiAssisted', 'stem', 'stemAr',
+      ...[...L].map((x) => 'option' + x), ...[...L].map((x) => 'option' + x + 'Ar'), 'correct',
+      ...[...L].map((x) => 'rationale' + x), ...[...L].map((x) => 'rationale' + x + 'Ar'),
+      'whyCorrect', 'mindset', 'keyConcept', 'learningObjective', 'whyCorrectAr', 'mindsetAr', 'keyConceptAr', 'learningObjectiveAr', 'missing'];
+    const rows = qs.map((q) => {
+      const opts: Array<Record<string, any>> = q.options ?? [];
+      const at = (i: number, k: string) => (opts[i] ? opts[i]![k] ?? '' : '');
+      const ex = q.explanation ?? {}, ar = q.explanationAr ?? {};
+      const missing: string[] = [];
+      if (!q.stemAr) missing.push('Arabic stem');
+      if (opts.some((o) => !o.textAr)) missing.push('Arabic options');
+      if (!ex.whyCorrect) missing.push('explanation');
+      if (!ar.whyCorrect) missing.push('Arabic explanation');
+      if (opts.some((o) => !o.rationale)) missing.push('option rationales');
+      if (opts.some((o) => !o.rationaleAr)) missing.push('Arabic option rationales');
+      return [q.publicCode, q.workflowState, q.taskCode, q.approach, q.difficulty, q.type, q.language, q.aiAssisted ? 'TRUE' : 'FALSE', q.stem, q.stemAr,
+        ...[...L].map((_, i) => at(i, 'text')), ...[...L].map((_, i) => at(i, 'textAr')),
+        opts.map((o, i) => (o.isCorrect ? L[i] : '')).join(''),
+        ...[...L].map((_, i) => at(i, 'rationale')), ...[...L].map((_, i) => at(i, 'rationaleAr')),
+        ex.whyCorrect ?? '', ex.mindset ?? '', ex.keyConcept ?? '', ex.learningObjective ?? '',
+        ar.whyCorrect ?? '', ar.mindset ?? '', ar.keyConcept ?? '', ar.learningObjective ?? '', missing.join('; ')];
+    });
+    const count = (f: (r: any[]) => boolean) => rows.filter(f).length;
+    const miss = (k: string) => count((r) => String(r[r.length - 1]).split('; ').includes(k));
+    const summary = [['Item', 'Count'],
+      ['Questions', rows.length],
+      ['Published', count((r) => r[1] === 'published')],
+      ['Not published yet', count((r) => r[1] !== 'published')],
+      ['Missing Arabic stem', miss('Arabic stem')],
+      ['Missing Arabic options', miss('Arabic options')],
+      ['Missing explanation', miss('explanation')],
+      ['Missing Arabic explanation', miss('Arabic explanation')],
+      ['Missing option rationales', miss('option rationales')],
+      ['Missing Arabic option rationales', miss('Arabic option rationales')],
+      ['Complete', count((r) => !r[r.length - 1])],
+      [],
+      ['How to use', 'Fill the empty cells, keep the stem column unchanged, then import this file with "Update questions that already exist". The publicCode, workflowState and missing columns are ignored on import.']];
+    const widths = head.map((h) => (/^(stem|why|rationale|option|mindset|key|learning)/i.test(h) ? 40 : 14));
+    const file = writeXlsx([{ name: 'Questions', rows: [head, ...rows], widths }, { name: 'Summary', rows: summary, widths: [34, 90] }]);
+    const day = new Date().toISOString().slice(0, 10);
+    return { status: 200, body: { fileName: `question-bank-${day}.xlsx`, dataBase64: file.toString('base64'), count: rows.length } };
+  });
+
   add('POST', '/admin/imports/spreadsheet', ROLES.authors, async (c) => {
     const data = c.body.dataBase64;
     if (typeof data !== 'string' || data.length === 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) throw invalid('dataBase64', 'must be the file in base64');
@@ -385,6 +434,10 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
     const rows = c.body.rows;
     if (!Array.isArray(rows) || rows.length === 0 || rows.length > 500) throw invalid('rows', 'must hold 1 to 500 rows');
     const commit = c.body.commit === true;
+    if (commit && c.body.publishNow === true) {
+      if (!isAdmin(c)) throw new HttpError(403, 'forbidden', 'Only administrators can publish while importing');
+      if (c.body.reviewedConfirmed !== true || c.body.originalityDeclared !== true) throw invalid('reviewedConfirmed', 'confirm that you reviewed the questions and that they are original');
+    }
     const a = await active();
     const codes = taskCodes(a.blueprint);
 
@@ -423,12 +476,13 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
 
     const committed: Array<{ row: number; versionId: string; publicCode: unknown }> = [];
     let updated = 0;
+    const toPublish: string[] = [];
     if (commit) {
       for (const [i, r] of report.entries()) {
         if (r.status === 'update') {
           const res = await run(async () => await store.updateQuestionByStem(c.claims.sub, a.id, stemNorms[i]!, checked[i]!.doc!));
           if (res.action === 'skipped') r.status = 'skipped';
-          else updated++;
+          else { updated++; if (res.versionId) toPublish.push(res.versionId); }
           continue;
         }
         if (r.status !== 'valid') continue;
@@ -436,13 +490,25 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
         committed.push({ row: r.row, versionId: id, publicCode: (await aq(id))?.publicCode });
       }
     }
+    // Administrators can publish what this import changed in the same step, after confirming the review.
+    let published: { published: string[]; failed: Array<Record<string, unknown>> } | null = null;
+    if (commit && c.body.publishNow === true) {
+      const ids = [...toPublish, ...committed.map((x) => x.versionId)];
+      published = { published: [], failed: [] };
+      for (let i = 0; i < ids.length; i += 200) {
+        const part = await run(async () => await store.bulkApprovePublish(ids.slice(i, i + 200), c.claims.sub));
+        published.published.push(...part.published);
+        published.failed.push(...part.failed);
+      }
+    }
     const count = (s: string) => report.filter((r) => r.status === s).length;
     return {
       status: 200,
       body: {
-        summary: { rows: rows.length, valid: count('valid'), invalid: count('invalid'), duplicates: count('duplicate'), update: count('update'), skipped: count('skipped'), updated, committed: committed.length },
+        summary: { rows: rows.length, valid: count('valid'), invalid: count('invalid'), duplicates: count('duplicate'), update: count('update'), skipped: count('skipped'), updated, committed: committed.length, published: published ? published.published.length : 0, publishFailed: published ? published.failed.length : 0 },
         rows: report,
         committed,
+        publishFailed: published ? published.failed : [],
       },
     };
   });

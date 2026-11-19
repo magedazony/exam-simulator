@@ -152,6 +152,8 @@ export const AR_MESSAGES: Record<string, string> = {
   'is not a workflow state': 'ليست مرحلة من مراحل سير العمل',
   'confirm that you reviewed these questions': 'أكّد أنك راجعت هذه الأسئلة',
   'confirm that these questions are original': 'أكّد أن هذه الأسئلة أصلية',
+  'confirm that you reviewed the questions and that they are original': 'أكّد أنك راجعت الأسئلة وأنها أصلية',
+  'Only administrators can publish while importing': 'النشر أثناء الاستيراد متاح للمسؤولين فقط',
   'must list 1 to 500 version ids': 'يجب أن تحتوي على 1 إلى 500 معرّف نسخة',
   'must be open, triaged or resolved': 'يجب أن تكون open أو triaged أو resolved',
   'is not a blueprint document': 'ليس ملف مخطط',

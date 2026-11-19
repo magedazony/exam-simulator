@@ -23,7 +23,7 @@ export interface XlsxLimits {
   maxColumns: number;
 }
 
-export const DEFAULT_XLSX_LIMITS: XlsxLimits = { maxEntries: 2000, maxPartBytes: 32 * 1024 * 1024, maxRows: 1000, maxColumns: 60 };
+export const DEFAULT_XLSX_LIMITS: XlsxLimits = { maxEntries: 2000, maxPartBytes: 32 * 1024 * 1024, maxRows: 5000, maxColumns: 80 };
 
 interface Entry {
   method: number;

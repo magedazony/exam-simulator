@@ -425,6 +425,10 @@ export class ApiStore extends PsqlStore {
     return await this.admin(async () => (await this.one(`SELECT bulk_approve_publish(${arr}, ${lit.uuid(actorId)});`)) ?? { published: [], failed: [] });
   }
 
+  async exportQuestions(): Promise<Array<Record<string, any>>> {
+    return await this.one(`SELECT admin_export_questions();`) ?? [];
+  }
+
   async questionIdByStem(norms: string[]): Promise<string | null> {
     const out = await this.run(`SELECT find_question_by_stem(${lit.json(norms)});`);
     return out === '' ? null : out;
