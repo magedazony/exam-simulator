@@ -623,7 +623,7 @@ function importView() {
       const sum = r.summary;
       $("#report").innerHTML = `<div class="panel"><h2>${commit ? t("Imported") : t("Check result")}: ${t("{v} valid, {i} invalid, {d} duplicates", { v: sum.valid, i: sum.invalid, d: sum.duplicates })}${sum.update ? t(", {u} existing questions to update", { u: sum.update }) : ""}${commit ? t(", {c} stored as drafts", { c: sum.committed }) + (sum.updated ? t(", {u} existing questions updated", { u: sum.updated }) : "") : ""}</h2>
         ${table(r.rows, [["Row", (x) => x.row], ["Result", (x) => pill(x.status)], ["Problems", (x) => esc(x.errors.map((e) => e.field + ": " + e.message).join("; "))]])}</div>`;
-      $("#commit").disabled = commit || sum.valid === 0;
+      $("#commit").disabled = commit || (sum.valid + (sum.update || 0)) === 0;
     } catch (e) { showError(e); }
   };
   $("#check").onclick = () => send(false);
