@@ -164,7 +164,7 @@ async function generateCoachHint(store: import('./api-store.ts').ApiStore, quest
 }
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
-const MODES = ['quick', 'focused', 'weak_areas', 'timed', 'incorrect_only'];
+const MODES = ['quick', 'focused', 'weak_areas', 'timed', 'incorrect_only', 'adaptive', 'spaced_review'];
 const DIMENSIONS = ['domain', 'task', 'approach', 'difficulty', 'type'];
 const REPORT_REASONS = ['wrong_answer', 'ambiguous', 'typo', 'outdated', 'other'];
 
@@ -1002,6 +1002,8 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
   // must never break the result itself, so failures are only logged.
   const certify = async (attemptId: string) => {
     try { await store.issueCertificate(attemptId); } catch (e) { console.error('certificate issue failed', attemptId, e); }
+    // Mock exam answers feed task mastery and spaced repetition too.
+    try { await store.learnFromAttempt(attemptId); } catch (e) { console.error('learning from attempt failed', attemptId, e); }
   };
 
   add('POST', '/exams/attempts/:attemptId/submit', async (c) => {

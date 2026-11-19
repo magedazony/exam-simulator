@@ -1598,7 +1598,7 @@ components:
       type: object
       required: [mode, questionCount]
       properties:
-        mode: { type: string, enum: [quick, focused, weak_areas, timed, incorrect_only] }
+        mode: { type: string, enum: [quick, focused, weak_areas, timed, incorrect_only, adaptive, spaced_review] }
         questionCount: { type: integer, minimum: 1, maximum: 100 }
         domainCodes: { type: array, items: { type: string } }
         taskCodes: { type: array, items: { type: string } }
@@ -1793,9 +1793,9 @@ components:
               id: { type: string }
               isCorrect: { type: boolean }
               rationale: { type: string }
-        mindset: { type: string }
-        keyConcept: { type: string }
-        learningObjective: { type: string }
+        mindset: { type: [string, 'null'] }
+        keyConcept: { type: [string, 'null'] }
+        learningObjective: { type: [string, 'null'] }
         domainName: { type: string }
         taskName: { type: string }
         references:

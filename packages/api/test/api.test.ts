@@ -684,6 +684,33 @@ describe('HTTP API', { skip: configured ? false : 'PGDATABASE is not set; see sc
     assert.equal(timed.body.timeLimitSeconds, 800);
   });
 
+  it('learns from answers: task mastery, readiness, spaced review and adaptive practice', async () => {
+    const tk = alice.accessToken;
+    // Practice answers and the finished mock exam both feed mastery.
+    const m = await call('GET', '/me/mastery', { token: tk });
+    assert.equal(m.status, 200);
+    assert.ok(m.body.items.length > 0, 'mastery is recorded');
+    assert.ok(m.body.items.every((x: { attempts: number }) => x.attempts > 0));
+    const mocks = Number(store.query(`SELECT count(*) FROM spaced_reviews r JOIN users u ON u.id = r.user_id WHERE u.email = 'alice@example.test' AND r.source = 'mock';`));
+    assert.ok(mocks > 0, 'mock answers are learned from');
+    const r = await call('GET', '/me/readiness', { token: tk });
+    assert.ok(Number(r.body.score) > 0 && Number(r.body.score) < 100);
+    // Nothing is due yet, so a review session has nothing to serve.
+    assert.equal((await call('POST', '/practice/sessions', { token: tk, body: { mode: 'spaced_review', questionCount: 10 } })).status, 409);
+    store.query(`UPDATE spaced_state SET next_review_at = now() - interval '1 hour' WHERE user_id = (SELECT id FROM users WHERE email = 'alice@example.test') AND repetition = 0;`);
+    const due = Number(store.query(`SELECT count(*) FROM spaced_state s JOIN questions q ON q.id = s.question_id JOIN question_versions v ON v.id = q.current_version_id
+      WHERE s.user_id = (SELECT id FROM users WHERE email = 'alice@example.test') AND s.next_review_at <= now() AND v.case_study_id IS NULL;`));
+    const rev = await call('POST', '/practice/sessions', { token: tk, body: { mode: 'spaced_review', questionCount: 50 } });
+    assert.equal(rev.status, 201);
+    assert.equal(rev.body.questionCount, Math.min(due, 50));
+    const ad = await call('POST', '/practice/sessions', { token: tk, body: { mode: 'adaptive', questionCount: 10 } });
+    assert.equal(ad.status, 201);
+    assert.equal(ad.body.mode, 'adaptive');
+    const plan = await call('POST', '/me/study-plan/refresh', { token: tk });
+    assert.ok(Array.isArray(plan.body.days) && plan.body.days.length === 7);
+    assert.ok(plan.body.focusAreas.length <= 3);
+  });
+
   it('answers every study-tool endpoint without a server error, after practice and a finished mock', async () => {
     const tk = alice.accessToken;
     const qid = store.query(`SELECT pi.question_id FROM practice_items pi JOIN practice_sessions ps ON ps.id = pi.session_id

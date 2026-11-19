@@ -627,16 +627,14 @@ export class ApiStore extends PsqlStore {
 
   // ---------------------------------------------------------------- adaptive learning
 
-  /** Record a question response and update task mastery + spaced-repetition state. */
-  async recordAdaptiveResponse(userId: string, questionId: string, taskId: string, correct: boolean, source: string): Promise<void> {
-    const quality = correct ? 4 : 1;   // SM-2 quality: 4 = correct, 1 = incorrect
-    // Update task mastery
-    await this.run(`SELECT update_task_mastery(${lit.uuid(userId)}, ${lit.uuid(taskId)}, ${lit.int(correct ? 1 : 0)});`);
-    // Insert spaced review record (trigger handles spaced_state)
-    await this.run(
-      `INSERT INTO spaced_reviews (user_id, question_id, quality, interval_days, next_review_at, source)
-       VALUES (${lit.uuid(userId)}, ${lit.uuid(questionId)}, ${lit.int(quality)}, 1, now() + '1 day'::interval, ${lit.text(source)});`,
-    );
+  /** Record a question response: task mastery and spaced repetition. The task is found from the question. */
+  async recordAdaptiveResponse(userId: string, questionId: string, _taskId: string, correct: boolean, source: string): Promise<void> {
+    await this.run(`SELECT record_learning(${lit.uuid(userId)}, ${lit.uuid(questionId)}, ${correct ? 'true' : 'false'}, ${lit.text(source)});`);
+  }
+
+  /** Learn from a scored mock exam, once. */
+  async learnFromAttempt(attemptId: string): Promise<void> {
+    await this.run(`SELECT learn_from_attempt(${lit.uuid(attemptId)});`);
   }
 
   /** Return task mastery rows sorted weakest first. */

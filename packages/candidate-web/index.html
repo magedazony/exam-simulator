@@ -164,7 +164,7 @@ const T = {
     readiness: "Readiness", noBand: "Not enough data yet", bandRule: "A readiness band appears after one full mock exam and 300 practice questions. It is an educational estimate, never a guarantee of passing.",
     daysLeft: (n) => (n === 1 ? "1 day to your exam" : n + " days to your exam"), today: "Recommended today", recFirst: "Start with 10 practice questions", recWeak: (d) => "Practise your weakest domain: " + d, start: "Start",
     answered: "Questions answered", accuracy: "Accuracy", mocksDone: "Mock exams", streak: "Day streak", weakest: "Weakest domain", strongest: "Strongest domain", recent: "Recent mock scores",
-    pTitle: "Practice", pIntro: "Answer one question at a time. The explanation appears after each answer.", mode: "Mode", modes: { quick: "Quick: mixed questions", focused: "Focused: choose domains and approaches", weak_areas: "My weak areas", incorrect_only: "Questions I got wrong", timed: "Timed (80 seconds a question)", adaptive: "Adaptive: AI-tuned difficulty" },
+    pTitle: "Practice", pIntro: "Answer one question at a time. The explanation appears after each answer.", mode: "Mode", modes: { quick: "Quick: mixed questions", focused: "Focused: choose domains and approaches", weak_areas: "My weak areas", incorrect_only: "Questions I got wrong", timed: "Timed (80 seconds a question)", adaptive: "Adaptive: targets your weak tasks at the right difficulty" },
     domains: "Domains", approaches: "Approaches", count: "Number of questions", any: "Any", startPractice: "Start practice", noMatch: "No questions match these choices. Choose fewer filters.",
     ofq: (a, b) => "Question " + a + " of " + b, choose: (n) => "Choose " + n, doOrder: "Put the items in the right order (use the arrows).", doMatch: "Match each item on the left with one on the right.", doNumber: "Type the number.", doHotspot: "Click the right place in the table.", pick: "— choose —", yourAnswer: "Your answer", rightAnswer: "Correct answer", up: "Move up", down: "Move down", check: "Check answer", next: "Next question", finish: "See summary", correct: "Correct", incorrect: "Not correct",
     why: "Why", mindset: "Mindset", concept: "Key concept", task: "Task", report: "Report a problem with this question", reportReason: "What is wrong?", reasons: { wrong_answer: "The answer is wrong", ambiguous: "More than one answer fits", typo: "Typo or wording", outdated: "Out of date", other: "Something else" }, send: "Send", reported: "Thank you. Our content team will review it.",
@@ -196,7 +196,7 @@ const T = {
     readiness: "الجاهزية", noBand: "لا توجد بيانات كافية بعد", bandRule: "يظهر مستوى الجاهزية بعد اختبار تجريبي كامل و300 سؤال تدريب. هو تقدير تعليمي وليس ضماناً للنجاح.",
     daysLeft: (n) => "باقٍ " + n + " يوماً على اختبارك", today: "المقترح اليوم", recFirst: "ابدأ بـ 10 أسئلة تدريب", recWeak: (d) => "تدرّب على أضعف مجال لديك: " + d, start: "ابدأ",
     answered: "أسئلة تمت الإجابة عنها", accuracy: "الدقة", mocksDone: "اختبارات تجريبية", streak: "أيام متتالية", weakest: "أضعف مجال", strongest: "أقوى مجال", recent: "آخر نتائج الاختبارات",
-    pTitle: "تدريب", pIntro: "أجب عن سؤال واحد في كل مرة. يظهر الشرح بعد كل إجابة.", mode: "النوع", modes: { quick: "سريع: أسئلة متنوعة", focused: "مركّز: اختر المجالات والمناهج", weak_areas: "نقاط ضعفي", incorrect_only: "الأسئلة التي أخطأت فيها", timed: "بوقت محدد (80 ثانية للسؤال)", adaptive: "تكيّفي: صعوبة مضبوطة بالذكاء الاصطناعي" },
+    pTitle: "تدريب", pIntro: "أجب عن سؤال واحد في كل مرة. يظهر الشرح بعد كل إجابة.", mode: "النوع", modes: { quick: "سريع: أسئلة متنوعة", focused: "مركّز: اختر المجالات والمناهج", weak_areas: "نقاط ضعفي", incorrect_only: "الأسئلة التي أخطأت فيها", timed: "بوقت محدد (80 ثانية للسؤال)", adaptive: "تكيّفي: يركّز على نقاط ضعفك بالصعوبة المناسبة" },
     domains: "المجالات", approaches: "المناهج", count: "عدد الأسئلة", any: "الكل", startPractice: "ابدأ التدريب", noMatch: "لا توجد أسئلة بهذه الاختيارات. قلّل عوامل التصفية.",
     ofq: (a, b) => "السؤال " + a + " من " + b, choose: (n) => "اختر " + n, doOrder: "رتّب العناصر بالترتيب الصحيح (استخدم الأسهم).", doMatch: "طابق كل عنصر على اليمين مع عنصر واحد من القائمة.", doNumber: "اكتب الرقم.", doHotspot: "انقر على المكان الصحيح في الجدول.", pick: "— اختر —", yourAnswer: "إجابتك", rightAnswer: "الإجابة الصحيحة", up: "لأعلى", down: "لأسفل", check: "تحقق من الإجابة", next: "السؤال التالي", finish: "عرض الملخص", correct: "إجابة صحيحة", incorrect: "إجابة غير صحيحة",
     why: "لماذا", mindset: "طريقة التفكير", concept: "المفهوم الأساسي", task: "المهمة", report: "أبلغ عن مشكلة في هذا السؤال", reportReason: "ما المشكلة؟", reasons: { wrong_answer: "الإجابة خاطئة", ambiguous: "أكثر من إجابة مناسبة", typo: "خطأ في الكتابة أو الصياغة", outdated: "معلومة قديمة", other: "شيء آخر" }, send: "إرسال", reported: "شكراً لك. سيراجعه فريق المحتوى.",
@@ -595,7 +595,7 @@ async function homeView() {
     ${weak && d.strongestDomain ? `<div class="tiles"><div class="card"><span class="muted">${t("weakest")}</span><strong>${esc(domainName(weak.key))} · ${weak.percent}%</strong></div><div class="card"><span class="muted">${t("strongest")}</span><strong>${esc(domainName(d.strongestDomain.key))} · ${d.strongestDomain.percent}%</strong></div></div>` : ""}
     ${d.recentScores.length ? `<div class="card"><h2>${t("recent")}</h2>${d.recentScores.map((s) => `<div class="bar"><span>${esc(s.date)}</span><span class="track"><i style="width:${s.percent}%"></i></span><span class="num">${s.percent}%</span></div>`).join("")}</div>` : ""}
     <p class="note">${t("notice")}</p>`);
-  $("#go").onclick = () => startPractice(weak ? { mode: "focused", questionCount: 10, domainCodes: [weak.key] } : { mode: "quick", questionCount: 10 });
+  $("#go").onclick = () => startPractice({ mode: "adaptive", questionCount: 10 });
   if (reviewCount > 0) $("#reviewBtn")?.addEventListener("click", () => startPractice({ mode: "spaced_review", questionCount: Math.min(reviewCount, 20) }));
 }
 
@@ -628,8 +628,7 @@ async function practiceSetupView() {
 }
 async function startPractice(req) {
   try {
-    const endpoint = req.mode === "adaptive" ? "/practice/adaptive" : "/practice/sessions";
-    const s = await api("POST", endpoint, req);
+    const s = await api("POST", "/practice/sessions", req);
     S.practice = { session: s, i: 1, q: null, sel: [], fb: null, started: Date.now(), deadline: s.timeLimitSeconds ? Date.now() + s.timeLimitSeconds * 1000 : null, adaptive: req.mode === "adaptive" };
     location.hash = "#practice/run"; render();
   } catch (e) { flash("err", e.code === "no_questions_match" ? t("noMatch") : e.code === "daily_limit_reached" ? t("freeOut") : errText(e)); location.hash = "#practice"; render(); }
@@ -661,11 +660,6 @@ async function practiceRunView() {
       try {
         if (p.q.type === "ordering" && p.sel.length === 0) p.sel = shownOrder();
         p.fb = await api("POST", `/practice/sessions/${p.session.id}/questions/${p.i}/answer`, { selectedOptionIds: p.sel, timeSpentMs: Date.now() - p.started });
-        // For adaptive sessions, also record the response for the algorithm
-        if (p.adaptive && p.q.id && p.q.taskCode) {
-          const correct = p.fb.correct === true;
-          api("POST", "/practice/adaptive/response", { questionId: p.q.id, taskId: p.q.taskCode, correct, source: "adaptive" }).catch(() => {});
-        }
         render();
       } catch (e) { $("#msg").innerHTML = `<p class="msg err">${esc(errText(e))}</p>`; }
     };
@@ -1412,40 +1406,49 @@ async function studyPlanView() {
   const seq = S.seq;
   shell(`<h1>${t("studyPlan")}</h1><p class="muted">⏳</p>`);
   const today = new Date().toISOString().slice(0, 10);
-  const plan = await api("GET", `/me/study-plan?weekStart=${today}`).catch(() => null);
-  if (!plan || !plan.sessions?.length) {
-    paint(seq, `<h1>${t("studyPlan")}</h1><p class="muted">${t("noStudyPlan")}</p>
-      <button class="primary" id="refreshPlan">${t("refreshPlan")}</button>`);
-    $("#refreshPlan")?.addEventListener("click", async () => {
-      flash("ok", "…"); await api("POST", "/me/study-plan/refresh").catch(() => {}); render();
-    });
-    return;
-  }
-  const daysAr = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
-  const daysEn = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-  const sessionRows = plan.sessions.map((s) => {
-    const d = new Date(s.scheduledDate || s.date || today);
-    const dayName = S.lang === "ar" ? (daysAr[d.getDay()] || "") : (daysEn[d.getDay()] || "");
-    const domCode = s.domainCode || s.domain || "";
-    const domLabel = domCode ? (domainName(domCode) || domCode) : (s.topic || "");
-    const mins = s.durationMinutes || s.minutes || 30;
-    const badge = domCode ? `<span class="tag" style="font-size:12px">${esc(domLabel)}</span>` : "";
-    return `<div class="card" style="flex-direction:row;align-items:center;gap:12px;flex-wrap:wrap">
-      <div style="min-width:50px;text-align:center"><strong>${esc(dayName)}</strong><br><span class="muted" style="font-size:12px">${esc(s.scheduledDate || s.date || "")}</span></div>
-      <div style="flex:1"><span>${esc(domLabel || t("studyPlan"))}</span> ${badge}</div>
-      <span class="muted" style="font-size:13px">${mins} ${t("planMins")}</span>
-      ${s.questionCount ? `<span class="tag">${s.questionCount} Q</span>` : ""}
-    </div>`;
+  // The plan is refreshed every visit so it follows the latest answers.
+  const plan = await api("POST", "/me/study-plan/refresh").catch(() => api("GET", `/me/study-plan?weekStart=${today}`).catch(() => null));
+  const ar = S.lang === "ar";
+  const L = ar
+    ? { adaptive_practice: "تدريب تكيّفي على نقاط ضعفك", spaced_review: "مراجعة متباعدة للأسئلة المستحقة", light_practice: "تدريب خفيف", full_domain_practice: "تدريب مركّز على أضعف المهام", mock_simulation: "اختبار تجريبي كامل", review_mistakes: "مراجعة أخطائك", rest_or_light: "راحة أو مراجعة خفيفة", practice: "تدريب", focus: "نقاط تركيزك هذا الأسبوع", noFocus: "لسه مفيش بيانات كفاية. ابدأ بتدريب تكيّفي عشان المحاكي يعرف مستواك.", daysLeft: "يوم على الامتحان", due: "سؤال مستحق للمراجعة", go: "ابدأ" }
+    : { adaptive_practice: "Adaptive practice on your weak tasks", spaced_review: "Spaced review of due questions", light_practice: "Light practice", full_domain_practice: "Focused practice on your weakest tasks", mock_simulation: "Full mock exam", review_mistakes: "Review your mistakes", rest_or_light: "Rest or light review", practice: "Practice", focus: "Your focus this week", noFocus: "Not enough data yet. Start with adaptive practice so the simulator can find your level.", daysLeft: "days to your exam", due: "questions due for review", go: "Start" };
+  if (!plan || !Array.isArray(plan.days)) { paint(seq, `<h1>${t("studyPlan")}</h1><p class="muted">${t("noStudyPlan")}</p>`); return; }
+  const focus = plan.focusAreas || [];
+  const weakCodes = focus.map((f) => f.taskCode);
+  const action = (a) => {
+    const n = a.count || 10;
+    switch (a.type) {
+      case "adaptive_practice": return { mode: "adaptive", questionCount: n };
+      case "spaced_review": return { mode: "spaced_review", questionCount: n };
+      case "full_domain_practice": return weakCodes.length ? { mode: "adaptive", questionCount: n, taskCodes: weakCodes } : { mode: "adaptive", questionCount: n };
+      case "review_mistakes": return { mode: "incorrect_only", questionCount: n };
+      case "mock_simulation": return "mock";
+      default: return { mode: "quick", questionCount: n };
+    }
+  };
+  const acts = [];
+  const days = ar ? ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"] : ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const rows = plan.days.map((d) => {
+    const dt = new Date(d.day + "T00:00:00");
+    const items = (d.activities || []).map((a) => {
+      const k = acts.push(a) - 1;
+      return `<div class="row" style="gap:8px;align-items:center"><span class="grow">${esc(L[a.type] || a.type)}</span><span class="muted" style="font-size:13px">${a.minutes} ${t("planMins")}</span>${a.type === "rest_or_light" ? "" : `<button class="small" data-act="${k}">${L.go}</button>`}</div>`;
+    }).join("");
+    const isToday = d.day === today;
+    return `<div class="card"${isToday ? ' style="border-left:3px solid var(--primary)"' : ""}><strong>${esc(days[dt.getDay()] || "")} <span class="muted" style="font-size:12px">${esc(d.day)}</span></strong>${items}</div>`;
   }).join("");
-  const goal = plan.weeklyGoalMinutes || plan.goalMinutes || "";
-  paint(seq, `<h1>${t("studyPlan")}</h1>
-    <p class="muted">${t("studyPlanIntro")}</p>
-    ${goal ? `<div class="card accent"><span class="muted">${t("planGoal")}</span><span class="big">${goal} ${t("planMins")}</span></div>` : ""}
-    <div style="display:flex;flex-direction:column;gap:10px">${sessionRows}</div>
-    <button id="refreshPlan">${t("refreshPlan")}</button>`);
-  $("#refreshPlan")?.addEventListener("click", async () => {
-    flash("ok", "…"); await api("POST", "/me/study-plan/refresh").catch(() => {}); render();
-  });
+  const focusHtml = focus.length
+    ? focus.map((f) => `<div class="bar"><span>${esc(taskName(f.taskCode) || f.taskName)}</span><span class="track"><i style="width:${Math.round(f.score * 100)}%"></i></span><span class="num">${Math.round(f.score * 100)}%</span></div>`).join("")
+    : `<p class="muted">${L.noFocus}</p>`;
+  paint(seq, `<h1>${t("studyPlan")}</h1><p class="muted">${t("studyPlanIntro")}</p>
+    <div class="tiles">${plan.daysUntilExam !== null && plan.daysUntilExam !== undefined ? `<div class="card"><span class="big">${plan.daysUntilExam}</span><span class="muted">${L.daysLeft}</span></div>` : ""}<div class="card"><span class="big">${plan.spacedReviewsDue || 0}</span><span class="muted">${L.due}</span></div></div>
+    <div class="card"><h2>${L.focus}</h2>${focusHtml}</div>
+    <div style="display:flex;flex-direction:column;gap:10px">${rows}</div>`);
+  document.querySelectorAll("[data-act]").forEach((b) => (b.onclick = () => {
+    const a = action(acts[Number(b.dataset.act)]);
+    if (a === "mock") { location.hash = "#mock"; return; }
+    startPractice(a);
+  }));
 }
 
 // ------------------------------------------------------------ deep analytics view
