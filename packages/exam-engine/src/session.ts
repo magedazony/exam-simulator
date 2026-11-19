@@ -3,6 +3,7 @@
 // passed in, so the server stays the only authority on time and the same
 // rules can be unit-tested without a clock, a database or a network.
 
+import { answerProblem } from './answers.ts';
 import type { Blueprint, ExamForm, Question } from './types.ts';
 
 export type AttemptStatus = 'in_progress' | 'on_break' | 'submitted' | 'expired';
@@ -162,11 +163,9 @@ export function saveAnswer(
 
   const q = pool.get(item.questionId);
   if (!q) return { ok: false, code: 'unknown_ordinal', state: s };
-  const valid = new Set(q.options.map((o) => o.id));
   const selected = [...new Set(input.selected)];
-  if (selected.some((id) => !valid.has(id))) return { ok: false, code: 'invalid_option', state: s };
-  const limit = q.type === 'single' ? 1 : q.options.filter((o) => o.isCorrect).length;
-  if (selected.length > limit) return { ok: false, code: 'too_many_selections', state: s };
+  const problem = answerProblem(q, selected);
+  if (problem) return { ok: false, code: problem, state: s };
 
   const existing = s.answers[input.ordinal];
   if (existing && input.clientSeq <= existing.clientSeq) return { ok: true, state: s, note: 'stale_ignored' };

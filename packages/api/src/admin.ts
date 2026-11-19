@@ -3,7 +3,7 @@
 // role and a session opened with two-factor sign-in (checked in app.ts).
 // Rules about states and authorship are enforced again in the database.
 
-import { generateExam, validateBlueprint } from '../../exam-engine/src/index.ts';
+import { ALL_TYPES, generateExam, parseNumber, validateBlueprint } from '../../exam-engine/src/index.ts';
 import type { Blueprint, Question } from '../../exam-engine/src/index.ts';
 import { AdminError } from './api-store.ts';
 import type { ApiStore } from './api-store.ts';
@@ -111,7 +111,7 @@ export function validateDraft(input: unknown, taskCodes: ReadonlySet<string>, pr
   if (!taskCode) err('taskCode', 'must be a task code of the active blueprint');
   const approach = oneOf('approach', ['predictive', 'agile', 'hybrid']);
   const difficulty = oneOf('difficulty', ['easy', 'medium', 'hard']);
-  const type = oneOf('type', ['single', 'multiple']);
+  const type = oneOf('type', [...ALL_TYPES]);
   const language = oneOf('language', ['en', 'ar'], 'en');
   const stem = text('stem', 20, 4000);
   // Optional Arabic translations
@@ -134,16 +134,40 @@ export function validateDraft(input: unknown, taskCodes: ReadonlySet<string>, pr
     }
   }
 
-  const options: Array<{ text: string; textAr?: string; isCorrect: boolean; rationale: string; rationaleAr?: string }> = [];
-  if (!Array.isArray(b.options) || b.options.length < 2 || b.options.length > 6) {
-    err('options', 'must hold 2 to 6 options');
+  // A table shown with the question (graphic-based and hotspot questions), given inline on import.
+  let table: { altText: string; header: string[]; rows: string[][] } | undefined;
+  if (b.table !== undefined && b.table !== null) {
+    const t = b.table as Record<string, unknown>;
+    const cellOk = (v: unknown, max: number) => typeof v === 'string' && v.length <= max;
+    const header = Array.isArray(t.header) ? t.header : [];
+    const rows = Array.isArray(t.rows) ? t.rows : [];
+    const altText = typeof t.altText === 'string' && t.altText.trim().length >= 3 ? t.altText.trim().slice(0, 500) : 'Table for this question';
+    if (header.length < 1 || header.length > 12 || !header.every((h) => cellOk(h, 100))
+        || rows.length < 1 || rows.length > 30 || !rows.every((r) => Array.isArray(r) && r.length === header.length && r.every((v) => cellOk(v, 200)))) {
+      err('table', 'must have 1 to 12 headings and 1 to 30 rows with one cell per heading');
+    } else {
+      table = { altText, header: header as string[], rows: rows as string[][] };
+    }
+  }
+  let tolerance = 0;
+  if (b.tolerance !== undefined && b.tolerance !== null && b.tolerance !== '') {
+    const t = Number(b.tolerance);
+    if (!Number.isFinite(t) || t < 0) err('tolerance', 'must be a number of zero or more');
+    else tolerance = t;
+  }
+
+  type Opt = { text: string; textAr?: string; isCorrect: boolean; rationale: string; rationaleAr?: string; meta?: Record<string, unknown> };
+  const options: Opt[] = [];
+  const [minOpts, maxOpts] = type === 'numeric' ? [1, 1] : [2, 6];
+  if (!Array.isArray(b.options) || b.options.length < minOpts || b.options.length > maxOpts) {
+    err('options', type === 'numeric' ? 'a fill-in-the-blank question has exactly one answer' : 'must hold 2 to 6 options');
   } else {
     b.options.forEach((o: unknown, i: number) => {
       const opt = (o ?? {}) as Record<string, unknown>;
       if (typeof opt.text !== 'string' || opt.text.trim().length === 0 || opt.text.length > 1000) {
         err(`options[${i}].text`, 'must be text of 1 to 1000 characters');
       }
-      if (typeof opt.isCorrect !== 'boolean') err(`options[${i}].isCorrect`, 'must be true or false');
+      if (typeof opt.isCorrect !== 'boolean' && (type === 'single' || type === 'multiple' || type === 'hotspot')) err(`options[${i}].isCorrect`, 'must be true or false');
       if (opt.rationale !== undefined && (typeof opt.rationale !== 'string' || opt.rationale.length > 2000)) {
         err(`options[${i}].rationale`, 'must be text of at most 2000 characters');
       }
@@ -151,19 +175,42 @@ export function validateDraft(input: unknown, taskCodes: ReadonlySet<string>, pr
           (typeof opt.rationaleAr !== 'string' || opt.rationaleAr.length > 2000)) {
         err(`options[${i}].rationaleAr`, 'must be text of at most 2000 characters');
       }
-      const item: { text: string; textAr?: string; isCorrect: boolean; rationale: string; rationaleAr?: string } = {
+      const item: Opt = {
         text: typeof opt.text === 'string' ? opt.text.trim() : '',
-        isCorrect: opt.isCorrect === true,
+        // Ordering, matching and numeric keys come from position, pairs or the number itself.
+        isCorrect: type === 'ordering' || type === 'matching' || type === 'numeric' ? true : opt.isCorrect === true,
         rationale: typeof opt.rationale === 'string' ? opt.rationale.trim() : '',
       };
       if (typeof opt.textAr === 'string' && opt.textAr.trim().length > 0) item.textAr = opt.textAr.trim();
       if (typeof opt.rationaleAr === 'string' && opt.rationaleAr.trim().length > 0) item.rationaleAr = opt.rationaleAr.trim();
+      if (type === 'matching') {
+        const match = typeof opt.match === 'string' ? opt.match.trim() : '';
+        if (!match || match.length > 500) err(`options[${i}].match`, 'needs the item it matches, up to 500 characters');
+        item.meta = { match, ...(typeof opt.matchAr === 'string' && opt.matchAr.trim() ? { matchAr: opt.matchAr.trim() } : {}) };
+      }
+      if (type === 'hotspot') {
+        const raw = typeof opt.cell === 'string' ? opt.cell.split(/[,\s]+/).filter(Boolean) : opt.cell;
+        const cell = Array.isArray(raw) && raw.length === 2 ? raw.map(Number) : [];
+        if (cell.length !== 2 || !cell.every((n) => Number.isInteger(n) && n >= 0)) err(`options[${i}].cell`, 'must be the row and column of a table cell, like 2,1');
+        else if (table && (cell[0]! >= table.rows.length || cell[1]! >= table.header.length)) err(`options[${i}].cell`, 'is outside the table');
+        else item.meta = { cell };
+      }
+      if (type === 'numeric') {
+        if (parseNumber(item.text) === null) err(`options[${i}].text`, 'must be the correct number, like 1250000 or 0.85');
+        else item.text = String(parseNumber(item.text));
+        item.meta = { tolerance };
+      }
       options.push(item);
     });
     const correct = options.filter((o) => o.isCorrect).length;
     if (type === 'single' && correct !== 1) err('options', 'a single-choice question needs exactly one correct option');
     if (type === 'multiple' && (correct < 2 || correct >= options.length)) {
       err('options', 'a multiple-response question needs at least two correct options and at least one wrong one');
+    }
+    if (type === 'hotspot' && correct !== 1) err('options', 'a hotspot question needs exactly one correct cell');
+    if (type === 'hotspot' && !table && exhibitIds.length === 0) err('table', 'a hotspot question needs a table to click on');
+    if (type === 'matching' && new Set(options.map((o) => String(o.meta?.match ?? '').toLowerCase())).size !== options.length) {
+      err('options', 'each item must match a different answer');
     }
     const seen = new Set(options.map((o) => o.text.toLowerCase()));
     if (seen.size !== options.length) err('options', 'options must all be different');
@@ -212,6 +259,7 @@ export function validateDraft(input: unknown, taskCodes: ReadonlySet<string>, pr
       aiAssisted: b.aiAssisted === true,
       ...(typeof b.caseStudyId === 'string' ? { caseStudyId: b.caseStudyId } : {}),
       exhibitIds,
+      ...(table ? { table } : {}),
       options,
       ...(explanation ? { explanation } : {}),
       ...(explanationAr ? { explanationAr } : {}),
@@ -306,11 +354,20 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
     return { status: 200, body: { items, nextCursor: items.length === limit && last ? String(last.publicCode) : null } };
   });
 
+  // A table given inline (import) becomes an exhibit first, then the question points at it.
+  const withTable = async (actorId: string, doc: Record<string, unknown>): Promise<Record<string, unknown>> => {
+    const t = doc.table as { altText: string; header: string[]; rows: string[][] } | undefined;
+    if (!t) return doc;
+    const id = await store.createExhibit(actorId, { kind: 'table', altText: t.altText, table: { header: t.header, rows: t.rows } });
+    const { table: _t, ...rest } = doc;
+    return { ...rest, exhibitIds: [id, ...((doc.exhibitIds as string[]) ?? [])].slice(0, 3) };
+  };
+
   add('POST', '/admin/questions', ROLES.authors, async (c) => {
     const a = await active();
     const { doc, errors } = validateDraft(c.body, taskCodes(a.blueprint));
     if (!doc) throw invalidMany(errors);
-    const id = await run(async () => await store.createDraft(c.claims.sub, a.id, doc));
+    const id = await run(async () => await store.createDraft(c.claims.sub, a.id, await withTable(c.claims.sub, doc)));
     return { status: 201, body: await aq(id) };
   });
 
@@ -325,7 +382,7 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
     const a = await active();
     const { doc, errors } = validateDraft(c.body, taskCodes(a.blueprint));
     if (!doc) throw invalidMany(errors);
-    await run(async () => await store.updateDraft(id, c.claims.sub, isAdmin(c), a.id, doc));
+    await run(async () => await store.updateDraft(id, c.claims.sub, isAdmin(c), a.id, await withTable(c.claims.sub, doc)));
     return { status: 200, body: await aq(id) };
   });
 
@@ -378,11 +435,13 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
     const head = ['publicCode', 'workflowState', 'taskCode', 'approach', 'difficulty', 'type', 'language', 'aiAssisted', 'stem', 'stemAr',
       ...[...L].map((x) => 'option' + x), ...[...L].map((x) => 'option' + x + 'Ar'), 'correct',
       ...[...L].map((x) => 'rationale' + x), ...[...L].map((x) => 'rationale' + x + 'Ar'),
-      'whyCorrect', 'mindset', 'keyConcept', 'learningObjective', 'whyCorrectAr', 'mindsetAr', 'keyConceptAr', 'learningObjectiveAr', 'missing'];
+      'whyCorrect', 'mindset', 'keyConcept', 'learningObjective', 'whyCorrectAr', 'mindsetAr', 'keyConceptAr', 'learningObjectiveAr',
+      ...[...L].map((x) => 'match' + x), ...[...L].map((x) => 'match' + x + 'Ar'), ...[...L].map((x) => 'cell' + x), 'tolerance', 'graphic', 'tableAlt', 'tableHeader', 'tableRows', 'missing'];
     const rows = qs.map((q) => {
       const opts: Array<Record<string, any>> = q.options ?? [];
       const at = (i: number, k: string) => (opts[i] ? opts[i]![k] ?? '' : '');
       const ex = q.explanation ?? {}, ar = q.explanationAr ?? {};
+      const tbl = (q.exhibits ?? []).find((e: Record<string, any>) => e.kind === 'table' && e.table);
       const missing: string[] = [];
       if (!q.stemAr) missing.push('Arabic stem');
       if (opts.some((o) => !o.textAr)) missing.push('Arabic options');
@@ -392,10 +451,15 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
       if (opts.some((o) => !o.rationaleAr)) missing.push('Arabic option rationales');
       return [q.publicCode, q.workflowState, q.taskCode, q.approach, q.difficulty, q.type, q.language, q.aiAssisted ? 'TRUE' : 'FALSE', q.stem, q.stemAr,
         ...[...L].map((_, i) => at(i, 'text')), ...[...L].map((_, i) => at(i, 'textAr')),
-        opts.map((o, i) => (o.isCorrect ? L[i] : '')).filter(Boolean).join(', '),
+        q.type === 'numeric' ? (opts[0]?.text ?? '') : q.type === 'ordering' || q.type === 'matching' ? '' : opts.map((o, i) => (o.isCorrect ? L[i] : '')).filter(Boolean).join(', '),
         ...[...L].map((_, i) => at(i, 'rationale')), ...[...L].map((_, i) => at(i, 'rationaleAr')),
         ex.whyCorrect ?? '', ex.mindset ?? '', ex.keyConcept ?? '', ex.learningObjective ?? '',
-        ar.whyCorrect ?? '', ar.mindset ?? '', ar.keyConcept ?? '', ar.learningObjective ?? '', missing.join('; ')];
+        ar.whyCorrect ?? '', ar.mindset ?? '', ar.keyConcept ?? '', ar.learningObjective ?? '',
+        ...[...L].map((_, i) => opts[i]?.meta?.match ?? ''), ...[...L].map((_, i) => opts[i]?.meta?.matchAr ?? ''),
+        ...[...L].map((_, i) => (Array.isArray(opts[i]?.meta?.cell) ? opts[i]!.meta.cell.join(',') : '')),
+        q.type === 'numeric' ? String(opts[0]?.meta?.tolerance ?? 0) : '', q.graphic ? 'TRUE' : 'FALSE',
+        tbl ? tbl.altText ?? '' : '', tbl ? tbl.table.header.join(' | ') : '', tbl ? tbl.table.rows.map((row: string[]) => row.join(' | ')).join(' || ') : '',
+        missing.join('; ')];
     });
     const count = (f: (r: any[]) => boolean) => rows.filter(f).length;
     const miss = (k: string) => count((r) => String(r[r.length - 1]).split('; ').includes(k));
@@ -490,13 +554,13 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
           continue;
         }
         if (r.status === 'update') {
-          const res = await run(async () => await store.updateQuestionByStem(c.claims.sub, a.id, stemNorms[i]!, checked[i]!.doc!));
+          const res = await run(async () => await store.updateQuestionByStem(c.claims.sub, a.id, stemNorms[i]!, await withTable(c.claims.sub, checked[i]!.doc!)));
           if (res.action === 'skipped') r.status = 'skipped';
           else { updated++; if (res.versionId) toPublish.push(res.versionId); }
           continue;
         }
         if (r.status !== 'valid') continue;
-        const id = await run(async () => await store.createDraft(c.claims.sub, a.id, checked[i]!.doc!));
+        const id = await run(async () => await store.createDraft(c.claims.sub, a.id, await withTable(c.claims.sub, checked[i]!.doc!)));
         committed.push({ row: r.row, versionId: id, publicCode: (await aq(id))?.publicCode });
       }
     }

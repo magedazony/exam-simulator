@@ -89,6 +89,16 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .ql-bar { justify-content: flex-end; margin-bottom: 6px; }
 .stem-ar { color: var(--muted); font-size: 15px; border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px; }
 .opts { display: flex; flex-direction: column; gap: 8px; }
+.order-item, .match-row { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.order-item .grow, .match-row .grow { flex: 1; }
+.order-item button { min-width: 40px; padding: 6px 8px; }
+.match-row select { max-width: 55%; }
+.is-right { border-color: var(--ok, #1a7f37) !important; }
+.is-wrong { border-color: var(--err, #c62828) !important; }
+td.hot { padding: 2px; }
+td.hot button { width: 100%; min-height: 40px; }
+td.hot button[aria-checked="true"] { outline: 3px solid var(--accent, #1f6feb); }
+.numans { max-width: 260px; font-size: 18px; }
 .opt { display: flex; gap: 10px; align-items: flex-start; text-align: left; font: inherit; line-height: 1.45; padding: 12px 14px; min-height: 48px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; width: 100%; font-weight: 400; justify-content: flex-start; }
 .opt .mark { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--muted); display: grid; place-items: center; font-size: 13px; font-weight: 600; }
 .opt.multi .mark { border-radius: 5px; }
@@ -156,7 +166,7 @@ const T = {
     answered: "Questions answered", accuracy: "Accuracy", mocksDone: "Mock exams", streak: "Day streak", weakest: "Weakest domain", strongest: "Strongest domain", recent: "Recent mock scores",
     pTitle: "Practice", pIntro: "Answer one question at a time. The explanation appears after each answer.", mode: "Mode", modes: { quick: "Quick: mixed questions", focused: "Focused: choose domains and approaches", weak_areas: "My weak areas", incorrect_only: "Questions I got wrong", timed: "Timed (80 seconds a question)", adaptive: "Adaptive: AI-tuned difficulty" },
     domains: "Domains", approaches: "Approaches", count: "Number of questions", any: "Any", startPractice: "Start practice", noMatch: "No questions match these choices. Choose fewer filters.",
-    ofq: (a, b) => "Question " + a + " of " + b, choose: (n) => "Choose " + n, check: "Check answer", next: "Next question", finish: "See summary", correct: "Correct", incorrect: "Not correct",
+    ofq: (a, b) => "Question " + a + " of " + b, choose: (n) => "Choose " + n, doOrder: "Put the items in the right order (use the arrows).", doMatch: "Match each item on the left with one on the right.", doNumber: "Type the number.", doHotspot: "Click the right place in the table.", pick: "— choose —", yourAnswer: "Your answer", rightAnswer: "Correct answer", up: "Move up", down: "Move down", check: "Check answer", next: "Next question", finish: "See summary", correct: "Correct", incorrect: "Not correct",
     why: "Why", mindset: "Mindset", concept: "Key concept", task: "Task", report: "Report a problem with this question", reportReason: "What is wrong?", reasons: { wrong_answer: "The answer is wrong", ambiguous: "More than one answer fits", typo: "Typo or wording", outdated: "Out of date", other: "Something else" }, send: "Send", reported: "Thank you. Our content team will review it.",
     summary: "Session summary", again: "Practise again", timeLeft: "Time left",
     mTitle: "Mock exam", mIntro: "180 questions in 240 minutes. The exam opens with case studies, and has two 10-minute breaks. When a section closes it cannot be opened again. The exam clock stops during a break.",
@@ -188,7 +198,7 @@ const T = {
     answered: "أسئلة تمت الإجابة عنها", accuracy: "الدقة", mocksDone: "اختبارات تجريبية", streak: "أيام متتالية", weakest: "أضعف مجال", strongest: "أقوى مجال", recent: "آخر نتائج الاختبارات",
     pTitle: "تدريب", pIntro: "أجب عن سؤال واحد في كل مرة. يظهر الشرح بعد كل إجابة.", mode: "النوع", modes: { quick: "سريع: أسئلة متنوعة", focused: "مركّز: اختر المجالات والمناهج", weak_areas: "نقاط ضعفي", incorrect_only: "الأسئلة التي أخطأت فيها", timed: "بوقت محدد (80 ثانية للسؤال)", adaptive: "تكيّفي: صعوبة مضبوطة بالذكاء الاصطناعي" },
     domains: "المجالات", approaches: "المناهج", count: "عدد الأسئلة", any: "الكل", startPractice: "ابدأ التدريب", noMatch: "لا توجد أسئلة بهذه الاختيارات. قلّل عوامل التصفية.",
-    ofq: (a, b) => "السؤال " + a + " من " + b, choose: (n) => "اختر " + n, check: "تحقق من الإجابة", next: "السؤال التالي", finish: "عرض الملخص", correct: "إجابة صحيحة", incorrect: "إجابة غير صحيحة",
+    ofq: (a, b) => "السؤال " + a + " من " + b, choose: (n) => "اختر " + n, doOrder: "رتّب العناصر بالترتيب الصحيح (استخدم الأسهم).", doMatch: "طابق كل عنصر على اليمين مع عنصر واحد من القائمة.", doNumber: "اكتب الرقم.", doHotspot: "انقر على المكان الصحيح في الجدول.", pick: "— اختر —", yourAnswer: "إجابتك", rightAnswer: "الإجابة الصحيحة", up: "لأعلى", down: "لأسفل", check: "تحقق من الإجابة", next: "السؤال التالي", finish: "عرض الملخص", correct: "إجابة صحيحة", incorrect: "إجابة غير صحيحة",
     why: "لماذا", mindset: "طريقة التفكير", concept: "المفهوم الأساسي", task: "المهمة", report: "أبلغ عن مشكلة في هذا السؤال", reportReason: "ما المشكلة؟", reasons: { wrong_answer: "الإجابة خاطئة", ambiguous: "أكثر من إجابة مناسبة", typo: "خطأ في الكتابة أو الصياغة", outdated: "معلومة قديمة", other: "شيء آخر" }, send: "إرسال", reported: "شكراً لك. سيراجعه فريق المحتوى.",
     summary: "ملخص الجلسة", again: "تدرّب مرة أخرى", timeLeft: "الوقت المتبقي",
     mTitle: "اختبار تجريبي", mIntro: "180 سؤالاً في 240 دقيقة. يبدأ الاختبار بدراسات الحالة، وفيه استراحتان مدة كل منهما 10 دقائق. القسم المغلق لا يُعاد فتحه. تتوقف ساعة الاختبار أثناء الاستراحة.",
@@ -301,18 +311,72 @@ function qlangToggle(hasAr) {
   return `<div class="row ql-bar"><button type="button" class="small" data-act="qlang"><span class="ql-en">عرض بالعربي</span><span class="ql-ar">Show in English</span></button></div>`;
 }
 function questionHtml(q, selected, reveal, feedback) {
-  const multi = q.type === "multiple";
   const hasAr = Boolean(q.stemAr);
+  const head = `<div class="content qwrap" data-ql="${qLang()}">${qlangToggle(hasAr)}<p class="stem">${bi(q.stem, q.stemAr)}</p>`;
+  const fbFor = (id) => (feedback ? feedback.explanation.options.find((x) => x.id === id) : null);
+  const why = (id) => { const fb = fbFor(id); return reveal && fb && (fb.rationale || fb.rationaleAr) ? `<span class="why">${bi(fb.rationale || fb.rationaleAr, fb.rationale ? fb.rationaleAr : "")}</span>` : ""; };
+  const key = (feedback && feedback.correctAnswer) || [];
+  if (q.type === "ordering") {
+    const byId = Object.fromEntries(q.options.map((o) => [o.id, o]));
+    const order = reveal ? key : (selected.length === q.options.length ? selected : q.options.map((o) => o.id));
+    const items = order.map((id, i) => {
+      const o = byId[id]; if (!o) return "";
+      const mine = selected.indexOf(id);
+      const cls = reveal ? (mine === i ? " is-right" : " is-wrong") : "";
+      const yours = reveal && mine >= 0 && mine !== i ? ` <span class="muted">(${t("yourAnswer")}: ${mine + 1})</span>` : "";
+      return `<li class="order-item${cls}" data-oid="${esc(id)}"><strong>${i + 1}.</strong><span class="grow">${bi(o.text, hasAr ? o.textAr : "")}${yours}${why(id)}</span>${reveal ? "" : `<button type="button" class="small" data-move="-1" aria-label="${t("up")}">▲</button><button type="button" class="small" data-move="1" aria-label="${t("down")}">▼</button>`}</li>`;
+    }).join("");
+    return head + `<p class="muted">${reveal ? t("rightAnswer") : t("doOrder")}</p><ol class="opts order" style="list-style:none;padding:0">${items}</ol></div>`;
+  }
+  if (q.type === "matching") {
+    const chosen = Object.fromEntries(selected.map((s) => s.split(":")));
+    const right = Object.fromEntries(key.map((s) => s.split(":")));
+    const tgt = Object.fromEntries((q.targets || []).map((x) => [x.id, x]));
+    const rows = q.options.map((o) => {
+      const mine = chosen[o.id] || "";
+      const ok = reveal && right[o.id] === mine;
+      const cls = reveal ? (ok ? " is-right" : " is-wrong") : "";
+      const control = reveal
+        ? `<span class="grow">${right[o.id] && tgt[right[o.id]] ? bi(tgt[right[o.id]].text, hasAr ? tgt[right[o.id]].textAr : "") : ""}${!ok && mine && tgt[mine] ? ` <span class="muted">(${t("yourAnswer")}: ${esc(tgt[mine].text)})</span>` : ""}</span>`
+        : `<select data-left="${esc(o.id)}" aria-label="${esc(o.text)}"><option value="">${t("pick")}</option>${(q.targets || []).map((x) => `<option value="${esc(x.id)}"${mine === x.id ? " selected" : ""}>${esc(qLang() === "ar" && x.textAr ? x.textAr : x.text)}</option>`).join("")}</select>`;
+      return `<div class="match-row${cls}"><span class="grow">${bi(o.text, hasAr ? o.textAr : "")}${why(o.id)}</span>${control}</div>`;
+    }).join("");
+    return head + `<p class="muted">${t("doMatch")}</p><div class="opts">${rows}</div></div>`;
+  }
+  if (q.type === "numeric") {
+    const val = selected[0] || "";
+    const body = reveal
+      ? `<p class="${feedback && feedback.correct ? "msg ok" : "msg err"}">${t("yourAnswer")}: <strong dir="ltr">${esc(val || "—")}</strong> · ${t("rightAnswer")}: <strong dir="ltr">${esc(key[0] || "")}</strong></p>`
+      : `<input class="numans" id="numans" inputmode="decimal" autocomplete="off" dir="ltr" value="${esc(val)}" aria-label="${t("doNumber")}">`;
+    return head + `${(q.exhibits || []).map(exhibitHtml).join("")}<p class="muted">${t("doNumber")}</p>${body}</div>`;
+  }
+  if (q.type === "hotspot") {
+    const [first, ...rest] = q.exhibits || [];
+    const cellOpt = {}; q.options.forEach((o) => { if (o.cell) cellOpt[o.cell.join(",")] = o; });
+    let table = "";
+    if (first && first.kind === "table") {
+      table = `<div class="exhibit"><div class="wrap"><table aria-label="${esc(first.altText)}"><thead><tr>${first.table.header.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${first.table.rows.map((r, ri) => `<tr>${r.map((c, ci) => {
+        const o = cellOpt[ri + "," + ci];
+        if (!o) return `<td>${esc(c)}</td>`;
+        const on = selected.includes(o.id), fb = fbFor(o.id);
+        const cls = reveal ? (fb && fb.isCorrect ? " is-right" : on ? " is-wrong" : "") : "";
+        return `<td class="hot"><button type="button" class="opt${cls}" role="radio" aria-checked="${on}" data-opt="${esc(o.id)}"${reveal ? " disabled" : ""} aria-label="${esc(o.text)}">${esc(c || o.text)}</button></td>`;
+      }).join("")}</tr>`).join("")}</tbody></table></div></div>`;
+    }
+    const notes = reveal ? `<div class="opts">${q.options.map((o) => { const fb = fbFor(o.id); return `<div class="match-row${fb && fb.isCorrect ? " is-right" : selected.includes(o.id) ? " is-wrong" : ""}"><span class="grow"><strong>${bi(o.text, hasAr ? o.textAr : "")}</strong>${why(o.id)}</span></div>`; }).join("")}</div>` : "";
+    return head + table + rest.map(exhibitHtml).join("") + `<p class="muted">${t("doHotspot")}</p>${notes}</div>`;
+  }
+  const multi = q.type === "multiple";
   const exhibits = (q.exhibits || []).map(exhibitHtml).join("");
   const opts = q.options.map((o, i) => {
     const on = selected.includes(o.id);
-    const fb = feedback ? feedback.explanation.options.find((x) => x.id === o.id) : null;
+    const fb = fbFor(o.id);
     const cls = reveal ? (fb && fb.isCorrect ? " is-right" : on ? " is-wrong" : "") : "";
     const mark = fb ? (fb.isCorrect ? "✓ " : on ? "✗ " : "") : "";
-    const why = reveal && fb && (fb.rationale || fb.rationaleAr) ? `<span class="why">${mark}${bi(fb.rationale || fb.rationaleAr, fb.rationale ? fb.rationaleAr : "")}</span>` : "";
-    return `<button class="opt${multi ? " multi" : ""}${cls}" role="${multi ? "checkbox" : "radio"}" aria-checked="${on}" data-opt="${esc(o.id)}"${reveal ? " disabled" : ""}><span class="mark">${"ABCDEF"[i]}</span><span>${bi(o.text, hasAr ? o.textAr : "")}${why}</span></button>`;
+    const w = reveal && fb && (fb.rationale || fb.rationaleAr) ? `<span class="why">${mark}${bi(fb.rationale || fb.rationaleAr, fb.rationale ? fb.rationaleAr : "")}</span>` : "";
+    return `<button class="opt${multi ? " multi" : ""}${cls}" role="${multi ? "checkbox" : "radio"}" aria-checked="${on}" data-opt="${esc(o.id)}"${reveal ? " disabled" : ""}><span class="mark">${"ABCDEF"[i]}</span><span>${bi(o.text, hasAr ? o.textAr : "")}${w}</span></button>`;
   }).join("");
-  return `<div class="content qwrap" data-ql="${qLang()}">${qlangToggle(hasAr)}<p class="stem">${bi(q.stem, q.stemAr)}</p>${exhibits}${multi ? `<p class="muted">${t("choose", q.selectCount)}</p>` : ""}<div class="opts" role="${multi ? "group" : "radiogroup"}">${opts}</div></div>`;
+  return head + `${exhibits}${multi ? `<p class="muted">${t("choose", q.selectCount)}</p>` : ""}<div class="opts" role="${multi ? "group" : "radiogroup"}">${opts}</div></div>`;
 }
 function exhibitHtml(e) {
   if (e.kind === "image") return `<div class="exhibit"><img src="${esc(e.url)}" alt="${esc(e.altText)}"></div>`;
@@ -591,10 +655,11 @@ async function practiceRunView() {
       ? { general: "تلميح عام", approach: "المنهج", eliminate: "استبعاد", explain: "تفسير" }
       : { general: "General hint", approach: "Approach", eliminate: "Eliminate", explain: "Explain" };
     const hintBar = p.q.id ? `<div id="hintbar" style="margin-top:4px"><details><summary style="cursor:pointer;color:var(--primary);font-size:14px;font-weight:600">🧠 ${S.lang === "ar" ? "مساعدة المدرب" : "Coach help"}</summary><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${Object.entries(hintTypes).map(([k,v]) => `<button class="btn small" data-hint="${k}">${esc(v)}</button>`).join("")}</div><div id="hintout" style="margin-top:8px"></div></details></div>` : "";
-    paint(seq, head + questionHtml(p.q, p.sel, false) + hintBar + `<button class="primary" id="check"${p.sel.length ? "" : " disabled"}>${t("check")}</button><div id="msg"></div>`);
-    bindOptions(p.q, p.sel, (sel) => { p.sel = sel; $("#check").disabled = sel.length === 0; });
+    paint(seq, head + questionHtml(p.q, p.sel, false) + hintBar + `<button class="primary" id="check"${p.sel.length || p.q.type === "ordering" ? "" : " disabled"}>${t("check")}</button><div id="msg"></div>`);
+    bindOptions(p.q, p.sel, (sel) => { p.sel = sel; $("#check").disabled = sel.length === 0 && p.q.type !== "ordering"; });
     $("#check").onclick = async () => {
       try {
+        if (p.q.type === "ordering" && p.sel.length === 0) p.sel = shownOrder();
         p.fb = await api("POST", `/practice/sessions/${p.session.id}/questions/${p.i}/answer`, { selectedOptionIds: p.sel, timeSpentMs: Date.now() - p.started });
         // For adaptive sessions, also record the response for the algorithm
         if (p.adaptive && p.q.id && p.q.taskCode) {
@@ -620,18 +685,45 @@ async function practiceRunView() {
   }
   if (p.deadline) S.timers.push(setInterval(() => { const el = $("#ptimer"); if (el) { el.textContent = fmt(p.deadline - Date.now()); el.classList.toggle("low", p.deadline - Date.now() < 60000); } if (Date.now() > p.deadline && !p.fb) render(); }, 1000));
 }
-// Option buttons: single choice replaces, multiple response toggles up to the number to choose.
+// Answer controls for every type. onChange gets the answer in the API's string form.
 function bindOptions(q, initial, onChange) {
   let sel = initial.slice();
+  if (q.type === "ordering") {
+    document.querySelectorAll(".order [data-move]").forEach((b) => (b.onclick = () => {
+      const li = b.closest("li"), list = li.parentElement;
+      const sib = b.dataset.move === "-1" ? li.previousElementSibling : li.nextElementSibling;
+      if (!sib) return;
+      if (b.dataset.move === "-1") list.insertBefore(li, sib); else list.insertBefore(sib, li);
+      list.querySelectorAll("li").forEach((x, i) => { const n = x.querySelector("strong"); if (n) n.textContent = i + 1 + "."; });
+      sel = [...list.querySelectorAll("li")].map((x) => x.dataset.oid);
+      onChange(sel);
+    }));
+    return;
+  }
+  if (q.type === "matching") {
+    document.querySelectorAll("select[data-left]").forEach((el) => (el.onchange = () => {
+      sel = [...document.querySelectorAll("select[data-left]")].filter((x) => x.value).map((x) => x.dataset.left + ":" + x.value);
+      onChange(sel);
+    }));
+    return;
+  }
+  if (q.type === "numeric") {
+    const el = $("#numans");
+    let tm = null;
+    if (el) el.oninput = () => { clearTimeout(tm); tm = setTimeout(() => { const v = el.value.trim(); sel = v ? [v] : []; onChange(sel); }, 400); };
+    return;
+  }
   document.querySelectorAll(".opt[data-opt]").forEach((b) => (b.onclick = () => {
     const id = b.dataset.opt;
-    if (q.type === "single") sel = [id];
+    if (q.type === "single" || q.type === "hotspot") sel = [id];
     else if (sel.includes(id)) sel = sel.filter((x) => x !== id);
     else if (sel.length < q.selectCount) sel = [...sel, id];
     document.querySelectorAll(".opt[data-opt]").forEach((o) => o.setAttribute("aria-checked", String(sel.includes(o.dataset.opt))));
     onChange(sel);
   }));
 }
+// Ordering: the order on screen counts as the answer even if the candidate did not move anything.
+function shownOrder() { return [...document.querySelectorAll(".order li[data-oid]")].map((x) => x.dataset.oid); }
 
 // ------------------------------------------------------------ mock exam
 

@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { scoreQuestion, toCandidateQuestion } from '../../exam-engine/src/index.ts';
+import { answerProblem, correctAnswer, scoreQuestion, selectCount, toCandidateQuestion } from '../../exam-engine/src/index.ts';
 import type { Question } from '../../exam-engine/src/index.ts';
 import { ActiveAttemptExistsError } from '../../exam-store/src/ports.ts';
 import type { StoredResult } from '../../exam-store/src/ports.ts';
@@ -285,11 +285,15 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     const result: Record<string, unknown> = {
       correct,
       correctOptionIds: q.options.filter((o) => o.isCorrect).map((o) => o.id),
+      // The full correct answer in the same form as selectedOptionIds, for every type.
+      correctAnswer: correctAnswer(q),
       explanation: {
         ...explMain,
-        options: q.options.map((o) => {
+        options: q.options.map((o, i) => {
+          // Matching shows left items as L1..Ln, so their rationales use the same ids.
+          const id = q.type === 'matching' ? `L${i + 1}` : o.id;
           const opt: { id: string; isCorrect: boolean; rationale: string; rationaleAr?: string } =
-            { id: o.id, isCorrect: o.isCorrect, rationale: o.rationale ?? '' };
+            { id, isCorrect: q.type === 'ordering' || q.type === 'matching' ? true : o.isCorrect, rationale: o.rationale ?? '' };
           if (o.rationaleAr) opt.rationaleAr = o.rationaleAr;
           return opt;
         }),
@@ -323,10 +327,9 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
   });
 
   const validSelection = (q: Question, selected: string[]): void => {
-    const ids = new Set(q.options.map((o) => o.id));
-    if (selected.some((id) => !ids.has(id))) throw invalid('selectedOptionIds', 'contains an unknown option');
-    const limit = q.type === 'single' ? 1 : q.options.filter((o) => o.isCorrect).length;
-    if (new Set(selected).size > limit) throw invalid('selectedOptionIds', `select at most ${limit}`);
+    const problem = answerProblem(q, selected);
+    if (problem === 'too_many_selections') throw invalid('selectedOptionIds', `select at most ${selectCount(q)}`);
+    if (problem) throw invalid('selectedOptionIds', 'contains an unknown option');
   };
 
   // ---------------------------------------------------------------- auth

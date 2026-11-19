@@ -15,6 +15,11 @@ export interface Option {
   rationale?: string;
   /** Arabic translation of rationale. */
   rationaleAr?: string;
+  /**
+   * Type-specific data, server side only. matching: the paired item (match, matchAr);
+   * numeric: tolerance; hotspot: cell [row, col] in the first table exhibit.
+   */
+  meta?: { match?: string; matchAr?: string; tolerance?: number; cell?: [number, number] } | null;
 }
 
 /** A chart, diagram or table the candidate needs to answer. */

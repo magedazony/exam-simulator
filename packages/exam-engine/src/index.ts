@@ -7,6 +7,7 @@ export { validateExam } from './validator.ts';
 export { scoreAttempt, scoreQuestion, registerScorer } from './scoring.ts';
 export type { AttemptResult, QuestionScore, Scorer, Tally } from './scoring.ts';
 export { toCandidateExhibits, toCandidateQuestion } from './sanitize.ts';
+export { ALL_TYPES, NEW_TYPES, answerProblem, correctAnswer, isCorrectAnswer, parseNumber, selectCount } from './answers.ts';
 export type { CandidateQuestion } from './sanitize.ts';
 export {
   DEFAULT_SESSION_OPTIONS,

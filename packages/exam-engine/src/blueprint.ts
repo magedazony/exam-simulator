@@ -1,3 +1,4 @@
+import { parseNumber } from './answers.ts';
 import type { Blueprint, MixRule, Question } from './types.ts';
 
 /** Checks that a blueprint is internally consistent before it can be activated. */
@@ -93,11 +94,15 @@ export function matchesRule(q: Question, rule: MixRule): boolean {
  * questions are never selected for an exam.
  */
 export function isScorable(q: Question): boolean {
-  if (q.options.length < 2) return false;
   const ids = new Set(q.options.map((o) => o.id));
   if (ids.size !== q.options.length) return false;
   const correct = q.options.filter((o) => o.isCorrect).length;
+  if (q.type === 'numeric') return q.options.length === 1 && correct === 1 && parseNumber(q.options[0]!.text) !== null;
+  if (q.options.length < 2) return false;
   if (q.type === 'single') return correct === 1;
   if (q.type === 'multiple') return correct >= 2 && correct < q.options.length;
+  if (q.type === 'hotspot') return correct === 1 && q.options.every((o) => Array.isArray(o.meta?.cell));
+  if (q.type === 'matching') return q.options.length <= 6 && q.options.every((o) => (o.meta?.match ?? '').trim() !== '');
+  if (q.type === 'ordering') return q.options.length <= 6;
   return false;
 }

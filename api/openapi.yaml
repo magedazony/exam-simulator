@@ -1620,6 +1620,11 @@ components:
       properties:
         id: { type: string }
         text: { type: string }
+        textAr: { type: string }
+        cell:
+          type: array
+          description: Hotspot questions only. Row and column of the table cell this choice marks.
+          items: { type: integer }
     CandidateQuestion:
       type: object
       additionalProperties: false
@@ -1641,9 +1646,14 @@ components:
           type: [string, 'null']
           description: Shown in practice mode only; null in a mock exam.
         selectCount: { type: integer, minimum: 1 }
+        stemAr: { type: string }
         options:
           type: array
-          minItems: 2
+          description: Empty for numeric (fill-in-the-blank) questions.
+          items: { $ref: '#/components/schemas/CandidateOption' }
+        targets:
+          type: array
+          description: Matching questions only. The right-hand items, in a random order.
           items: { $ref: '#/components/schemas/CandidateOption' }
     CaseStudyView:
       type: object
@@ -1803,6 +1813,10 @@ components:
       properties:
         correct: { type: boolean }
         correctOptionIds: { type: array, items: { type: string } }
+        correctAnswer:
+          type: array
+          items: { type: string }
+          description: The correct answer written like selectedOptionIds (ordering in order, matching as L<n>:<id>, numeric as the number).
         explanation: { $ref: '#/components/schemas/Explanation' }
         reportToken:
           type: string

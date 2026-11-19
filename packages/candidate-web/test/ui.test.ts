@@ -173,6 +173,51 @@ describe('candidate app in a browser', { skip: configured ? false : 'PGDATABASE 
     await page.click('nav a[href="#home"]');
   });
 
+  it('shows and answers ordering, matching, fill-in-the-blank and hotspot questions', async () => {
+    const run = (q: unknown, selected: string[], reveal = false, fb: unknown = null) => page.evaluate(([q, selected, reveal, fb]: any) => {
+      let got: string[] = [];
+      const box = document.createElement('div'); box.id = 'qtest'; document.body.appendChild(box);
+      box.innerHTML = (window as any).questionHtml(q, selected, reveal, fb);
+      (window as any).bindOptions(q, selected, (s: string[]) => { got = s; });
+      return { html: box.innerHTML, get: () => got } && { html: box.innerHTML };
+    }, [q, selected, reveal, fb]);
+    const cleanup = () => page.evaluate(() => document.getElementById('qtest')?.remove());
+    const base = { stem: 'A test question stem for the new types.', exhibits: [], graphic: false };
+
+    const ord = { ...base, type: 'ordering', selectCount: 3, options: [{ id: 'b', text: 'Second' }, { id: 'a', text: 'First' }, { id: 'c', text: 'Third' }] };
+    await run(ord, []);
+    await page.click('#qtest li[data-oid="a"] [data-move="-1"]');
+    assert.deepEqual(await page.evaluate(() => (window as any).shownOrder()), ['a', 'b', 'c']);
+    await cleanup();
+    const shown = await run(ord, ['b', 'a', 'c'], true, { correct: false, correctAnswer: ['a', 'b', 'c'], explanation: { options: [] } });
+    assert.match(shown.html, /First[\s\S]*Second[\s\S]*Third/);
+    await cleanup();
+
+    const match = { ...base, type: 'matching', selectCount: 2, options: [{ id: 'L1', text: 'Review' }, { id: 'L2', text: 'Retro' }], targets: [{ id: 'x2', text: 'Improve the process' }, { id: 'x1', text: 'Inspect the increment' }] };
+    await run(match, []);
+    await page.selectOption('#qtest select[data-left="L1"]', 'x1');
+    assert.equal(await page.$eval('#qtest select[data-left="L1"]', (el: any) => el.value), 'x1');
+    await cleanup();
+    const mr = await run(match, ['L1:x1', 'L2:x1'], true, { correct: false, correctAnswer: ['L1:x1', 'L2:x2'], explanation: { options: [] } });
+    assert.match(mr.html, /is-right[\s\S]*is-wrong/);
+    await cleanup();
+
+    const num = { ...base, type: 'numeric', selectCount: 1, options: [] };
+    await run(num, []);
+    assert.ok(await page.$('#qtest #numans'));
+    await cleanup();
+    const nr = await run(num, ['1200000'], true, { correct: false, correctAnswer: ['1250000'], explanation: { options: [] } });
+    assert.match(nr.html, /1250000/);
+    await cleanup();
+
+    const hot = { ...base, type: 'hotspot', selectCount: 1, exhibits: [{ kind: 'table', altText: 'Board', table: { header: ['Doing', 'Testing'], rows: [['3', '4']] } }],
+      options: [{ id: 'd', text: 'Doing', cell: [0, 0] }, { id: 't', text: 'Testing', cell: [0, 1] }] };
+    await run(hot, []);
+    await page.click('#qtest td.hot button[data-opt="t"]');
+    assert.equal(await page.$eval('#qtest button[data-opt="t"]', (el: Element) => el.getAttribute('aria-checked')), 'true');
+    await cleanup();
+  });
+
   it('on the free plan shows the daily allowance and locks mock exams until an access code is redeemed', async () => {
     await page.click('nav a[href="#practice"]');
     await page.waitForSelector('#allowance');

@@ -16,6 +16,17 @@ export const AR_MESSAGES: Record<string, string> = {
   'No questions available for this mode yet. Try standard practice first.': 'لا توجد أسئلة متاحة لهذا الوضع بعد. جرّب التدريب العادي أولاً.',
   'Certificate not found or already revoked': 'الشهادة غير موجودة أو ملغاة بالفعل',
   'Certificate not found or not revoked': 'الشهادة غير موجودة أو غير ملغاة',
+  // question types
+  'a fill-in-the-blank question has exactly one answer': 'سؤال ملء الفراغ له إجابة واحدة فقط',
+  'needs the item it matches, up to 500 characters': 'يحتاج العنصر المطابق له، حتى 500 حرف',
+  'must be the row and column of a table cell, like 2,1': 'يجب أن يكون رقم الصف والعمود لخلية في الجدول، مثل 2,1',
+  'is outside the table': 'خارج حدود الجدول',
+  'must be the correct number, like 1250000 or 0.85': 'يجب أن يكون الرقم الصحيح، مثل 1250000 أو 0.85',
+  'a hotspot question needs exactly one correct cell': 'سؤال الـ hotspot يحتاج خلية صحيحة واحدة فقط',
+  'a hotspot question needs a table to click on': 'سؤال الـ hotspot يحتاج جدولًا يتم النقر عليه',
+  'each item must match a different answer': 'يجب أن يطابق كل عنصر إجابة مختلفة',
+  'must have 1 to 12 headings and 1 to 30 rows with one cell per heading': 'يجب أن يحتوي على 1 إلى 12 عنوانًا و1 إلى 30 صفًا بخلية لكل عنوان',
+  'must be a number of zero or more': 'يجب أن يكون رقمًا يساوي صفرًا أو أكثر',
   // exam tips (admin)
   'must be a list of sections': 'يجب أن تكون قائمة أقسام',
   'at most 30 sections': '30 قسماً على الأكثر',

@@ -275,3 +275,51 @@ describe('answer-key protection (acceptance A5)', () => {
     }
   });
 });
+
+describe('new question types', async () => {
+  const { answerProblem, isCorrectAnswer, scoreQuestion, toCandidateQuestion, isScorable } = await import('../src/index.ts');
+  const base = { id: 'q', versionId: 'v', status: 'published' as const, domainId: 'PEOPLE', taskId: 'PEOPLE-1', approach: 'agile' as const, difficulty: 'medium' as const, stem: 's' };
+  const opt = (id: string, extra: Record<string, unknown> = {}) => ({ id, text: id.toUpperCase(), isCorrect: false, ...extra });
+
+  it('ordering: right only in the listed order, and never shown in that order', () => {
+    const q = { ...base, type: 'ordering', options: [opt('a'), opt('b'), opt('c')] };
+    assert.ok(isScorable(q));
+    assert.equal(scoreQuestion(q, ['a', 'b', 'c']).correct, true);
+    assert.equal(scoreQuestion(q, ['b', 'a', 'c']).correct, false);
+    assert.equal(answerProblem(q, ['a', 'x']), 'invalid_option');
+    for (let i = 0; i < 20; i++) assert.notDeepEqual(toCandidateQuestion(q).options.map((o) => o.id), ['a', 'b', 'c']);
+    assert.equal(toCandidateQuestion(q).selectCount, 3);
+  });
+
+  it('matching: pairs left items with right-hand items without revealing the pairs', () => {
+    const q = { ...base, type: 'matching', options: [opt('a', { meta: { match: 'one', matchAr: 'واحد' } }), opt('b', { meta: { match: 'two' } })] };
+    assert.ok(isScorable(q));
+    const view = toCandidateQuestion(q);
+    assert.deepEqual(view.options.map((o) => o.id), ['L1', 'L2']);
+    assert.deepEqual(view.targets!.map((t) => t.text).sort(), ['one', 'two']);
+    assert.equal(scoreQuestion(q, ['L1:a', 'L2:b']).correct, true);
+    assert.equal(scoreQuestion(q, ['L1:b', 'L2:a']).correct, false);
+    assert.equal(scoreQuestion(q, ['L1:a']).correct, false);
+    assert.equal(answerProblem(q, ['L1:a', 'L1:b']), 'invalid_option');
+    assert.equal(answerProblem(q, ['L3:a']), 'invalid_option');
+  });
+
+  it('numeric: accepts the number within the tolerance, including Arabic digits', () => {
+    const q = { ...base, type: 'numeric', options: [{ id: 'n', text: '1250000', isCorrect: true, meta: { tolerance: 1 } }] };
+    assert.ok(isScorable(q));
+    assert.equal(toCandidateQuestion(q).options.length, 0);
+    assert.equal(isCorrectAnswer(q, ['1,250,000']), true);
+    assert.equal(isCorrectAnswer(q, ['1250001']), true);
+    assert.equal(isCorrectAnswer(q, ['١٢٥٠٠٠٠']), true);
+    assert.equal(isCorrectAnswer(q, ['1250002']), false);
+    assert.equal(answerProblem(q, ['abc']), 'invalid_option');
+  });
+
+  it('hotspot: one cell is right, and each choice says which cell it marks', () => {
+    const q = { ...base, type: 'hotspot', options: [opt('a', { isCorrect: true, meta: { cell: [0, 1] } }), opt('b', { meta: { cell: [1, 1] } })] };
+    assert.ok(isScorable(q));
+    assert.deepEqual(toCandidateQuestion(q).options.map((o) => o.cell), [[0, 1], [1, 1]]);
+    assert.equal(scoreQuestion(q, ['a']).correct, true);
+    assert.equal(answerProblem(q, ['a', 'b']), 'too_many_selections');
+  });
+});

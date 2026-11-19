@@ -1,4 +1,5 @@
 import type { ExhibitRef, Question } from './types.ts';
+import { selectCount } from './answers.ts';
 
 /**
  * What a candidate may receive for a question before it is answered
@@ -27,7 +28,24 @@ export interface CandidateQuestion {
   >;
   /** How many options to select; shown in the instruction, as on the real exam. */
   selectCount: number;
-  options: Array<{ id: string; text: string; textAr?: string }>;
+  /**
+   * single/multiple/hotspot: the choices. ordering: the items, scrambled. matching: the left
+   * items, with ids L1..Ln. numeric: empty. hotspot options carry the table cell they mark.
+   */
+  options: Array<{ id: string; text: string; textAr?: string; cell?: [number, number] }>;
+  /** matching only: the right-hand items, scrambled; their ids are what the answer pairs with. */
+  targets?: Array<{ id: string; text: string; textAr?: string }>;
+}
+
+/** A random order that is never the original one (when there is more than one item). */
+function scramble<T>(items: readonly T[]): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  if (out.length > 1 && out.every((x, i) => x === items[i])) out.push(out.shift()!);
+  return out;
 }
 
 export function toCandidateQuestion(q: Question): CandidateQuestion {
@@ -37,13 +55,33 @@ export function toCandidateQuestion(q: Question): CandidateQuestion {
     graphic: q.graphic === true,
     caseSetId: q.caseSetId ?? null,
     exhibits: toCandidateExhibits(q.exhibits ?? []),
-    selectCount: q.options.filter((o) => o.isCorrect).length,
-    options: q.options.map((o) => {
-      const opt: { id: string; text: string; textAr?: string } = { id: o.id, text: o.text };
-      if (o.textAr) opt.textAr = o.textAr;
-      return opt;
-    }),
+    selectCount: selectCount(q),
+    options: [],
   };
+  const plain = (o: Question['options'][number], id = o.id) => {
+    const opt: { id: string; text: string; textAr?: string; cell?: [number, number] } = { id, text: o.text };
+    if (o.textAr) opt.textAr = o.textAr;
+    return opt;
+  };
+  if (q.type === 'numeric') {
+    out.options = [];
+  } else if (q.type === 'ordering') {
+    out.options = scramble(q.options).map((o) => plain(o));
+  } else if (q.type === 'matching') {
+    out.options = q.options.map((o, i) => plain(o, `L${i + 1}`));
+    out.targets = scramble(q.options).map((o) => {
+      const t: { id: string; text: string; textAr?: string } = { id: o.id, text: o.meta?.match ?? '' };
+      if (o.meta?.matchAr) t.textAr = o.meta.matchAr;
+      return t;
+    });
+  } else {
+    out.options = q.options.map((o) => {
+      const opt = plain(o);
+      const cell = o.meta?.cell;
+      if (q.type === 'hotspot' && Array.isArray(cell) && cell.length === 2) opt.cell = [Number(cell[0]), Number(cell[1])];
+      return opt;
+    });
+  }
   if (q.stemAr) out.stemAr = q.stemAr;
   return out;
 }

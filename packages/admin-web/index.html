@@ -89,6 +89,9 @@ tr.click:hover td { background: var(--primary-soft); }
 .exhibit table { font-size: 13px; }
 .exhibit .alt { font-size: 12.5px; color: var(--muted); }
 .secret { font-family: var(--mono); word-break: break-all; background: var(--bg); padding: 8px; border-radius: 6px; }
+#form .t-matching, #form .t-hotspot, #form .t-numeric { display: none; }
+#form[data-type="matching"] .t-matching, #form[data-type="hotspot"] .t-hotspot, #form[data-type="numeric"] .t-numeric { display: flex; gap: 6px; }
+#form[data-type="matching"] .o-key, #form[data-type="ordering"] .o-key, #form[data-type="numeric"] .o-key { display: none; }
 </style>
 </head>
 <body>
@@ -110,7 +113,7 @@ const AR = {
   "Domain": "المجال", "Answers": "الإجابات", "Correct": "صحيحة", "No question has enough answers yet.": "لا يوجد سؤال لديه إجابات كافية بعد.",
   "A certificate records that a candidate finished a full mock exam, with the score. It does not say pass or fail.": "الشهادة تثبت أن المتدرب أكمل اختباراً تجريبياً كاملاً ونتيجته، ولا تقول ناجح أو راسب.",
   // certificates and import
-  "Arabic columns (optional):": "أعمدة العربية (اختيارية):", "Arabic translation (optional)": "الترجمة العربية (اختياري)", "Bulk review": "مراجعة جماعية", "With the box above: also apply the answer key, the option rationales and the English explanation from the file": "مع المربع اللي فوق: طبّق كمان الإجابة الصح وشرح الاختيارات والشرح الإنجليزي من الملف", "Only add translations and explanations to existing questions (keeps task, approach, answer key and case study; applies to every copy of the same question)": "أضف الترجمة والشرح فقط للأسئلة الموجودة (بيحافظ على المهمة والنهج والإجابة الصح ودراسة الحالة، وبيتطبق على كل نسخ نفس السؤال)", "Download the whole bank as Excel": "نزّل بنك الأسئلة كله إكسيل", "Every question with its English and Arabic text, options, answer key and explanations, plus a list of what is missing. Complete it and import it back with the box below ticked.": "كل الأسئلة بالإنجليزي والعربي والاختيارات والإجابة الصح والشرح، ومعاها عمود باللي ناقص. كمّله واستورده تاني والمربع اللي تحت متعلّم.", "Publish right away (I reviewed these questions and they are original, not copied from any exam, course or book)": "انشر على طول (راجعت الأسئلة دي وهي أصلية، مش منقولة من امتحان أو كورس أو كتاب)", ", {p} published": "، اتنشر {p}", "{n} could not be published (missing answer key or explanation): {codes}": "{n} ماتنشرش (ناقص الإجابة الصح أو الشرح): {codes}", "{n} questions exported.": "تم تصدير {n} سؤال.", "Update questions that already exist (adds Arabic translations and explanations; drafts are edited, published questions get a new version)": "حدّث الأسئلة الموجودة بالفعل (بيضيف الترجمة العربي والشرح؛ المسودات بتتعدل، والمنشور بياخد نسخة جديدة)", ", {u} existing questions to update": "، {u} سؤال موجود هيتحدّث", ", {u} existing questions updated": "، تم تحديث {u} سؤال موجود", "No explanation": "مفيش شرح", "Answer key is not set": "الإجابة الصحيحة مش محددة", "Open and edit": "فتح وتعديل", "All questions that are not published yet, on one page. Read them, tick the ones you approve, then approve and publish them in one step. The correct answer is highlighted.": "كل الأسئلة اللي لسه متنشرتش في صفحة واحدة. اقراها، علّم على اللي موافق عليه، واعتمدها وانشرها مرة واحدة. الإجابة الصحيحة متعلّم عليها.", "{n} questions waiting · {m} ready to publish": "{n} سؤال مستني · {m} جاهز للنشر", "Select all that are ready": "اختار كل الجاهز", "I reviewed the selected questions (wording, answer key, translation) and they are original, not copied from any exam, course or book": "راجعت الأسئلة المختارة (الصياغة والإجابة والترجمة) وهي أصلية ومش منقولة من امتحان أو كورس أو كتاب", "Approve and publish selected": "اعتماد ونشر المختار", "Nothing waiting for review.": "مفيش أسئلة مستنية مراجعة.", "{n} selected": "{n} مختار", "Select at least one question.": "اختار سؤال واحد على الأقل.", "Tick the confirmation first.": "علّم على التأكيد الأول.", "Working…": "جاري التنفيذ…", "{n} questions published.": "تم نشر {n} سؤال.", "Not published: {list}": "متنشرش: {list}", "Arabic translation of the stem (optional)": "الترجمة العربية لنص السؤال (اختياري)", "Arabic translation of the explanation (optional)": "الترجمة العربية للشرح (اختياري)", "Certificates": "الشهادات", "Token": "الرمز", "User": "المستخدم", "Score": "النتيجة", "Issued": "تاريخ الإصدار", "Revoked": "ملغاة",
+  "Arabic columns (optional):": "أعمدة العربية (اختيارية):", "Arabic translation (optional)": "الترجمة العربية (اختياري)", "Bulk review": "مراجعة جماعية", "Matches with": "يطابق", "Matches with (Arabic)": "يطابق (بالعربي)", "Table cell: row,column (from 0)": "خلية الجدول: الصف,العمود (من 0)", "Matching": "مطابقة", "Drag and drop into order": "سحب وترتيب", "Fill in the blank (number)": "ملء الفراغ (رقم)", "Hotspot (click a table cell)": "Hotspot (النقر على خلية)", "Accepted difference (tolerance)": "الفرق المقبول", "Tick the one correct option.": "علّم على الاختيار الصحيح الوحيد.", "Tick every correct option.": "علّم على كل الاختيارات الصحيحة.", "Write each left item in the option box and what it matches in \"Matches with\". Candidates see the right-hand items mixed up.": "اكتب كل عنصر في خانة الاختيار وما يطابقه في خانة \"يطابق\". الطالب يرى العناصر المطابقة بترتيب عشوائي.", "List the options in the correct order. Candidates see them mixed up and put them back in order.": "اكتب الاختيارات بالترتيب الصحيح. الطالب يراها بترتيب عشوائي ويعيد ترتيبها.", "Write the correct number in option A, and the accepted difference below if any.": "اكتب الرقم الصحيح في الاختيار A، والفرق المقبول تحت إن وجد.", "Add a table exhibit. Each option is a clickable cell: give its row and column (counting from 0). Tick the correct cell.": "أضف جدولًا كـ exhibit. كل اختيار خلية قابلة للنقر: اكتب رقم الصف والعمود (من 0). علّم على الخلية الصحيحة.", "With the box above: also apply the answer key, the option rationales and the English explanation from the file": "مع المربع اللي فوق: طبّق كمان الإجابة الصح وشرح الاختيارات والشرح الإنجليزي من الملف", "Only add translations and explanations to existing questions (keeps task, approach, answer key and case study; applies to every copy of the same question)": "أضف الترجمة والشرح فقط للأسئلة الموجودة (بيحافظ على المهمة والنهج والإجابة الصح ودراسة الحالة، وبيتطبق على كل نسخ نفس السؤال)", "Download the whole bank as Excel": "نزّل بنك الأسئلة كله إكسيل", "Every question with its English and Arabic text, options, answer key and explanations, plus a list of what is missing. Complete it and import it back with the box below ticked.": "كل الأسئلة بالإنجليزي والعربي والاختيارات والإجابة الصح والشرح، ومعاها عمود باللي ناقص. كمّله واستورده تاني والمربع اللي تحت متعلّم.", "Publish right away (I reviewed these questions and they are original, not copied from any exam, course or book)": "انشر على طول (راجعت الأسئلة دي وهي أصلية، مش منقولة من امتحان أو كورس أو كتاب)", ", {p} published": "، اتنشر {p}", "{n} could not be published (missing answer key or explanation): {codes}": "{n} ماتنشرش (ناقص الإجابة الصح أو الشرح): {codes}", "{n} questions exported.": "تم تصدير {n} سؤال.", "Update questions that already exist (adds Arabic translations and explanations; drafts are edited, published questions get a new version)": "حدّث الأسئلة الموجودة بالفعل (بيضيف الترجمة العربي والشرح؛ المسودات بتتعدل، والمنشور بياخد نسخة جديدة)", ", {u} existing questions to update": "، {u} سؤال موجود هيتحدّث", ", {u} existing questions updated": "، تم تحديث {u} سؤال موجود", "No explanation": "مفيش شرح", "Answer key is not set": "الإجابة الصحيحة مش محددة", "Open and edit": "فتح وتعديل", "All questions that are not published yet, on one page. Read them, tick the ones you approve, then approve and publish them in one step. The correct answer is highlighted.": "كل الأسئلة اللي لسه متنشرتش في صفحة واحدة. اقراها، علّم على اللي موافق عليه، واعتمدها وانشرها مرة واحدة. الإجابة الصحيحة متعلّم عليها.", "{n} questions waiting · {m} ready to publish": "{n} سؤال مستني · {m} جاهز للنشر", "Select all that are ready": "اختار كل الجاهز", "I reviewed the selected questions (wording, answer key, translation) and they are original, not copied from any exam, course or book": "راجعت الأسئلة المختارة (الصياغة والإجابة والترجمة) وهي أصلية ومش منقولة من امتحان أو كورس أو كتاب", "Approve and publish selected": "اعتماد ونشر المختار", "Nothing waiting for review.": "مفيش أسئلة مستنية مراجعة.", "{n} selected": "{n} مختار", "Select at least one question.": "اختار سؤال واحد على الأقل.", "Tick the confirmation first.": "علّم على التأكيد الأول.", "Working…": "جاري التنفيذ…", "{n} questions published.": "تم نشر {n} سؤال.", "Not published: {list}": "متنشرش: {list}", "Arabic translation of the stem (optional)": "الترجمة العربية لنص السؤال (اختياري)", "Arabic translation of the explanation (optional)": "الترجمة العربية للشرح (اختياري)", "Certificates": "الشهادات", "Token": "الرمز", "User": "المستخدم", "Score": "النتيجة", "Issued": "تاريخ الإصدار", "Revoked": "ملغاة",
   "Yes": "نعم", "No": "لا", "Un-revoke": "إلغاء الإلغاء", "Revoke": "إلغاء الشهادة", "← Previous": "→ السابق", "Next →": "التالي ←",
   "Reason for revocation (optional):": "سبب الإلغاء (اختياري):", "Certificate revoked.": "تم إلغاء الشهادة.", "Revocation removed.": "تم التراجع عن الإلغاء.",
   // exam tips
@@ -420,7 +423,9 @@ async function questionView(versionId) {
   const sel = (id, label, values, cur, keep) => `<label>${t(label)}<select id="${id}"${dis}>${values.map((v) => `<option value="${v[0]}"${v[0] === cur ? " selected" : ""}>${esc(keep ? v[1] : t(v[1]))}</option>`).join("")}</select></label>`;
   const tasks = S.blueprint.domains.flatMap((d) => d.tasks.map((t) => [t.code, t.code + " " + t.name]));
   const optsHtml = (opts) => opts.map((o, i) => `<div class="opt-row" data-i="${i}"><span class="letter">${"ABCDEF"[i]}</span>
-      <div class="row" style="flex-direction:column;align-items:stretch"><textarea dir="auto" class="o-text" aria-label="${t("Option {l}", { l: "ABCDEF"[i] })}"${dis}>${esc(o.text)}</textarea><textarea dir="rtl" class="o-text-ar" rows="2" placeholder="${t("Arabic translation (optional)")}" aria-label="${t("Option {l}", { l: "ABCDEF"[i] })} (AR)"${dis}>${esc(o.textAr || "")}</textarea><input dir="auto" class="o-why" placeholder="${t("Why this option is right or wrong")}" value="${esc(o.rationale)}"${dis}></div>
+      <div class="row" style="flex-direction:column;align-items:stretch"><textarea dir="auto" class="o-text" aria-label="${t("Option {l}", { l: "ABCDEF"[i] })}"${dis}>${esc(o.text)}</textarea><textarea dir="rtl" class="o-text-ar" rows="2" placeholder="${t("Arabic translation (optional)")}" aria-label="${t("Option {l}", { l: "ABCDEF"[i] })} (AR)"${dis}>${esc(o.textAr || "")}</textarea><input dir="auto" class="o-why" placeholder="${t("Why this option is right or wrong")}" value="${esc(o.rationale)}"${dis}><input dir="rtl" class="o-why-ar" placeholder="${t("Arabic translation (optional)")}" value="${esc(o.rationaleAr || "")}"${dis}>
+        <span class="t-matching"><input dir="auto" class="o-match" placeholder="${t("Matches with")}" value="${esc((o.meta && o.meta.match) || "")}"${dis}><input dir="rtl" class="o-match-ar" placeholder="${t("Matches with (Arabic)")}" value="${esc((o.meta && o.meta.matchAr) || "")}"${dis}></span>
+        <span class="t-hotspot"><input class="o-cell" placeholder="${t("Table cell: row,column (from 0)")}" value="${esc(o.meta && o.meta.cell ? o.meta.cell.join(",") : "")}"${dis}></span></div>
       <label class="inline"><input type="checkbox" class="o-key"${o.isCorrect ? " checked" : ""}${dis}> ${t("Correct")}</label></div>`).join("");
 
   let actions = "";
@@ -440,12 +445,13 @@ async function questionView(versionId) {
   shell(title, `<div class="row">${versionId ? pill(s) : ""}${q.caseStudyId ? `<a href="#case/${esc(q.caseStudyId)}">${t("Case study")}${q.caseOrdinal ? t(", question {n}", { n: q.caseOrdinal }) : ""}</a>` : ""}${q.aiAssisted ? `<span class="pill">${t("AI-assisted")}</span>` : ""}</div>${review}
     <div class="grid2"><form class="panel" id="form">
       <div class="row">${sel("taskCode", "Task", tasks, q.taskCode, true)}</div>
-      <div class="row">${sel("approach", "Approach", [["predictive", "Predictive"], ["agile", "Agile"], ["hybrid", "Hybrid"]], q.approach)}${sel("difficulty", "Difficulty", [["easy", "Easy"], ["medium", "Medium"], ["hard", "Hard"]], q.difficulty)}${sel("type", "Type", [["single", "Single choice"], ["multiple", "Multiple response"]], q.type)}${sel("language", "Language", [["en", "English"], ["ar", "Arabic"]], q.language)}</div>
+      <div class="row">${sel("approach", "Approach", [["predictive", "Predictive"], ["agile", "Agile"], ["hybrid", "Hybrid"]], q.approach)}${sel("difficulty", "Difficulty", [["easy", "Easy"], ["medium", "Medium"], ["hard", "Hard"]], q.difficulty)}${sel("type", "Type", [["single", "Single choice"], ["multiple", "Multiple response"], ["matching", "Matching"], ["ordering", "Drag and drop into order"], ["numeric", "Fill in the blank (number)"], ["hotspot", "Hotspot (click a table cell)"]], q.type)}${sel("language", "Language", [["en", "English"], ["ar", "Arabic"]], q.language)}</div>
       <div class="row"><label class="inline"><input type="checkbox" id="graphic"${q.graphic ? " checked" : ""}${dis}> ${t("Needs an exhibit")}</label><label class="inline"><input type="checkbox" id="ai"${q.aiAssisted ? " checked" : ""}${dis}> ${t("Drafted with AI help")}</label></div>
       <label>${t("Stem")}<textarea dir="auto" id="stem" rows="5"${dis}>${esc(q.stem)}</textarea></label>
       <label>${t("Arabic translation of the stem (optional)")}<textarea dir="rtl" id="stemAr" rows="4"${dis}>${esc(q.stemAr || "")}</textarea></label>
       <h2>${t("Exhibits")}</h2><div id="exhibits"></div>
-      <h2>${t("Options")}</h2><div id="opts">${optsHtml(q.options)}</div>
+      <h2>${t("Options")}</h2><p class="muted" id="type-help"></p><div id="opts">${optsHtml(q.options)}</div>
+      <label class="t-numeric">${t("Accepted difference (tolerance)")}<input id="tolerance" inputmode="decimal" value="${esc(String((q.options[0] && q.options[0].meta && q.options[0].meta.tolerance) || 0))}"${dis}></label>
       ${editable ? `<div class="row"><button type="button" id="add-opt">${t("Add option")}</button><button type="button" id="del-opt">${t("Remove last option")}</button></div>` : ""}
       <h2>${t("Explanation")}</h2>
       <label>${t("Why the correct answer is correct")}<textarea dir="auto" id="why"${dis}>${esc(q.explanation.whyCorrect)}</textarea></label>
@@ -459,10 +465,11 @@ async function questionView(versionId) {
 
   const exhibits = (q.exhibits || []).slice();
   const collect = () => {
-    const opts = [...document.querySelectorAll(".opt-row")].map((r) => ({ text: $(".o-text", r).value, textAr: $(".o-text-ar", r).value, isCorrect: $(".o-key", r).checked, rationale: $(".o-why", r).value }));
+    const opts = [...document.querySelectorAll(".opt-row")].map((r) => ({ text: $(".o-text", r).value, textAr: $(".o-text-ar", r).value, isCorrect: $(".o-key", r).checked, rationale: $(".o-why", r).value, rationaleAr: $(".o-why-ar", r).value, match: $(".o-match", r).value, matchAr: $(".o-match-ar", r).value, cell: $(".o-cell", r).value }));
     const doc = { taskCode: $("#taskCode").value, approach: $("#approach").value, difficulty: $("#difficulty").value, type: $("#type").value, language: $("#language").value, graphic: $("#graphic").checked, aiAssisted: $("#ai").checked, stem: $("#stem").value, stemAr: $("#stemAr").value, options: opts,
       explanation: { whyCorrect: $("#why").value, mindset: $("#mindset").value || null, keyConcept: $("#concept").value || null, learningObjective: $("#objective").value || null } };
     if (!doc.explanation.whyCorrect.trim()) delete doc.explanation;
+    if (doc.type === "numeric") { doc.options = doc.options.slice(0, 1); doc.tolerance = $("#tolerance").value; }
     if ($("#whyAr").value.trim()) doc.explanationAr = { whyCorrect: $("#whyAr").value };
     if (q.caseStudyId && !versionId) doc.caseStudyId = q.caseStudyId;
     doc.exhibitIds = exhibits.map((e) => e.id);
@@ -474,6 +481,12 @@ async function questionView(versionId) {
     $("#preview").innerHTML = `<div dir="${d.language === "ar" ? "rtl" : "ltr"}" style="display:flex;flex-direction:column;gap:8px"><p class="stem">${esc(d.stem) || `<span class="muted">${t("The stem appears here.")}</span>`}</p>${exhibits.map((e) => exhibitHtml(e, 0, false)).join("")}${d.type === "multiple" ? `<p class="muted">${t("Choose {n}.", { n })}</p>` : ""}<ol type="A">${d.options.map((o) => `<li class="${o.isCorrect ? "key" : ""}">${esc(o.text)}${o.textAr ? `<div dir="rtl" class="muted">${esc(o.textAr)}</div>` : ""}</li>`).join("")}</ol>${d.stemAr ? `<p class="muted">${t("Arabic")}:</p><p class="stem" dir="rtl">${esc(d.stemAr)}</p>` : ""}</div><p class="muted">${t("Correct options are highlighted here only; candidates never see them before answering.")}</p>`;
   };
   mountExhibits($("#exhibits"), exhibits, 3, editable, preview);
+  // Show only the fields the chosen question type uses.
+  const HELP = { single: "Tick the one correct option.", multiple: "Tick every correct option.", matching: "Write each left item in the option box and what it matches in \"Matches with\". Candidates see the right-hand items mixed up.",
+    ordering: "List the options in the correct order. Candidates see them mixed up and put them back in order.", numeric: "Write the correct number in option A, and the accepted difference below if any.", hotspot: "Add a table exhibit. Each option is a clickable cell: give its row and column (counting from 0). Tick the correct cell." };
+  const applyType = () => { const ty = $("#type").value; $("#form").dataset.type = ty; $("#type-help").textContent = t(HELP[ty] || ""); };
+  applyType();
+  $("#type").addEventListener("change", applyType);
   preview();
   $("#form").oninput = preview;
   if (editable) {
@@ -552,13 +565,35 @@ function gridToDrafts(grid) {
   const idx = Object.fromEntries(head.map((h, i) => [h.trim().toLowerCase(), i]));
   const get = (r, k) => (idx[k] === undefined ? "" : (r[idx[k]] || "").trim());
   return body.map((r) => {
-    const correct = get(r, "correct").toUpperCase().split(/[;\s,]+/).filter(Boolean).flatMap((k) => (/^[A-F]{2,6}$/.test(k) ? k.split("") : [k]));
+    const type = get(r, "type").toLowerCase();
+    const rawCorrect = get(r, "correct");
+    const correct = rawCorrect.toUpperCase().split(/[;\s,]+/).filter(Boolean).flatMap((k) => (/^[A-F]{2,6}$/.test(k) ? k.split("") : [k]));
     const options = [];
-    for (const L of "ABCDEF") { const t = get(r, "option" + L.toLowerCase()); if (t) { const o = { text: t, isCorrect: correct.includes(L), rationale: get(r, "rationale" + L.toLowerCase()) }; const tar = get(r, "option" + L.toLowerCase() + "ar"); if (tar) o.textAr = tar; const rar = get(r, "rationale" + L.toLowerCase() + "ar"); if (rar) o.rationaleAr = rar; options.push(o); } }
-    const d = { taskCode: get(r, "taskcode"), approach: get(r, "approach").toLowerCase(), difficulty: get(r, "difficulty").toLowerCase(), type: get(r, "type").toLowerCase() || (correct.length > 1 ? "multiple" : "single"), stem: get(r, "stem"), options };
+    for (const L of "ABCDEF") {
+      const l = L.toLowerCase(), t = get(r, "option" + l);
+      if (!t) continue;
+      const o = { text: t, isCorrect: correct.includes(L), rationale: get(r, "rationale" + l) };
+      if (get(r, "option" + l + "ar")) o.textAr = get(r, "option" + l + "ar");
+      if (get(r, "rationale" + l + "ar")) o.rationaleAr = get(r, "rationale" + l + "ar");
+      if (get(r, "match" + l)) o.match = get(r, "match" + l);
+      if (get(r, "match" + l + "ar")) o.matchAr = get(r, "match" + l + "ar");
+      if (get(r, "cell" + l)) o.cell = get(r, "cell" + l);
+      options.push(o);
+    }
+    // Fill-in-the-blank: the number goes in "correct" (or option A).
+    if (type === "numeric" && options.length === 0 && rawCorrect) options.push({ text: rawCorrect, isCorrect: true, rationale: "" });
+    const d = { taskCode: get(r, "taskcode"), approach: get(r, "approach").toLowerCase(), difficulty: get(r, "difficulty").toLowerCase(), type: type || (correct.length > 1 ? "multiple" : "single"), stem: get(r, "stem"), options };
     if (get(r, "stemar")) d.stemAr = get(r, "stemar");
     if (get(r, "language")) d.language = get(r, "language").toLowerCase();
     if (get(r, "aiassisted")) d.aiAssisted = /^(true|1|yes|y)$/i.test(get(r, "aiassisted"));
+    if (get(r, "graphic")) d.graphic = /^(true|1|yes|y)$/i.test(get(r, "graphic"));
+    if (get(r, "tolerance")) d.tolerance = get(r, "tolerance");
+    // A table shown with the question: headings "a | b | c", rows "x | y | z || x2 | y2 | z2".
+    if (get(r, "tableheader")) {
+      const cells = (line) => line.split("|").map((c) => c.trim());
+      d.table = { altText: get(r, "tablealt") || "Table for this question", header: cells(get(r, "tableheader")), rows: get(r, "tablerows").split("||").filter((x) => x.trim()).map(cells) };
+      d.graphic = true;
+    }
     if (get(r, "casekey")) d.caseKey = get(r, "casekey");
     if (get(r, "whycorrect")) d.explanation = { whyCorrect: get(r, "whycorrect"), mindset: get(r, "mindset") || null, keyConcept: get(r, "keyconcept") || null, learningObjective: get(r, "learningobjective") || null };
     if (get(r, "whycorrectar")) d.explanationAr = { whyCorrect: get(r, "whycorrectar"), mindset: get(r, "mindsetar") || null, keyConcept: get(r, "keyconceptar") || null, learningObjective: get(r, "learningobjectivear") || null };
@@ -964,7 +999,7 @@ async function bulkView() {
     const issues = [];
     if (!q.explanation || !q.explanation.whyCorrect) issues.push(t("No explanation"));
     const nKey = q.options.filter((o) => o.isCorrect).length;
-    if (q.type === "single" ? nKey !== 1 : nKey < 2) issues.push(t("Answer key is not set"));
+    if ((q.type === "single" || q.type === "hotspot") ? nKey !== 1 : q.type === "multiple" ? nKey < 2 : false) issues.push(t("Answer key is not set"));
     return `<article class="panel bq" data-id="${esc(q.id)}" data-ok="${issues.length ? 0 : 1}">
       <label class="inline"><input type="checkbox" class="bsel"${issues.length ? " disabled" : ""}> <strong>${esc(q.publicCode)}</strong> · ${esc(q.taskCode)} · ${esc(t(q.approach[0].toUpperCase() + q.approach.slice(1)))} · ${pill(q.workflowState)}${issues.length ? ` <span class="msg err" style="display:inline;padding:2px 8px">${esc(issues.join(" · "))}</span>` : ""}</label>
       <p class="stem" dir="auto">${esc(q.stem)}</p>${q.stemAr ? `<p class="stem muted" dir="rtl">${esc(q.stemAr)}</p>` : ""}

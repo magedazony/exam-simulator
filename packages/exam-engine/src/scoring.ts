@@ -1,4 +1,5 @@
 import type { Blueprint, ExamForm, Question } from './types.ts';
+import { isCorrectAnswer } from './answers.ts';
 
 export interface QuestionScore {
   answered: boolean;
@@ -41,6 +42,18 @@ registerScorer('single', (q, selected, partial) => {
   return exactSetScorer(q, selected, partial);
 });
 registerScorer('multiple', exactSetScorer);
+registerScorer('hotspot', (q, selected, partial) => {
+  if (new Set(selected).size > 1) return { answered: true, correct: false, points: 0 };
+  return exactSetScorer({ ...q, type: 'single' }, selected, partial);
+});
+// Ordering, matching and numeric answers are right only when complete and exact.
+for (const type of ['ordering', 'matching', 'numeric']) {
+  registerScorer(type, (q, selected) => {
+    if (selected.length === 0) return { answered: false, correct: false, points: 0 };
+    const correct = isCorrectAnswer(q, selected);
+    return { answered: true, correct, points: correct ? 1 : 0 };
+  });
+}
 
 export function scoreQuestion(q: Question, selected: readonly string[], partialCredit = false): QuestionScore {
   const scorer = scorers.get(q.type);

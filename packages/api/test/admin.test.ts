@@ -462,6 +462,33 @@ describe('staff tools', { skip: configured ? false : 'PGDATABASE is not set; see
     assert.equal(third.body.stemAr, 'سؤال مترجم بدون تغييرات أخرى');
   });
 
+  it('imports and publishes matching, ordering, fill-in-the-blank and hotspot questions', async () => {
+    const base = { taskCode: 'PEOPLE-2', approach: 'agile', difficulty: 'medium', explanation: { whyCorrect: 'Because.' }, explanationAr: { whyCorrect: 'لأن.' } };
+    const rows = [
+      { ...base, type: 'matching', stem: 'Match each Scrum event with its main purpose in the sprint cycle.',
+        options: [{ text: 'Sprint review', match: 'Inspect the increment with stakeholders', matchAr: 'فحص الزيادة' }, { text: 'Retrospective', match: 'Improve how the team works' }, { text: 'Daily scrum', match: 'Plan the next day of work' }] },
+      { ...base, type: 'ordering', stem: 'Put the steps of handling a change request in a predictive project in order.',
+        options: [{ text: 'Document the request' }, { text: 'Analyze the impact' }, { text: 'Decide at the change control board' }, { text: 'Update plans and communicate' }] },
+      { ...base, type: 'numeric', stem: 'BAC is 1,000,000 and CPI is 0.8. What is the EAC if performance continues?', tolerance: 0, options: [{ text: '1,250,000' }] },
+      { ...base, type: 'hotspot', stem: 'Click the Kanban column that is over its work-in-progress limit right now.', graphic: true,
+        table: { altText: 'Kanban board', header: ['To do', 'Doing (WIP 3)', 'Testing (WIP 2)', 'Done'], rows: [['A', 'B', 'E', 'H'], ['C', 'D', 'F', ''], ['', '', 'G', '']] },
+        options: [{ text: 'Doing', cell: '0,1', isCorrect: false }, { text: 'Testing', cell: '0,2', isCorrect: true }] },
+    ];
+    const r = await call('POST', '/admin/imports', tk('admin'), { rows, commit: true, publishNow: true, reviewedConfirmed: true, originalityDeclared: true });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.summary.published, 4, JSON.stringify(r.body));
+    const types = store.query(`SELECT string_agg(type_code, ',' ORDER BY type_code) FROM question_versions WHERE workflow_state = 'published' AND stem IN (${rows.map((x) => `'${x.stem.replace(/'/g, "''")}'`).join(',')});`);
+    assert.equal(types, 'hotspot,matching,numeric,ordering');
+    const num = await call('GET', `/admin/question-versions/${r.body.committed[2].versionId}`, tk('admin'));
+    assert.equal(num.body.options[0].text, '1250000');
+    const hot = await call('GET', `/admin/question-versions/${r.body.committed[3].versionId}`, tk('admin'));
+    assert.equal(hot.body.exhibits.length, 1);
+    assert.deepEqual(hot.body.options[1].meta.cell, [0, 2]);
+
+    const bad = await call('POST', '/admin/imports', tk('admin'), { rows: [{ ...rows[3], stem: 'A hotspot question without any table to click on at all.', table: undefined }, { ...rows[0], stem: 'A matching question with a missing pair for one of its items.', options: [{ text: 'x', match: 'y' }, { text: 'z' }] }] });
+    assert.deepEqual(bad.body.rows.map((x: Json) => x.status), ['invalid', 'invalid']);
+  });
+
   it('turns an Excel file into rows for import, and explains files it cannot read', async () => {
     const { readFileSync } = await import('node:fs');
     const xlsx = readFileSync(new URL('./fixtures/questions.xlsx', import.meta.url)).toString('base64');
