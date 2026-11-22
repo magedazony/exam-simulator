@@ -241,6 +241,78 @@ describe('full journey on a new database with the real question bank', { skip: c
     assert.equal((await call('GET', '/me/access', stu.accessToken)).body.entitled, true);
   });
 
+  it('runs the recorded course: admin builds it, free and paid lessons, progress, certificate, products', async () => {
+    const t = stu.accessToken;
+    // The simulator pass from the access code does not include the course.
+    assert.equal((await call('GET', '/me/access', t)).body.course, false);
+    const plans = await call('GET', '/plans?region=EG', t);
+    assert.deepEqual(plans.body.items.filter((p: Json) => p.code === 'bundle90')[0].includes, ['simulator', 'course']);
+    // Admin builds a module with three lessons.
+    const m = await call('POST', '/admin/course/modules', admin, { title: 'Module 1: People', titleAr: 'الوحدة 1: الأفراد', ordinal: 1, status: 'published' }); ok(m, 201, 'module');
+    const bad = await call('POST', '/admin/course/lessons', admin, { moduleId: m.body.id, title: 'Bad', videoProvider: 'youtube', videoRef: 'not a link', durationSeconds: 5 });
+    assert.equal(bad.status, 422);
+    const free = await call('POST', '/admin/course/lessons', admin, { moduleId: m.body.id, title: 'Welcome', titleAr: 'مقدمة', videoProvider: 'youtube', videoRef: 'https://youtu.be/dQw4w9WgXcQ?t=3', durationSeconds: 120, isFree: true, ordinal: 1, status: 'published', taskCodes: ['PEOPLE-1'] }); ok(free, 201, 'free lesson');
+    const paid = await call('POST', '/admin/course/lessons', admin, { moduleId: m.body.id, title: 'Conflict', videoProvider: 'url', videoRef: 'https://cdn.example.test/v/conflict.mp4', durationSeconds: 600, ordinal: 2, status: 'published', taskCodes: ['PEOPLE-2'] }); ok(paid, 201, 'paid lesson');
+    const read = await call('POST', '/admin/course/lessons', admin, { moduleId: m.body.id, title: 'Reading', videoProvider: 'none', ordinal: 3, status: 'published' }); ok(read, 201, 'reading lesson');
+    const pdf = Buffer.from('%PDF-1.4\n%journey\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF');
+    assert.equal((await call('PUT', `/admin/course/lessons/${paid.body.id}/slides`, admin, { filename: 'x.pdf', dataBase64: Buffer.from('not a pdf').toString('base64') })).status, 422);
+    ok(await call('PUT', `/admin/course/lessons/${paid.body.id}/slides`, admin, { filename: 'conflict.pdf', dataBase64: pdf.toString('base64') }), 204, 'slides');
+    const ac = await call('GET', '/admin/course', admin); ok(ac);
+    assert.equal(ac.body.modules[0].lessons.length, 3);
+    assert.equal(ac.body.modules[0].lessons[0].videoRef, 'dQw4w9WgXcQ');
+    assert.equal(ac.body.modules[0].lessons[1].slides.filename, 'conflict.pdf');
+    // The learner without the course: outline with locks; free lesson plays; paid lesson refused.
+    const o = await call('GET', '/course', t); ok(o);
+    assert.equal(o.body.access, false);
+    assert.deepEqual(o.body.modules[0].lessons.map((l: Json) => l.locked), [false, true, true]);
+    const fl = await call('GET', `/course/lessons/${free.body.id}`, t); ok(fl);
+    assert.equal(fl.body.playback.kind, 'youtube');
+    assert.match(fl.body.playback.embedUrl, /^https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ\?/);
+    assert.equal(fl.body.next.id, paid.body.id);
+    assert.equal((await call('GET', `/course/lessons/${paid.body.id}`, t)).status, 402);
+    assert.equal((await fetch(`${base}/api/v1/course/lessons/${paid.body.id}/slides`, { headers: { authorization: `Bearer ${t}` } })).status, 402);
+    // Watched time counts only what the clock allows: a burst of saves cannot finish a lesson.
+    const p1 = await call('PUT', `/course/lessons/${free.body.id}/progress`, t, { positionSeconds: 100, addSeconds: 100 }); ok(p1);
+    assert.ok(p1.body.watchedSeconds <= 10, 'cannot claim more than the elapsed time');
+    sql(`UPDATE lesson_progress SET updated_at = now() - interval '2 minutes' WHERE lesson_id = '${free.body.id}'`);
+    const p2 = await call('PUT', `/course/lessons/${free.body.id}/progress`, t, { positionSeconds: 118, addSeconds: 110 }); ok(p2);
+    assert.equal(p2.body.completed, true, '80% watched completes the lesson');
+    // The course is bought (granted here): everything opens, separately from the simulator pass.
+    const sim = (await call('GET', '/me/access', t)).body.endsAt;
+    const who = (await call('GET', '/admin/users?q=sara@', admin)).body.items[0].id;
+    ok(await call('POST', `/admin/users/${who}/grant`, admin, { planCode: 'course90', days: 90 }), 200, 'grant course');
+    const acc = (await call('GET', '/me/access', t)).body;
+    assert.equal(acc.course, true);
+    assert.equal(acc.endsAt, sim, 'the course pass does not move the simulator pass');
+    assert.ok(Date.parse(acc.courseEndsAt) - clock.t < 91 * 86_400_000, 'the course pass starts now, not after the simulator pass');
+    const pl = await call('GET', `/course/lessons/${paid.body.id}`, t); ok(pl);
+    assert.deepEqual(pl.body.playback, { kind: 'file', src: 'https://cdn.example.test/v/conflict.mp4' });
+    const sl = await fetch(`${base}/api/v1/course/lessons/${paid.body.id}/slides`, { headers: { authorization: `Bearer ${t}` } });
+    assert.equal(sl.status, 200); assert.equal(sl.headers.get('content-type'), 'application/pdf');
+    assert.equal(Buffer.from(await sl.arrayBuffer()).toString('latin1').slice(0, 5), '%PDF-');
+    // Not finished yet: no certificate.
+    assert.equal((await call('POST', '/course/certificate', t, { fullName: 'Sara Ahmed' })).status, 409);
+    sql(`UPDATE lesson_progress SET updated_at = now() - interval '20 minutes' WHERE user_id = '${stuId}'`);
+    sql(`INSERT INTO lesson_progress (user_id, lesson_id, updated_at) VALUES ('${stuId}', '${paid.body.id}', now() - interval '20 minutes') ON CONFLICT DO NOTHING`);
+    for (let k = 0; k < 6; k++) {
+      sql(`UPDATE lesson_progress SET updated_at = now() - interval '3 minutes' WHERE user_id = '${stuId}' AND lesson_id = '${paid.body.id}'`);
+      await call('PUT', `/course/lessons/${paid.body.id}/progress`, t, { positionSeconds: 100 * (k + 1), addSeconds: 120 });
+    }
+    assert.equal((await call('PUT', `/course/lessons/${read.body.id}/progress`, t, { complete: true })).body.completed, true);
+    const o2 = (await call('GET', '/course', t)).body;
+    assert.deepEqual([o2.completed, o2.lessons], [3, 3]);
+    const cert = await call('POST', '/course/certificate', t, { fullName: 'Sara Ahmed' }); ok(cert, 201, 'certificate');
+    assert.equal(cert.body.lessons, 3);
+    assert.ok(Number(cert.body.hours) > 0 && Number(cert.body.hours) <= 0.2);
+    const again = await call('POST', '/course/certificate', t, { fullName: 'Someone Else' });
+    assert.equal(again.body.token, cert.body.token, 'one certificate per learner');
+    const pub = await call('GET', `/course-certificates/${cert.body.token}`); ok(pub, 200, 'public verify');
+    assert.equal(pub.body.fullName, 'Sara Ahmed');
+    // A lesson with progress can still be deleted by the admin; a module with lessons cannot.
+    assert.equal((await call('DELETE', `/admin/course/modules/${m.body.id}`, admin)).status, 409);
+    note(`course: 1 module, 3 lessons (YouTube free, file paid with PDF, reading), progress, certificate ${cert.body.hours} h`);
+  });
+
   // Answers one practice question, right or wrong, in the format of its type.
   const answer = async (sessionId: string, ordinal: number, right: boolean) => {
     const q = await call('GET', `/practice/sessions/${sessionId}/questions/${ordinal}`, stu.accessToken); ok(q);

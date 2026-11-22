@@ -409,7 +409,7 @@ describe('HTTP API', { skip: configured ? false : 'PGDATABASE is not set; see sc
     const r = await call('GET', '/plans?region=EG');
     assert.equal(r.status, 200);
     conforms('PlanList', r.body);
-    assert.deepEqual(r.body.items.map((p: Json) => p.code), ['free', 'pass30', 'pass90']);
+    assert.deepEqual(r.body.items.map((p: Json) => p.code), ['free', 'pass30', 'pass90', 'course90', 'bundle90']);
     assert.ok(r.body.items.every((p: Json) => p.price === null), 'no price is seeded');
     await store.setPlanPrice('00000000-0000-4000-8000-000000000003', 'pass30', 'EG', 'EGP', 49_900, 'test.pass30.eg');
     const priced = await call('GET', '/plans?region=EG');

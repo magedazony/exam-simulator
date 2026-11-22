@@ -512,6 +512,89 @@ export class ApiStore extends PsqlStore {
     return await this.one(`SELECT exhibit_refs(ARRAY(SELECT jsonb_array_elements_text(${lit.json(ids)})::uuid));`) ?? [];
   }
 
+  // ---------------------------------------------------------------- recorded course
+
+  async courseOutline(userId: string, now: string): Promise<Record<string, any>> {
+    return (await this.one(`SELECT course_outline(${lit.uuid(userId)}, ${ts(now)});`))!;
+  }
+
+  /** A published lesson with its playback details (the caller checks access). */
+  async courseLesson(lessonId: string, userId: string): Promise<Record<string, any> | null> {
+    return await this.one(`SELECT jsonb_build_object('id', l.id, 'moduleId', l.module_id, 'title', l.title, 'titleAr', coalesce(l.title_ar, ''),
+        'summary', coalesce(l.summary, ''), 'summaryAr', coalesce(l.summary_ar, ''), 'videoProvider', l.video_provider, 'videoRef', coalesce(l.video_ref, ''),
+        'durationSeconds', l.duration_seconds, 'isFree', l.is_free, 'taskCodes', to_jsonb(l.task_codes),
+        'hasSlides', l.slides_file_id IS NOT NULL OR coalesce(l.slides_url, '') <> '', 'slidesUrl', coalesce(l.slides_url, ''), 'slidesFile', l.slides_file_id IS NOT NULL,
+        'positionSeconds', coalesce(lp.position_seconds, 0), 'watchedSeconds', coalesce(lp.watched_seconds, 0), 'completed', lp.completed_at IS NOT NULL)
+      FROM course_lessons l JOIN course_modules m ON m.id = l.module_id
+      LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.user_id = ${lit.uuid(userId)}
+      WHERE l.id = ${lit.uuid(lessonId)} AND l.status = 'published' AND m.status = 'published';`);
+  }
+
+  async saveLessonProgress(userId: string, lessonId: string, position: number, add: number, complete: boolean): Promise<Record<string, unknown>> {
+    return (await this.one(`SELECT save_lesson_progress(${lit.uuid(userId)}, ${lit.uuid(lessonId)}, ${lit.int(position)}, ${lit.int(add)}, ${complete ? 'true' : 'false'});`))!;
+  }
+
+  async lessonSlides(lessonId: string): Promise<{ filename: string; mime: string; base64: string } | null> {
+    return await this.one(`SELECT jsonb_build_object('filename', f.filename, 'mime', f.mime, 'base64', encode(f.bytes, 'base64'))
+      FROM course_lessons l JOIN course_files f ON f.id = l.slides_file_id WHERE l.id = ${lit.uuid(lessonId)};`);
+  }
+
+  async issueCourseCertificate(userId: string, fullName: string, token: string): Promise<Record<string, unknown>> {
+    return (await this.one(`SELECT issue_course_certificate(${lit.uuid(userId)}, ${lit.text(fullName)}, ${lit.text(token)});`))!;
+  }
+
+  async courseCertificateByToken(token: string): Promise<Record<string, unknown> | null> {
+    return await this.one(`SELECT jsonb_build_object('fullName', full_name, 'hours', hours, 'lessons', lessons, 'issuedAt', issued_at, 'token', token)
+      FROM course_certificates WHERE token = ${lit.text(token)};`);
+  }
+
+  async adminCourse(): Promise<Array<Record<string, unknown>>> {
+    return await this.one(`SELECT admin_course();`) ?? [];
+  }
+
+  async saveCourseModule(id: string | null, d: Record<string, any>): Promise<string> {
+    const cols = `title = ${lit.text(d.title)}, title_ar = ${lit.text(d.titleAr)}, summary = ${lit.text(d.summary)}, summary_ar = ${lit.text(d.summaryAr)},
+      ordinal = ${lit.int(d.ordinal)}, status = ${lit.text(d.status)}, updated_at = now()`;
+    const out = id
+      ? await this.run(`UPDATE course_modules SET ${cols} WHERE id = ${lit.uuid(id)} RETURNING id;`)
+      : await this.run(`INSERT INTO course_modules (title, title_ar, summary, summary_ar, ordinal, status)
+          VALUES (${lit.text(d.title)}, ${lit.text(d.titleAr)}, ${lit.text(d.summary)}, ${lit.text(d.summaryAr)}, ${lit.int(d.ordinal)}, ${lit.text(d.status)}) RETURNING id;`);
+    return out.trim();
+  }
+
+  async deleteCourseModule(id: string): Promise<boolean> {
+    return (await this.run(`DELETE FROM course_modules m WHERE m.id = ${lit.uuid(id)} AND NOT EXISTS (SELECT 1 FROM course_lessons l WHERE l.module_id = m.id) RETURNING id;`)).trim() !== '';
+  }
+
+  async saveCourseLesson(id: string | null, d: Record<string, any>): Promise<string> {
+    const vals: Record<string, string> = {
+      module_id: lit.uuid(d.moduleId), title: lit.text(d.title), title_ar: lit.text(d.titleAr), summary: lit.text(d.summary), summary_ar: lit.text(d.summaryAr),
+      video_provider: lit.text(d.videoProvider), video_ref: lit.text(d.videoRef), duration_seconds: lit.int(d.durationSeconds), is_free: d.isFree ? 'true' : 'false',
+      task_codes: `ARRAY(SELECT jsonb_array_elements_text(${lit.json(d.taskCodes)}))`, slides_url: lit.text(d.slidesUrl), ordinal: lit.int(d.ordinal), status: lit.text(d.status),
+    };
+    const out = id
+      ? await this.run(`UPDATE course_lessons SET ${Object.entries(vals).map(([k, v]) => `${k} = ${v}`).join(', ')}, updated_at = now() WHERE id = ${lit.uuid(id)} RETURNING id;`)
+      : await this.run(`INSERT INTO course_lessons (${Object.keys(vals).join(', ')}) VALUES (${Object.values(vals).join(', ')}) RETURNING id;`);
+    return out.trim();
+  }
+
+  async deleteCourseLesson(id: string): Promise<void> {
+    await this.run(`DELETE FROM course_files WHERE id = (SELECT slides_file_id FROM course_lessons WHERE id = ${lit.uuid(id)});
+      DELETE FROM course_lessons WHERE id = ${lit.uuid(id)};`);
+  }
+
+  async setLessonSlides(lessonId: string, actorId: string, filename: string, base64: string | null): Promise<void> {
+    if (base64 === null) {
+      await this.run(`DELETE FROM course_files WHERE id = (SELECT slides_file_id FROM course_lessons WHERE id = ${lit.uuid(lessonId)});`);
+      return;
+    }
+    await this.run(`WITH f AS (INSERT INTO course_files (filename, mime, size_bytes, bytes, created_by)
+        VALUES (${lit.text(filename)}, 'application/pdf', length(decode(${lit.text(base64)}, 'base64')), decode(${lit.text(base64)}, 'base64'), ${lit.uuid(actorId)}) RETURNING id),
+      old AS (SELECT slides_file_id AS id FROM course_lessons WHERE id = ${lit.uuid(lessonId)}),
+      upd AS (UPDATE course_lessons SET slides_file_id = (SELECT id FROM f), updated_at = now() WHERE id = ${lit.uuid(lessonId)})
+      DELETE FROM course_files WHERE id IN (SELECT id FROM old WHERE id IS NOT NULL);`);
+  }
+
   async exhibitImage(exhibitId: string): Promise<{ mimeType: string; base64: string; sha256: string } | null> {
     return await this.one(`SELECT exhibit_image(${lit.uuid(exhibitId)});`);
   }

@@ -92,6 +92,7 @@ tr.click:hover td { background: var(--primary-soft); }
 #form .t-matching, #form .t-hotspot, #form .t-numeric { display: none; }
 #form[data-type="matching"] .t-matching, #form[data-type="hotspot"] .t-hotspot, #form[data-type="numeric"] .t-numeric { display: flex; gap: 6px; }
 #form[data-type="matching"] .o-key, #form[data-type="ordering"] .o-key, #form[data-type="numeric"] .o-key { display: none; }
+.cmod { border: 1px solid var(--border, #d5dbe3); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
 </style>
 </head>
 <body>
@@ -163,7 +164,7 @@ const AR = {
   "holds letters, such as": "يحتوي على حروف، مثل", "or": "أو", "Excel files: questions on the first sheet, first row for column names. Optional columns aiAssisted and caseKey; a sheet named Case studies (caseKey, title, scenario) creates case-study drafts.": "ملفات Excel: الأسئلة في الورقة الأولى والصف الأول لأسماء الأعمدة. أعمدة اختيارية aiAssisted وcaseKey؛ وورقة باسم Case studies (caseKey وtitle وscenario) تنشئ مسودات دراسات حالة.",
   "Every imported row becomes a draft and goes through the full review.": "كل صف مستورد يصبح مسودة ويمر بالمراجعة الكاملة.", "Check rows": "فحص الصفوف", "Import valid rows as drafts": "استيراد الصفوف الصالحة كمسودات",
   "{n} rows read from {file}.": "تمت قراءة {n} صف من {file}.", "The file could not be read. Check that it is a valid Excel, CSV or JSON file.": "تعذّرت قراءة الملف. تأكد أنه ملف Excel أو CSV أو JSON صالح.",
-  "Imported": "تم الاستيراد", "{n} case studies.": "{n} دراسات حالة.", "Unknown case keys: {keys}": "مفاتيح دراسات حالة غير معروفة: {keys}", "{n} case studies created as drafts.": "تم إنشاء {n} دراسات حالة كمسودات.", "{n} case studies published.": "تم نشر {n} دراسات حالة.", "Create an account for someone to try the app": "إنشاء حساب لشخص يجرّب التطبيق", "The email is confirmed straight away and a temporary password is shown once. Send it with the link; the person can change the password in Settings.": "الإيميل بيتأكد فورًا وبتظهر كلمة سر مؤقتة مرة واحدة. ابعتها مع الرابط، والشخص يقدر يغيّرها من الإعدادات.", "Days of full access": "أيام الوصول الكامل", "Create account": "إنشاء الحساب", "Email confirmed": "الإيميل مؤكد", "Confirm email": "تأكيد الإيميل", "Account created. Copy the message now: the password is not shown again.": "تم إنشاء الحساب. انسخ الرسالة دلوقتي: كلمة السر مش هتظهر تاني.", "Copy message": "نسخ الرسالة", "Copied.": "تم النسخ.", "Email confirmed. The person can sign in now.": "تم تأكيد الإيميل. الشخص يقدر يدخل دلوقتي.", "Check result": "نتيجة الفحص", "{v} valid, {i} invalid, {d} duplicates": "{v} صالح، {i} غير صالح، {d} مكرر", ", {c} stored as drafts": "، وحُفظ {c} كمسودات", "Row": "الصف", "Result": "النتيجة", "Problems": "المشكلات",
+  "Imported": "تم الاستيراد", "{n} case studies.": "{n} دراسات حالة.", "Unknown case keys: {keys}": "مفاتيح دراسات حالة غير معروفة: {keys}", "{n} case studies created as drafts.": "تم إنشاء {n} دراسات حالة كمسودات.", "{n} case studies published.": "تم نشر {n} دراسات حالة.", "Recorded course": "الكورس المسجّل", "Build the course as modules and lessons. A lesson has a video (an unlisted YouTube link, a Bunny Stream video, or a video file address), a PDF of the slides, and the ECO tasks it covers. Only published lessons inside published modules are shown to learners. Free lessons are open to everyone; the rest need a course plan.": "ابنِ الكورس كوحدات ودروس. كل درس فيه فيديو (رابط YouTube غير مُدرج، أو فيديو Bunny Stream، أو رابط ملف فيديو)، وملف PDF للشرح، ومهام الـ ECO اللي بيغطيها. الدروس المنشورة داخل وحدات منشورة بس هي اللي بتظهر للطلبة. الدروس المجانية مفتوحة للكل، والباقي محتاج باقة الكورس.", "Published course length": "مدة الكورس المنشور", "hours": "ساعة", "Modules and lessons": "الوحدات والدروس", "Edit": "تعديل", "Free": "مجاني", "No lessons yet.": "لا توجد دروس بعد.", "No modules yet. Start with a module, then add lessons.": "لا توجد وحدات بعد. ابدأ بوحدة ثم أضف الدروس.", "The last column shows learners who finished the lesson / learners who started it.": "آخر عمود: عدد اللي خلّصوا الدرس / عدد اللي بدأوه.", "Edit module": "تعديل الوحدة", "New module": "وحدة جديدة", "Order": "الترتيب", "Draft": "مسودة", "Published": "منشور", "Summary": "ملخص", "Save module": "حفظ الوحدة", "Cancel": "إلغاء", "Delete module": "حذف الوحدة", "Edit lesson": "تعديل الدرس", "New lesson": "درس جديد", "Module": "الوحدة", "Free lesson (open to everyone)": "درس مجاني (مفتوح للكل)", "Video": "الفيديو", "YouTube (unlisted)": "YouTube (غير مُدرج)", "Bunny Stream (protected)": "Bunny Stream (محمي)", "Video file address (https)": "رابط ملف فيديو (https)", "No video (slides or text only)": "بدون فيديو (ملف أو نص فقط)", "Video link or id": "رابط أو كود الفيديو", "Length (h:mm:ss or mm:ss)": "المدة (س:دد:ثث أو دد:ثث)", "Summary or notes for learners": "ملخص أو ملاحظات للطلبة", "ECO tasks this lesson covers (used for the 5-question quiz and for recommendations)": "مهام الـ ECO اللي بيغطيها الدرس (للاختبار القصير وللترشيحات)", "Slides link (optional, e.g. a shared Google Drive PDF)": "رابط ملف الشرح (اختياري، مثلًا PDF على Google Drive)", "Save lesson": "حفظ الدرس", "Delete lesson": "حذف الدرس", "Slides PDF (up to 20 MB)": "ملف الشرح PDF (حتى 20 ميجا)", "Remove": "إزالة", "Upload PDF": "رفع PDF", "Save the lesson first, then upload its PDF.": "احفظ الدرس الأول، وبعدين ارفع ملف الـ PDF.", "Saved.": "تم الحفظ.", "Deleted.": "تم الحذف.", "Lesson saved. You can upload its PDF now.": "تم حفظ الدرس. تقدر ترفع ملف الـ PDF دلوقتي.", "The file must be at most 20 MB.": "الملف لازم يكون 20 ميجا أو أقل.", "PDF uploaded.": "تم رفع الـ PDF.", "Create an account for someone to try the app": "إنشاء حساب لشخص يجرّب التطبيق", "The email is confirmed straight away and a temporary password is shown once. Send it with the link; the person can change the password in Settings.": "الإيميل بيتأكد فورًا وبتظهر كلمة سر مؤقتة مرة واحدة. ابعتها مع الرابط، والشخص يقدر يغيّرها من الإعدادات.", "Days of full access": "أيام الوصول الكامل", "Create account": "إنشاء الحساب", "Email confirmed": "الإيميل مؤكد", "Confirm email": "تأكيد الإيميل", "Account created. Copy the message now: the password is not shown again.": "تم إنشاء الحساب. انسخ الرسالة دلوقتي: كلمة السر مش هتظهر تاني.", "Copy message": "نسخ الرسالة", "Copied.": "تم النسخ.", "Email confirmed. The person can sign in now.": "تم تأكيد الإيميل. الشخص يقدر يدخل دلوقتي.", "Check result": "نتيجة الفحص", "{v} valid, {i} invalid, {d} duplicates": "{v} صالح، {i} غير صالح، {d} مكرر", ", {c} stored as drafts": "، وحُفظ {c} كمسودات", "Row": "الصف", "Result": "النتيجة", "Problems": "المشكلات",
   // blueprints
   "Upload a new blueprint version as JSON. It is stored as a draft, and activated only if 20 sample exams built from the current bank are all valid.": "ارفع إصداراً جديداً من المخطط بصيغة JSON. يُحفظ كمسودة، ولا يُفعّل إلا إذا كانت 20 عينة اختبار من البنك الحالي كلها صالحة.",
   "Upload as draft": "رفع كمسودة", "Version": "الإصدار", "Effective from": "يسري من", "Dry run": "تجربة", "Activate": "تفعيل", "Blueprint stored as a draft.": "تم حفظ المخطط كمسودة.", "{v} of {a} sample exams valid": "{v} من {a} عينات اختبار صالحة", "Blueprint activated.": "تم تفعيل المخطط.",
@@ -299,7 +300,7 @@ function loginView(step) {
 
 // ------------------------------------------------------------ shell
 
-const NAV = [["queue", "Work queue"], ["questions", "Questions"], ["new", "New question", isAuthor], ["cases", "Case studies"], ["tips", "Exam tips"], ["import", "Import", isAuthor], ["bulk", "Bulk review", isAdmin], ["blueprints", "Blueprints", isAdmin], ["reports", "Reports"], ["difficulty", "Difficulty", isAdmin], ["users", "Users", isAdmin], ["certificates", "Certificates", isAdmin], ["access", "Plans and access", isAdmin], ["audit", "Audit log", isAdmin], ["security", "Security"]];
+const NAV = [["queue", "Work queue"], ["questions", "Questions"], ["new", "New question", isAuthor], ["cases", "Case studies"], ["tips", "Exam tips"], ["course", "Recorded course", isAdmin], ["import", "Import", isAuthor], ["bulk", "Bulk review", isAdmin], ["blueprints", "Blueprints", isAdmin], ["reports", "Reports"], ["difficulty", "Difficulty", isAdmin], ["users", "Users", isAdmin], ["certificates", "Certificates", isAdmin], ["access", "Plans and access", isAdmin], ["audit", "Audit log", isAdmin], ["security", "Security"]];
 
 function shell(title, body) {
   const route = (location.hash.slice(1) || "queue").split("/")[0];
@@ -847,6 +848,79 @@ const REGIONS = [["EG", "Egypt"], ["GULF", "Gulf countries"], ["INTL", "Other co
 const minorDigits = (currency) => { try { return new Intl.NumberFormat("en", { style: "currency", currency }).resolvedOptions().maximumFractionDigits; } catch { return 2; } };
 const money = (p) => new Intl.NumberFormat(dateFmt(), { style: "currency", currency: p.currency }).format(p.amountMinor / 10 ** minorDigits(p.currency));
 
+// ------------------------------------------------------------ recorded course
+
+const secText = (s) => { s = Number(s) || 0; const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
+const parseDur = (v) => { const p = String(v || "").trim().split(":").map(Number); if (p.some((n) => Number.isNaN(n))) return NaN; return p.reduce((a, n) => a * 60 + n, 0); };
+
+async function courseAdminView(arg) {
+  const r = await api("GET", "/admin/course");
+  const mods = r.modules;
+  const [kind, editId] = (arg || "").split(":");
+  const editMod = kind === "m" ? mods.find((m) => m.id === editId) : null;
+  const editLes = kind === "l" ? mods.flatMap((m) => m.lessons).find((l) => l.id === editId) : null;
+  const tasks = S.blueprint.domains.flatMap((d) => d.tasks.map((x) => [x.code, x.code + " · " + x.name]));
+  const m0 = editMod || { title: "", titleAr: "", summary: "", summaryAr: "", ordinal: mods.length + 1, status: "draft" };
+  const l0 = editLes || { moduleId: (mods[0] || {}).id, title: "", titleAr: "", summary: "", summaryAr: "", videoProvider: "youtube", videoRef: "", durationSeconds: 0, isFree: false, taskCodes: [], slidesUrl: "", ordinal: 1, status: "draft", slides: null };
+  const totalSec = mods.flatMap((m) => m.lessons).filter((l) => l.status === "published" && mods.find((m) => m.id === l.moduleId).status === "published").reduce((a, l) => a + l.durationSeconds, 0);
+  const st = (x) => (x === "published" ? pill("published") : pill("draft"));
+  shell(t("Recorded course"), `
+    <div class="panel"><p class="muted">${t("Build the course as modules and lessons. A lesson has a video (an unlisted YouTube link, a Bunny Stream video, or a video file address), a PDF of the slides, and the ECO tasks it covers. Only published lessons inside published modules are shown to learners. Free lessons are open to everyone; the rest need a course plan.")}</p>
+    <p><strong>${t("Published course length")}:</strong> ${(Math.round(totalSec / 360) / 10).toString()} ${t("hours")}</p></div>
+    <div class="panel"><h2>${t("Modules and lessons")}</h2>
+      ${mods.length ? mods.map((m) => `<div class="cmod"><div class="row"><strong class="grow">${m.ordinal}. ${esc(m.title)}${m.titleAr ? ` <span dir="rtl" class="muted">${esc(m.titleAr)}</span>` : ""}</strong>${st(m.status)} <a class="btn" href="#course/m:${m.id}">${t("Edit")}</a></div>
+        <table><tbody>${m.lessons.map((l) => `<tr><td>${l.ordinal}</td><td>${esc(l.title)}${l.isFree ? ` <span class="pill">${t("Free")}</span>` : ""}</td><td>${l.videoProvider === "none" ? "—" : esc(l.videoProvider) + " · " + secText(l.durationSeconds)}</td><td>${l.slides || l.slidesUrl ? "PDF" : ""}</td><td>${st(l.status)}</td><td class="muted">${l.completions}/${l.learners}</td><td><a class="btn" href="#course/l:${l.id}">${t("Edit")}</a></td></tr>`).join("") || `<tr><td class="muted">${t("No lessons yet.")}</td></tr>`}</tbody></table></div>`).join("") : `<p class="muted">${t("No modules yet. Start with a module, then add lessons.")}</p>`}
+      <p class="muted" style="font-size:12px">${t("The last column shows learners who finished the lesson / learners who started it.")}</p>
+    </div>
+    <form class="panel" id="modForm"><h2>${editMod ? t("Edit module") : t("New module")}</h2>
+      <div class="row"><label style="flex:2">${t("Title")}<input id="m-title" required value="${esc(m0.title)}"></label><label style="flex:2">${t("Title")} (AR)<input id="m-title-ar" dir="rtl" value="${esc(m0.titleAr)}"></label><label>${t("Order")}<input id="m-ord" type="number" value="${m0.ordinal}"></label>
+      <label>${t("Status")}<select id="m-status"><option value="draft">${t("Draft")}</option><option value="published"${m0.status === "published" ? " selected" : ""}>${t("Published")}</option></select></label></div>
+      <div class="row"><label style="flex:1">${t("Summary")}<textarea id="m-sum" rows="2">${esc(m0.summary)}</textarea></label><label style="flex:1">${t("Summary")} (AR)<textarea id="m-sum-ar" dir="rtl" rows="2">${esc(m0.summaryAr)}</textarea></label></div>
+      <div class="row"><button class="primary" type="submit">${t("Save module")}</button>${editMod ? `<a class="btn" href="#course">${t("Cancel")}</a><button type="button" class="danger" id="m-del">${t("Delete module")}</button>` : ""}</div></form>
+    ${mods.length ? `<form class="panel" id="lesForm"><h2>${editLes ? t("Edit lesson") : t("New lesson")}</h2>
+      <div class="row"><label style="flex:2">${t("Module")}<select id="l-mod">${mods.map((m) => `<option value="${m.id}"${m.id === l0.moduleId ? " selected" : ""}>${esc(m.ordinal + ". " + m.title)}</option>`).join("")}</select></label><label>${t("Order")}<input id="l-ord" type="number" value="${l0.ordinal}"></label>
+      <label>${t("Status")}<select id="l-status"><option value="draft">${t("Draft")}</option><option value="published"${l0.status === "published" ? " selected" : ""}>${t("Published")}</option></select></label>
+      <label class="inline"><input type="checkbox" id="l-free"${l0.isFree ? " checked" : ""}> ${t("Free lesson (open to everyone)")}</label></div>
+      <div class="row"><label style="flex:1">${t("Title")}<input id="l-title" required value="${esc(l0.title)}"></label><label style="flex:1">${t("Title")} (AR)<input id="l-title-ar" dir="rtl" value="${esc(l0.titleAr)}"></label></div>
+      <div class="row"><label>${t("Video")}<select id="l-prov">${[["youtube", "YouTube (unlisted)"], ["bunny", "Bunny Stream (protected)"], ["url", "Video file address (https)"], ["none", "No video (slides or text only)"]].map(([k, n]) => `<option value="${k}"${k === l0.videoProvider ? " selected" : ""}>${t(n)}</option>`).join("")}</select></label>
+        <label style="flex:2">${t("Video link or id")}<input id="l-ref" dir="ltr" value="${esc(l0.videoRef)}" placeholder="https://youtu.be/…"></label>
+        <label>${t("Length (h:mm:ss or mm:ss)")}<input id="l-dur" dir="ltr" value="${l0.durationSeconds ? secText(l0.durationSeconds) : ""}" placeholder="25:30"></label></div>
+      <div class="row"><label style="flex:1">${t("Summary or notes for learners")}<textarea id="l-sum" rows="4">${esc(l0.summary)}</textarea></label><label style="flex:1">${t("Summary")} (AR)<textarea id="l-sum-ar" dir="rtl" rows="4">${esc(l0.summaryAr)}</textarea></label></div>
+      <label>${t("ECO tasks this lesson covers (used for the 5-question quiz and for recommendations)")}<select id="l-tasks" multiple size="6">${tasks.map(([c, n]) => `<option value="${c}"${(l0.taskCodes || []).includes(c) ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label>
+      <div class="row"><label style="flex:2">${t("Slides link (optional, e.g. a shared Google Drive PDF)")}<input id="l-slurl" dir="ltr" value="${esc(l0.slidesUrl)}"></label></div>
+      <div class="row"><button class="primary" type="submit">${t("Save lesson")}</button>${editLes ? `<a class="btn" href="#course">${t("Cancel")}</a><button type="button" class="danger" id="l-del">${t("Delete lesson")}</button>` : ""}</div>
+      ${editLes ? `<div class="panel" style="margin-top:10px"><h3>${t("Slides PDF (up to 20 MB)")}</h3>${l0.slides ? `<p>${esc(l0.slides.filename)} · ${(l0.slides.sizeBytes / 1048576).toFixed(1)} MB <button type="button" id="l-sldel" class="danger">${t("Remove")}</button></p>` : ""}<input type="file" id="l-pdf" accept="application/pdf"> <button type="button" id="l-up">${t("Upload PDF")}</button></div>` : `<p class="muted">${t("Save the lesson first, then upload its PDF.")}</p>`}
+    </form>` : ""}`);
+  $("#modForm").onsubmit = async (ev) => {
+    ev.preventDefault();
+    const body = { title: $("#m-title").value, titleAr: $("#m-title-ar").value, summary: $("#m-sum").value, summaryAr: $("#m-sum-ar").value, ordinal: Number($("#m-ord").value) || 0, status: $("#m-status").value };
+    try { if (editMod) await api("PUT", "/admin/course/modules/" + editMod.id, body); else await api("POST", "/admin/course/modules", body); flash("ok", t("Saved.")); location.hash = "#course"; render(); } catch (e) { showError(e); }
+  };
+  $("#m-del")?.addEventListener("click", async () => { try { await api("DELETE", "/admin/course/modules/" + editMod.id); flash("ok", t("Deleted.")); location.hash = "#course"; } catch (e) { showError(e); } });
+  const lf = $("#lesForm");
+  if (lf) lf.onsubmit = async (ev) => {
+    ev.preventDefault();
+    const dur = $("#l-dur").value.trim() ? parseDur($("#l-dur").value) : 0;
+    const body = { moduleId: $("#l-mod").value, title: $("#l-title").value, titleAr: $("#l-title-ar").value, summary: $("#l-sum").value, summaryAr: $("#l-sum-ar").value,
+      videoProvider: $("#l-prov").value, videoRef: $("#l-ref").value, durationSeconds: Number.isNaN(dur) ? -1 : dur, isFree: $("#l-free").checked,
+      taskCodes: [...$("#l-tasks").selectedOptions].map((o) => o.value), slidesUrl: $("#l-slurl").value, ordinal: Number($("#l-ord").value) || 0, status: $("#l-status").value };
+    try {
+      if (editLes) { await api("PUT", "/admin/course/lessons/" + editLes.id, body); flash("ok", t("Saved.")); render(); }
+      else { const out = await api("POST", "/admin/course/lessons", body); flash("ok", t("Lesson saved. You can upload its PDF now.")); location.hash = "#course/l:" + out.id; }
+    } catch (e) { showError(e); }
+  };
+  $("#l-del")?.addEventListener("click", async () => { try { await api("DELETE", "/admin/course/lessons/" + editLes.id); flash("ok", t("Deleted.")); location.hash = "#course"; } catch (e) { showError(e); } });
+  $("#l-sldel")?.addEventListener("click", async () => { try { await api("DELETE", `/admin/course/lessons/${editLes.id}/slides`); flash("ok", t("Deleted.")); render(); } catch (e) { showError(e); } });
+  $("#l-up")?.addEventListener("click", async () => {
+    const file = $("#l-pdf").files[0];
+    if (!file) return;
+    if (file.size > 20 * 1048576) { flash("err", t("The file must be at most 20 MB.")); return render(); }
+    const buf = new Uint8Array(await file.arrayBuffer());
+    let bin = ""; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+    try { await api("PUT", `/admin/course/lessons/${editLes.id}/slides`, { filename: file.name, dataBase64: btoa(bin) }); flash("ok", t("PDF uploaded.")); render(); } catch (e) { showError(e); }
+  });
+}
+
 async function accessView() {
   const plans = (await api("GET", "/admin/plans")).items;
   const passes = plans.filter((p) => p.kind === "pass");
@@ -1090,6 +1164,7 @@ async function render() {
     if (route === "certificates") return await certificatesAdminView();
     if (route === "security") return securityView();
     if (route === "access") return await accessView();
+    if (route === "course") return await courseAdminView(arg);
     if (route === "audit") return await auditView();
     return await queueView();
   } catch (e) {

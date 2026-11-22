@@ -30,6 +30,14 @@ await api('POST', '/auth/register', { email, password: pass, acceptTerms: true }
 await api('POST', '/auth/verify-email', { token: outbox.at(-1)!.token });
 const uid = (await store.userByEmail(email))!.id;
 await store.grantEntitlement(uid, 'pass30', 'admin_grant', null, 30, new Date().toISOString(), null, 'audit');
+await store.grantEntitlement(uid, 'course90', 'admin_grant', 'audit-course-' + uid, 90, new Date().toISOString(), null, 'audit');
+const { execFileSync } = await import('node:child_process');
+const psql = (q: string) => execFileSync('psql', ['-qAtX', '-c', q], { env: process.env, encoding: 'utf8' }).trim();
+const lessons = psql(`SELECT string_agg(id::text, ',' ORDER BY ordinal) FROM course_lessons`).split(',');
+psql(`INSERT INTO lesson_progress (user_id, lesson_id, position_seconds, watched_seconds, completed_at) SELECT '${uid}', id, 30, duration_seconds, now() FROM course_lessons WHERE ordinal = 1`);
+psql(`INSERT INTO lesson_progress (user_id, lesson_id, position_seconds, watched_seconds) SELECT '${uid}', id, 200, 240 FROM course_lessons WHERE ordinal = 2`);
+const certTok = 'ab'.repeat(16);
+psql(`INSERT INTO course_certificates (user_id, token, full_name, hours, lessons) VALUES ('${uid}', '${certTok}', 'Sara Ahmed / سارة أحمد', 35.5, 42)`);
 
 const pw = await import('/opt/npm-tools/node_modules/playwright/index.js');
 const browser = await (pw.chromium ?? (pw as any).default.chromium).launch({ executablePath: '/usr/bin/google-chrome', headless: true });
@@ -80,7 +88,7 @@ for (const [lang, w] of [['en', 900], ['ar', 390]] as const) {
     const line = `${lang} type ${type}: ${errs.length ? 'JS ERRORS ' + errs.join(' | ') : 'ok'}${fbShown ? '' : ' NO-FEEDBACK-SEEN'}${r === true ? '' : ' start:' + r}`;
     results.push(line); if (errs.length || !fbShown || r !== true) issues.push(line);
   }
-  for (const [h, n] of [['#study-plan', 'study-plan'], ['#analytics', 'analytics'], ['#stats', 'stats'], ['#tips', 'tips'], ['#case-studies', 'case-studies'], ['#mock', 'mock-home'], ['#plan', 'plan'], ['#bookmarks', 'bookmarks'], ['#settings', 'settings'], ['#notifications', 'notifications'], ['#certificates', 'certificates']] as const) await visit(h, n);
+  for (const [h, n] of [['#study-plan', 'study-plan'], ['#analytics', 'analytics'], ['#stats', 'stats'], ['#tips', 'tips'], ['#case-studies', 'case-studies'], ['#mock', 'mock-home'], ['#plan', 'plan'], ['#bookmarks', 'bookmarks'], ['#course', 'course'], ['#lesson/' + lessons[1], 'lesson-file'], ['#lesson/' + lessons[0], 'lesson-youtube'], ['#lesson/' + lessons[2], 'lesson-reading'], ['#course-cert/' + certTok, 'course-cert'], ['#plan', 'plan2'], ['#settings', 'settings'], ['#notifications', 'notifications'], ['#certificates', 'certificates']] as const) await visit(h, n);
   // Start a mock exam and look at a case question and the navigator.
   if (lang === 'en') {
     await page.goto(base + '/app#mock'); await page.waitForTimeout(1200);

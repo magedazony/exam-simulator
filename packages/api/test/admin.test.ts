@@ -556,7 +556,7 @@ describe('staff tools', { skip: configured ? false : 'PGDATABASE is not set; see
   it('lets administrators price plans, create access codes and grant passes', async () => {
     const plans = await call('GET', '/admin/plans', tk('admin'));
     assert.equal(plans.status, 200);
-    assert.deepEqual(plans.body.items.map((p: Json) => p.code), ['free', 'pass30', 'pass90']);
+    assert.deepEqual(plans.body.items.map((p: Json) => p.code), ['free', 'pass30', 'pass90', 'course90', 'bundle90']);
     assert.equal((await call('GET', '/admin/plans', tk('reviewer'))).status, 403);
 
     const bad = await call('PUT', '/admin/plans/pass90/prices/EG', tk('admin'), { currency: 'egyptian', amountMinor: 1.5, storeProductId: 'has spaces' });

@@ -261,6 +261,27 @@ describe('admin panel in a browser', { skip: configured ? false : 'PGDATABASE is
     assert.ok(pw.length === 19);
   });
 
+  it('admin: builds the recorded course: a module, a lesson with a YouTube link, and its PDF', async () => {
+    await Promise.all([page.waitForResponse((r) => r.url().endsWith('/admin/course')), page.click('a[href="#course"]')]);
+    await page.fill('#m-title', 'Module 1: People');
+    await page.fill('#m-title-ar', 'الوحدة 1');
+    await page.selectOption('#m-status', 'published');
+    await Promise.all([page.waitForResponse((r) => r.url().endsWith('/admin/course/modules')), page.click('#modForm button[type=submit]')]);
+    await page.waitForSelector('#lesForm');
+    await page.fill('#l-title', 'Welcome to the course');
+    await page.fill('#l-ref', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    await page.fill('#l-dur', '12:30');
+    await page.check('#l-free');
+    await page.selectOption('#l-status', 'published');
+    await page.selectOption('#l-tasks', ['PEOPLE-1']);
+    await page.click('#lesForm button[type=submit]');
+    await page.waitForSelector('#l-pdf');
+    await page.setInputFiles('#l-pdf', { name: 'welcome.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF') });
+    await page.click('#l-up');
+    await page.waitForSelector('text=welcome.pdf');
+    assert.equal(store.query(`SELECT video_ref || ' ' || duration_seconds || ' ' || is_free || ' ' || array_to_string(task_codes, ',') FROM course_lessons;`), 'dQw4w9WgXcQ 750 true PEOPLE-1');
+  });
+
   it('admin: sets a price, creates access codes and gives a pass from Plans and access', async () => {
     await page.click('a[href="#access"]');
     await page.waitForSelector('h2:has-text("Prices")');

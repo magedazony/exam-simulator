@@ -12,6 +12,7 @@ import type { StoredResult } from '../../exam-store/src/ports.ts';
 import { MockExamError } from '../../exam-store/src/service.ts';
 import type { MockExamService } from '../../exam-store/src/service.ts';
 import { adminRoutes } from './admin.ts';
+import { courseRoutes } from './course.ts';
 import { AdminError, EmailTakenError, NoQuestionsMatchError } from './api-store.ts';
 import { BillingNotConfiguredError, notConfiguredVerifier } from './billing.ts';
 import { toArabic } from './messages-ar.ts';
@@ -69,6 +70,10 @@ export interface AppConfig {
   hsts: boolean;
   /** Public pages and contact shown in the apps. Empty when not set. */
   site: { termsUrl: string; privacyUrl: string; supportEmail: string };
+  /** Bunny Stream library for protected course videos. Empty when not used. */
+  bunny?: { libraryId: string; tokenKey: string };
+  /** The public address of the site, for certificate links. */
+  publicUrl?: string;
 }
 
 export const DEFAULT_APP_CONFIG: Omit<AppConfig, 'tokenSecret'> = {
@@ -184,6 +189,7 @@ interface Route {
   auth: boolean;
   limited: boolean;
   staff: string[] | null;
+  maxBody: number | null;
   handler: Handler;
 }
 
@@ -195,7 +201,7 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
   const routes: Route[] = [];
   const add = (method: string, path: string, handler: Handler, opts: RouteOptions = {}) => {
     const pattern = new RegExp(`^/api/v1${path.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`);
-    routes.push({ method, pattern, auth: opts.auth ?? true, limited: opts.limited ?? false, staff: opts.staff ?? null, handler });
+    routes.push({ method, pattern, auth: opts.auth ?? true, limited: opts.limited ?? false, staff: opts.staff ?? null, maxBody: opts.maxBodyBytes ?? null, handler });
   };
   const totpKey = deriveKey(config.tokenSecret, 'totp-secret');
   const exhibitKey = deriveKey(config.tokenSecret, 'exhibit-url');
@@ -214,6 +220,8 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
       freeDailyPractice: config.freeDailyPractice,
       practiceUsedToday: Number(a.practiceUsedToday),
       practiceLeftToday: entitled ? null : Math.max(0, config.freeDailyPractice - Number(a.practiceUsedToday)),
+      course: Boolean((a as Record<string, unknown>).course) || staff,
+      courseEndsAt: ((a as Record<string, unknown>).courseEndsAt as string | null) ?? null,
     };
   };
   const verifier = deps.billingVerifier ?? notConfiguredVerifier;
@@ -1068,6 +1076,7 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
   });
 
   for (const r of adminRoutes({ store, blueprintCode: config.blueprintCode, exhibitUrl, now: () => iso() })) add(r.method, r.path, r.handler, r.options);
+  for (const r of courseRoutes({ store, now: () => iso(), access, bunny: config.bunny, publicUrl: config.publicUrl ?? '' })) add(r.method, r.path, r.handler, r.options);
 
   // ---------------------------------------------------------------- Notifications
   // In-app notification inbox: list unread + all, mark as read.
@@ -1255,14 +1264,14 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     send(res, e.status, { type: 'about:blank', title: tr(e.message), status: e.status, code: e.code, ...(errors ? { errors } : {}) }, true);
   };
 
-  const readBody = (req: IncomingMessage): Promise<Record<string, unknown>> =>
+  const readBody = (req: IncomingMessage, limit: number = config.maxBodyBytes): Promise<Record<string, unknown>> =>
     new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
       let size = 0;
       let tooLarge = false;
       req.on('data', (chunk: Buffer) => {
         size += chunk.length;
-        if (size > config.maxBodyBytes) tooLarge = true;
+        if (size > limit) tooLarge = true;
         else chunks.push(chunk);
       });
       req.on('error', reject);
@@ -1318,7 +1327,7 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
         throw new HttpError(403, 'mfa_required', 'Sign in with two-factor authentication to use staff tools');
       }
     }
-    const body = req.method === 'GET' || req.method === 'DELETE' ? {} : await readBody(req);
+    const body = req.method === 'GET' || req.method === 'DELETE' ? {} : await readBody(req, route.maxBody ?? config.maxBodyBytes);
     const reply = await route.handler({
       params: route.pattern.exec(url.pathname)?.groups ?? {},
       query: url.searchParams,
@@ -1345,6 +1354,9 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
 
   const ADMIN_CSP =
     "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'";
+  // The learner app also plays course videos: YouTube (privacy-enhanced), Bunny Stream, or a video file on https.
+  const CANDIDATE_CSP =
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob: https://www.youtube-nocookie.com https://www.youtube.com https://iframe.mediadelivery.net; media-src 'self' https:; object-src 'self' blob:; frame-ancestors 'none'; form-action 'self'; base-uri 'none'";
 
   return (req, res) => {
     const path = (req.url ?? '/').split('?')[0];
@@ -1384,7 +1396,7 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     if (page) {
       res.writeHead(200, {
         'Content-Type': 'text/html; charset=utf-8',
-        'Content-Security-Policy': ADMIN_CSP,
+        'Content-Security-Policy': page === deps.candidatePage ? CANDIDATE_CSP : ADMIN_CSP,
         'X-Frame-Options': 'DENY',
         'X-Content-Type-Options': 'nosniff',
         'Referrer-Policy': 'no-referrer',

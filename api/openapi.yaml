@@ -1010,6 +1010,148 @@ paths:
         - { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         '204': { description: Confirmed }
+  /course:
+    get:
+      tags: [course]
+      operationId: courseOutline
+      summary: The recorded course as the learner sees it, with progress and locks
+      responses:
+        '200': { description: Modules, lessons, progress, access and certificate }
+  /course/lessons/{lessonId}:
+    get:
+      tags: [course]
+      operationId: courseLesson
+      summary: A lesson with its player address, slides and neighbours
+      parameters:
+        - { name: lessonId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: The lesson. playback.kind is youtube, bunny, file, none or unavailable. }
+        '402': { description: The lesson needs a course plan }
+  /course/lessons/{lessonId}/progress:
+    put:
+      tags: [course]
+      operationId: saveLessonProgress
+      summary: Save the position and the seconds played since the last save
+      description: Watched time grows by at most the time since the last save; 80% watched completes a video lesson.
+      parameters:
+        - { name: lessonId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                positionSeconds: { type: integer }
+                addSeconds: { type: integer, maximum: 120 }
+                complete: { type: boolean, description: For lessons without video }
+      responses:
+        '200': { description: Saved progress }
+  /course/lessons/{lessonId}/slides:
+    get:
+      tags: [course]
+      operationId: lessonSlides
+      summary: The lesson's slides as a PDF
+      parameters:
+        - { name: lessonId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: PDF, content: { application/pdf: {} } }
+  /course/certificate:
+    post:
+      tags: [course]
+      operationId: issueCourseCertificate
+      summary: Issue the completion certificate once every lesson is complete
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [fullName], properties: { fullName: { type: string, minLength: 3, maxLength: 120 } } }
+      responses:
+        '201': { description: The certificate, with its public check address }
+        '409': { description: Not every lesson is complete }
+  /course-certificates/{token}:
+    get:
+      tags: [course]
+      operationId: verifyCourseCertificate
+      summary: Public check of a completion certificate
+      security: []
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Name, hours, lessons and date }
+        '404': { description: Unknown certificate }
+  /admin/course:
+    get:
+      tags: [admin]
+      operationId: adminCourse
+      x-roles: [administrator]
+      responses:
+        '200': { description: Every module and lesson, drafts included }
+  /admin/course/modules:
+    post:
+      tags: [admin]
+      operationId: adminCreateCourseModule
+      x-roles: [administrator]
+      responses:
+        '201': { description: Created }
+  /admin/course/modules/{moduleId}:
+    put:
+      tags: [admin]
+      operationId: adminUpdateCourseModule
+      x-roles: [administrator]
+      parameters:
+        - { name: moduleId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Saved }
+    delete:
+      tags: [admin]
+      operationId: adminDeleteCourseModule
+      x-roles: [administrator]
+      parameters:
+        - { name: moduleId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Deleted }
+        '409': { description: The module still has lessons }
+  /admin/course/lessons:
+    post:
+      tags: [admin]
+      operationId: adminCreateCourseLesson
+      x-roles: [administrator]
+      responses:
+        '201': { description: Created }
+  /admin/course/lessons/{lessonId}:
+    put:
+      tags: [admin]
+      operationId: adminUpdateCourseLesson
+      x-roles: [administrator]
+      parameters:
+        - { name: lessonId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Saved }
+    delete:
+      tags: [admin]
+      operationId: adminDeleteCourseLesson
+      x-roles: [administrator]
+      parameters:
+        - { name: lessonId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Deleted }
+  /admin/course/lessons/{lessonId}/slides:
+    put:
+      tags: [admin]
+      operationId: adminUploadLessonSlides
+      summary: Upload the lesson's slides as a PDF (base64, up to 20 MB)
+      x-roles: [administrator]
+      parameters:
+        - { name: lessonId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Uploaded }
+    delete:
+      tags: [admin]
+      operationId: adminDeleteLessonSlides
+      x-roles: [administrator]
+      parameters:
+        - { name: lessonId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Removed }
   /me/password:
     post:
       tags: [account]
@@ -1451,6 +1593,7 @@ components:
         code: { type: string }
         name: { type: string }
         kind: { type: string, enum: [free, pass] }
+        includes: { type: array, items: { type: string, enum: [simulator, course] }, description: What the plan opens. }
         durationDays: { type: [integer, 'null'] }
         price:
           oneOf:
@@ -1502,6 +1645,8 @@ components:
         freeDailyPractice: { type: integer, description: Server setting; practice answers a day without a pass. }
         practiceUsedToday: { type: integer }
         practiceLeftToday: { type: [integer, 'null'], description: Null when entitled. }
+        course: { type: boolean, description: True with a current plan that includes the recorded course, and always for staff. }
+        courseEndsAt: { type: [string, 'null'], format: date-time }
     Problem:
       type: object
       required: [type, title, status, code]

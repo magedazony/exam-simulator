@@ -10,7 +10,7 @@ const src = (f: string) => readFileSync(new URL(`../src/${f}`, import.meta.url),
 function messagesInSource(): string[] {
   const found = new Set<string>();
   const add = (t: string) => { if (!t.includes('${')) found.add(t); };
-  for (const f of ['app.ts', 'admin.ts', 'http.ts']) {
+  for (const f of ['app.ts', 'admin.ts', 'http.ts', 'course.ts']) {
     const s = src(f);
     for (const m of s.matchAll(/new HttpError\(\s*\d+,\s*'[a-z_]+',\s*(['`])((?:(?!\1).)*)\1/g)) add(m[2]!);
     for (const m of s.matchAll(/\b(?:invalid|err)\(\s*(?:'[^']*'|`[^`]*`|[a-zA-Z.]+)\s*,\s*(['`])((?:(?!\1).)*)\1/g)) add(m[2]!);

@@ -105,6 +105,11 @@ export function loadSettings(env: Record<string, string | undefined>): ServerSet
     return v;
   };
   app.site = { termsUrl: url('TERMS_URL'), privacyUrl: url('PRIVACY_URL'), supportEmail: (env.SUPPORT_EMAIL ?? '').trim() };
+  // Protected course videos (optional): Bunny Stream library and its token authentication key.
+  const bunnyLib = (env.BUNNY_LIBRARY_ID ?? '').trim(), bunnyKey = (env.BUNNY_TOKEN_KEY ?? '').trim();
+  if ((bunnyLib === '') !== (bunnyKey === '')) problems.push('BUNNY_LIBRARY_ID and BUNNY_TOKEN_KEY go together');
+  if (bunnyLib) app.bunny = { libraryId: bunnyLib, tokenKey: bunnyKey };
+  app.publicUrl = publicUrl;
   if (production && (!app.site.termsUrl || !app.site.privacyUrl)) problems.push('TERMS_URL and PRIVACY_URL are required in production: candidates must be able to read what they accept');
 
   const appName = (env.APP_NAME ?? 'Exam Simulator').trim();

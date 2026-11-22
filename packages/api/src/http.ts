@@ -50,4 +50,6 @@ export interface RouteOptions {
   limited?: boolean;
   /** Staff routes: the caller needs one of these roles and a two-factor session. */
   staff?: string[];
+  /** A larger request-body limit for this route (uploads). */
+  maxBodyBytes?: number;
 }
