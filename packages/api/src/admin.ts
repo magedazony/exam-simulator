@@ -7,7 +7,7 @@ import { ALL_TYPES, generateExam, parseNumber, validateBlueprint } from '../../e
 import type { Blueprint, Question } from '../../exam-engine/src/index.ts';
 import { AdminError } from './api-store.ts';
 import type { ApiStore } from './api-store.ts';
-import { hashToken, newAccessCodes, normalizeAccessCode, sniffImage } from './auth.ts';
+import { hashPassword, hashToken, newAccessCodes, normalizeAccessCode, sniffImage, temporaryPassword } from './auth.ts';
 import { SpreadsheetError, readXlsxSheets } from './xlsx.ts';
 import { writeXlsx } from './xlsx-write.ts';
 import { HttpError, invalid, invalidMany, notFound } from './http.ts';
@@ -754,6 +754,37 @@ export function adminRoutes({ store, blueprintCode, exhibitUrl, now }: AdminDeps
     status: 200,
     body: { items: await store.findUsers((c.query.get('q') ?? '').slice(0, 100)) },
   }));
+
+  // A ready-to-use account for someone to try the app: the email is already
+  // confirmed and a temporary password is returned once. Optionally with a
+  // pass, so the person sees the full app.
+  add('POST', '/admin/users', ROLES.admins, async (c) => {
+    const email = typeof c.body.email === 'string' ? c.body.email.trim().toLowerCase() : '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) throw invalid('email', 'must be an email address');
+    const language = c.body.language === 'ar' ? 'ar' : 'en';
+    const days = c.body.days ?? 0;
+    if (typeof days !== 'number' || !Number.isInteger(days) || days < 0 || days > 365) throw invalid('days', 'must be 0 to 365');
+    const planCode = typeof c.body.planCode === 'string' ? c.body.planCode : 'pass30';
+    const password = temporaryPassword();
+    let userId: string;
+    try {
+      userId = await store.createUser(email, hashPassword(password), language);
+    } catch (e) {
+      if (e instanceof Error && e.constructor.name === 'EmailTakenError') throw new HttpError(409, 'email_taken', 'An account with this email already exists');
+      throw e;
+    }
+    await store.markVerified(userId, now());
+    if (days > 0) await run(async () => await store.grantEntitlement(userId, planCode, 'admin_grant', null, days, now(), c.claims.sub, 'Test account'));
+    await store.audit(c.claims.sub, 'user.create_by_admin', 'user', userId, { days });
+    return { status: 201, body: { id: userId, email, language, temporaryPassword: password, access: await store.userAccess(userId, now()) } };
+  });
+
+  add('POST', '/admin/users/:userId/verify-email', ROLES.admins, async (c) => {
+    const id = uuid(c.params.userId);
+    await store.markVerified(id, now());
+    await store.audit(c.claims.sub, 'user.verify_by_admin', 'user', id);
+    return { status: 204 };
+  });
 
   add('PUT', '/admin/users/:userId/roles', ROLES.admins, async (c) => {
     const roles = c.body.roles;

@@ -246,6 +246,21 @@ describe('admin panel in a browser', { skip: configured ? false : 'PGDATABASE is
     assert.equal(await page.$(`[data-reset="${STAFF.admin.id}"]`), null);
   });
 
+  it('admin: creates a test account with a ready message to send', async () => {
+    await Promise.all([page.waitForResponse((r) => r.url().endsWith('/admin/users?q=')), page.click('a[href="#users"]')]);
+    await page.waitForTimeout(200);
+    await page.fill('#nu-email', 'trial.person@example.test');
+    await page.fill('#nu-days', '5');
+    await page.click('#new-user button[type=submit]');
+    await page.waitForSelector('#nu-msg');
+    const msg = await page.inputValue('#nu-msg');
+    assert.match(msg, /trial\.person@example\.test/);
+    const pw = /([a-z2-9]{4}(?:-[a-z2-9]{4}){3})/.exec(msg)![1]!;
+    assert.match(msg, /\/app/);
+    assert.equal(store.query(`SELECT email_verified_at IS NOT NULL FROM users WHERE email = 'trial.person@example.test';`), 't');
+    assert.ok(pw.length === 19);
+  });
+
   it('admin: sets a price, creates access codes and gives a pass from Plans and access', async () => {
     await page.click('a[href="#access"]');
     await page.waitForSelector('h2:has-text("Prices")');

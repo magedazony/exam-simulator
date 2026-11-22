@@ -46,6 +46,14 @@ export function verifyPassword(password: string, stored: string): boolean {
 }
 
 /** Password rules: length first, plus a small deny-list of the most common choices. */
+/** A readable temporary password: four groups of letters and digits, about 80 bits. */
+export function temporaryPassword(): string {
+  const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
+  const bytes = randomBytes(16);
+  const chars = [...bytes].map((b) => alphabet[b % alphabet.length]).join('');
+  return `${chars.slice(0, 4)}-${chars.slice(4, 8)}-${chars.slice(8, 12)}-${chars.slice(12, 16)}`;
+}
+
 export function passwordProblem(password: unknown): string | null {
   if (typeof password !== 'string') return 'password is required';
   if (password.length < 10) return 'password must be at least 10 characters';

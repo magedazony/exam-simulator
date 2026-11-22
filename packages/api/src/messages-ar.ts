@@ -48,6 +48,8 @@ export const AR_MESSAGES: Record<string, string> = {
   'An account with this email already exists': 'يوجد حساب بهذا البريد بالفعل',
   'Email or password is incorrect': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
   'Verify your email address before signing in': 'أكّد بريدك الإلكتروني قبل تسجيل الدخول',
+  'The current password is not correct': 'كلمة السر الحالية غير صحيحة',
+  'must be 0 to 365': 'يجب أن يكون من 0 إلى 365',
   'Sign in again': 'سجّل الدخول مرة أخرى',
   'Sign in to continue': 'سجّل الدخول للمتابعة',
   'Enter the code from your authenticator app': 'أدخل الرمز من تطبيق المصادقة',

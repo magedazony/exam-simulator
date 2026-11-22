@@ -967,6 +967,67 @@ paths:
                 required: [items]
                 properties:
                   items: { type: array, items: { $ref: '#/components/schemas/AdminUser' } }
+    post:
+      tags: [admin]
+      operationId: adminCreateTestAccount
+      summary: Create an account for someone to try the app
+      description: The email is confirmed at once and a temporary password is returned once. Optional days of full access.
+      x-roles: [administrator]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+                language: { type: string, enum: [en, ar] }
+                days: { type: integer, minimum: 0, maximum: 365 }
+                planCode: { type: string }
+      responses:
+        '201':
+          description: Created. temporaryPassword is shown only in this response.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, email, temporaryPassword]
+                properties:
+                  id: { type: string, format: uuid }
+                  email: { type: string }
+                  language: { type: string }
+                  temporaryPassword: { type: string }
+                  access: { type: object }
+        '409': { description: An account with this email already exists }
+  /admin/users/{userId}/verify-email:
+    post:
+      tags: [admin]
+      operationId: adminVerifyEmail
+      summary: Confirm a person's email address (when the server sends no email)
+      x-roles: [administrator]
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Confirmed }
+  /me/password:
+    post:
+      tags: [account]
+      operationId: changePassword
+      summary: Change the password while signed in; other sessions are signed out
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 10, maxLength: 128 }
+      responses:
+        '200': { description: New tokens for this device }
+        '403': { description: The current password is not correct }
   /admin/users/{userId}/roles:
     put:
       tags: [admin]
@@ -2070,6 +2131,8 @@ components:
       type: object
       required: [id, email, status, mfaEnabled, roles]
       properties:
+        emailVerified: { type: boolean }
+        createdAt: { type: string, format: date-time }
         id: { type: string, format: uuid }
         email: { type: string }
         status: { type: string }

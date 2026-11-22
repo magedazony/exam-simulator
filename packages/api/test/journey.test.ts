@@ -193,6 +193,30 @@ describe('full journey on a new database with the real question bank', { skip: c
     process.env.JOURNEY_CODE = codes.body.codes[0];
   });
 
+  it('lets the administrator create a ready-to-use test account and confirm an email', async () => {
+    const r = await call('POST', '/admin/users', admin, { email: 'tester@example.test', language: 'ar', days: 7 });
+    ok(r, 201, 'create test account');
+    assert.match(r.body.temporaryPassword, /^[a-z2-9]{4}(-[a-z2-9]{4}){3}$/);
+    assert.equal(r.body.access.entitled, true);
+    assert.equal((await call('POST', '/admin/users', admin, { email: 'tester@example.test' })).status, 409, 'no duplicates');
+    const login = await call('POST', '/auth/login', undefined, { email: 'tester@example.test', password: r.body.temporaryPassword }); ok(login, 200, 'tester signs in');
+    assert.equal((await call('GET', '/me', login.body.accessToken)).body.language, 'ar');
+    // The tester changes the temporary password; the old one stops working.
+    assert.equal((await call('POST', '/me/password', login.body.accessToken, { currentPassword: 'wrong one 123', newPassword: 'tester new pass 2026' })).status, 403);
+    const ch = await call('POST', '/me/password', login.body.accessToken, { currentPassword: r.body.temporaryPassword, newPassword: 'tester new pass 2026' }); ok(ch, 200, 'change password');
+    ok(await call('GET', '/me', ch.body.accessToken), 200, 'new tokens work');
+    assert.equal((await call('GET', '/me', login.body.accessToken)).status, 401, 'old session signed out');
+    assert.equal((await call('POST', '/auth/login', undefined, { email: 'tester@example.test', password: r.body.temporaryPassword })).status, 401);
+    // Someone who registered but got no email can be confirmed by the administrator.
+    ok(await call('POST', '/auth/register', undefined, { email: 'noemail@example.test', password: 'no email pass 2026', acceptTerms: true }), 201);
+    assert.equal((await call('POST', '/auth/login', undefined, { email: 'noemail@example.test', password: 'no email pass 2026' })).body.code, 'email_not_verified');
+    const found = await call('GET', '/admin/users?q=noemail', admin);
+    assert.equal(found.body.items[0].emailVerified, false);
+    ok(await call('POST', `/admin/users/${found.body.items[0].id}/verify-email`, admin), 204, 'confirm email');
+    ok(await call('POST', '/auth/login', undefined, { email: 'noemail@example.test', password: 'no email pass 2026' }), 200, 'confirmed user signs in');
+    assert.ok(sql(`SELECT count(*) FROM audit_logs WHERE action IN ('user.create_by_admin', 'user.verify_by_admin')`) === '2');
+  });
+
   it('signs a candidate up in Arabic, on the free plan', async () => {
     ok(await call('POST', '/auth/register', undefined, { email: 'sara@example.test', password: 'sara passphrase 2026', language: 'ar', acceptTerms: true }), 201);
     ok(await call('POST', '/auth/verify-email', undefined, { token: outbox.findLast((m) => m.to === 'sara@example.test')!.token }), 204);

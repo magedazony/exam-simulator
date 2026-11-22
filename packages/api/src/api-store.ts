@@ -206,6 +206,10 @@ export class ApiStore extends PsqlStore {
     return id === '' ? null : id;
   }
 
+  async audit(actorId: string, action: string, entityType: string, entityId: string, details: Record<string, unknown> = {}): Promise<void> {
+    await this.run(`INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, after) VALUES (${lit.uuid(actorId)}, ${lit.text(action)}, ${lit.text(entityType)}, ${lit.text(entityId)}, ${lit.json(details)});`);
+  }
+
   async markVerified(userId: string, now: string): Promise<void> {
     await this.run(`UPDATE users SET email_verified_at = coalesce(email_verified_at, ${ts(now)}) WHERE id = ${lit.uuid(userId)};`);
   }

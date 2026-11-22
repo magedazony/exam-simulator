@@ -1059,6 +1059,10 @@ function settingsView() {
     <div class="card"><h2>${t("plan")}</h2><a class="btn" href="#plan">${t("seePlans")}</a></div>${S.site && (S.site.supportEmail || S.site.termsUrl) ? `<p class="muted">${S.site.supportEmail ? `${t("support")} <a href="mailto:${esc(S.site.supportEmail)}" dir="ltr">${esc(S.site.supportEmail)}</a> · ` : ""}${S.site.termsUrl ? `<a href="${esc(S.site.termsUrl)}" target="_blank" rel="noopener">${t("termsLink")}</a> · ` : ""}${S.site.privacyUrl ? `<a href="${esc(S.site.privacyUrl)}" target="_blank" rel="noopener">${t("privacyLink")}</a>` : ""}</p>` : ""}
     ${installCard()}
     <div class="card"><h2>${S.lang === "ar" ? "شهاداتي" : "My Certificates"}</h2><p class="muted" style="font-size:14px">${S.lang === "ar" ? "عرض شهادات الاجتياز القابلة للمشاركة." : "View and share your performance certificates."}</p><a class="btn" href="#certificates">${S.lang === "ar" ? "عرض الشهادات" : "View certificates"}</a></div>
+    <form class="card" id="pwForm"><h2>${S.lang === "ar" ? "تغيير كلمة السر" : "Change password"}</h2>
+      <label>${S.lang === "ar" ? "كلمة السر الحالية" : "Current password"}<input id="pwCur" type="password" autocomplete="current-password" required></label>
+      <label>${S.lang === "ar" ? "كلمة السر الجديدة (10 حروف على الأقل)" : "New password (at least 10 characters)"}<input id="pwNew" type="password" autocomplete="new-password" minlength="10" required></label>
+      <button type="submit">${S.lang === "ar" ? "حفظ كلمة السر" : "Save password"}</button></form>
     <div class="card"><h2>${t("myData")}</h2><p class="muted">${t("myDataText")}</p><button id="export">${t("download")}</button></div>
     <div class="card" id="referralCard"><h2>${S.lang === "ar" ? "أدعُ أصدقاءك" : "Refer a friend"}</h2><p class="muted" style="font-size:14px">${S.lang === "ar" ? "⏳ جاري تحميل كود الدعوة..." : "⏳ Loading referral code..."}</p></div>
     <div class="card" id="mfaCard"><h2>${S.lang === "ar" ? "التحقق بخطوتين (MFA)" : "Two-factor authentication (MFA)"}</h2><p class="muted" style="font-size:14px">${me.mfaEnabled ? (S.lang === "ar" ? "✅ مفعّل" : "✅ Enabled") : (S.lang === "ar" ? "غير مفعّل" : "Not enabled")}</p>${!me.mfaEnabled ? `<button id="mfaSetup">${S.lang === "ar" ? "تفعيل MFA" : "Enable MFA"}</button>` : ""}<div id="mfaout"></div></div>
@@ -1070,6 +1074,14 @@ function settingsView() {
       const body = { language: $("#lang").value, explanationLanguage: $("#expl").value, examTargetDate: $("#date").value || null };
       if ($("#hours").value !== "") body.weeklyStudyHours = Number($("#hours").value);
       S.me = await api("PATCH", "/me", body); setLang(S.me.language); flash("ok", t("saved2")); render();
+    } catch (e) { flash("err", errText(e)); render(); }
+  };
+  $("#pwForm").onsubmit = async (ev) => {
+    ev.preventDefault();
+    try {
+      const tk = await api("POST", "/me/password", { currentPassword: $("#pwCur").value, newPassword: $("#pwNew").value });
+      S.access = tk.accessToken; S.refresh = tk.refreshToken;
+      flash("ok", S.lang === "ar" ? "تم تغيير كلمة السر." : "Password changed."); render();
     } catch (e) { flash("err", errText(e)); render(); }
   };
   $("#export").onclick = async () => {

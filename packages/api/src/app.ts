@@ -364,6 +364,20 @@ export function createApp(deps: AppDeps): (req: IncomingMessage, res: ServerResp
     return { status: 204 };
   }, { auth: false, limited: true });
 
+  // Change the password while signed in. Other sessions are signed out; the
+  // response carries new tokens for this device.
+  add('POST', '/me/password', async (c) => {
+    const problem = passwordProblem(c.body.newPassword);
+    if (problem) throw invalid('newPassword', problem);
+    const who = await store.profile(c.claims.sub);
+    const user = who && typeof who.email === 'string' ? await store.userByEmail(who.email) : null;
+    if (!user || typeof c.body.currentPassword !== 'string' || !verifyPassword(c.body.currentPassword, user.passwordHash)) {
+      throw new HttpError(403, 'wrong_password', 'The current password is not correct');
+    }
+    await store.setPassword(c.claims.sub, hashPassword(c.body.newPassword as string), iso());
+    return { status: 200, body: await issueTokens(user.id, user.roles, null, null, c.claims.mfa === true) };
+  }, { limited: true });
+
   add('POST', '/auth/login', async (c) => {
     const email = str(c.body, 'email', 320).trim();
     const password = str(c.body, 'password', 128);

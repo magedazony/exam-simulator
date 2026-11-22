@@ -163,7 +163,7 @@ const AR = {
   "holds letters, such as": "يحتوي على حروف، مثل", "or": "أو", "Excel files: questions on the first sheet, first row for column names. Optional columns aiAssisted and caseKey; a sheet named Case studies (caseKey, title, scenario) creates case-study drafts.": "ملفات Excel: الأسئلة في الورقة الأولى والصف الأول لأسماء الأعمدة. أعمدة اختيارية aiAssisted وcaseKey؛ وورقة باسم Case studies (caseKey وtitle وscenario) تنشئ مسودات دراسات حالة.",
   "Every imported row becomes a draft and goes through the full review.": "كل صف مستورد يصبح مسودة ويمر بالمراجعة الكاملة.", "Check rows": "فحص الصفوف", "Import valid rows as drafts": "استيراد الصفوف الصالحة كمسودات",
   "{n} rows read from {file}.": "تمت قراءة {n} صف من {file}.", "The file could not be read. Check that it is a valid Excel, CSV or JSON file.": "تعذّرت قراءة الملف. تأكد أنه ملف Excel أو CSV أو JSON صالح.",
-  "Imported": "تم الاستيراد", "{n} case studies.": "{n} دراسات حالة.", "Unknown case keys: {keys}": "مفاتيح دراسات حالة غير معروفة: {keys}", "{n} case studies created as drafts.": "تم إنشاء {n} دراسات حالة كمسودات.", "{n} case studies published.": "تم نشر {n} دراسات حالة.", "Check result": "نتيجة الفحص", "{v} valid, {i} invalid, {d} duplicates": "{v} صالح، {i} غير صالح، {d} مكرر", ", {c} stored as drafts": "، وحُفظ {c} كمسودات", "Row": "الصف", "Result": "النتيجة", "Problems": "المشكلات",
+  "Imported": "تم الاستيراد", "{n} case studies.": "{n} دراسات حالة.", "Unknown case keys: {keys}": "مفاتيح دراسات حالة غير معروفة: {keys}", "{n} case studies created as drafts.": "تم إنشاء {n} دراسات حالة كمسودات.", "{n} case studies published.": "تم نشر {n} دراسات حالة.", "Create an account for someone to try the app": "إنشاء حساب لشخص يجرّب التطبيق", "The email is confirmed straight away and a temporary password is shown once. Send it with the link; the person can change the password in Settings.": "الإيميل بيتأكد فورًا وبتظهر كلمة سر مؤقتة مرة واحدة. ابعتها مع الرابط، والشخص يقدر يغيّرها من الإعدادات.", "Days of full access": "أيام الوصول الكامل", "Create account": "إنشاء الحساب", "Email confirmed": "الإيميل مؤكد", "Confirm email": "تأكيد الإيميل", "Account created. Copy the message now: the password is not shown again.": "تم إنشاء الحساب. انسخ الرسالة دلوقتي: كلمة السر مش هتظهر تاني.", "Copy message": "نسخ الرسالة", "Copied.": "تم النسخ.", "Email confirmed. The person can sign in now.": "تم تأكيد الإيميل. الشخص يقدر يدخل دلوقتي.", "Check result": "نتيجة الفحص", "{v} valid, {i} invalid, {d} duplicates": "{v} صالح، {i} غير صالح، {d} مكرر", ", {c} stored as drafts": "، وحُفظ {c} كمسودات", "Row": "الصف", "Result": "النتيجة", "Problems": "المشكلات",
   // blueprints
   "Upload a new blueprint version as JSON. It is stored as a draft, and activated only if 20 sample exams built from the current bank are all valid.": "ارفع إصداراً جديداً من المخطط بصيغة JSON. يُحفظ كمسودة، ولا يُفعّل إلا إذا كانت 20 عينة اختبار من البنك الحالي كلها صالحة.",
   "Upload as draft": "رفع كمسودة", "Version": "الإصدار", "Effective from": "يسري من", "Dry run": "تجربة", "Activate": "تفعيل", "Blueprint stored as a draft.": "تم حفظ المخطط كمسودة.", "{v} of {a} sample exams valid": "{v} من {a} عينات اختبار صالحة", "Blueprint activated.": "تم تفعيل المخطط.",
@@ -805,12 +805,35 @@ async function usersView() {
   const q = params.get("q") || "";
   const r = await api("GET", "/admin/users?q=" + encodeURIComponent(q));
   const ROLE_NAMES = [["student", "Student"], ["content_author", "Author"], ["content_reviewer", "Reviewer"], ["administrator", "Administrator"]];
-  shell(t("Users"), `<form class="panel" id="user-search"><div class="row"><label style="flex:1">${t("Email contains")}<input id="uq" dir="ltr" value="${esc(q)}"></label><button type="submit">${t("Search")}</button></div></form>
+  shell(t("Users"), `<form class="panel" id="new-user"><h2>${t("Create an account for someone to try the app")}</h2>
+    <p class="muted">${t("The email is confirmed straight away and a temporary password is shown once. Send it with the link; the person can change the password in Settings.")}</p>
+    <div class="row"><label style="flex:2">${t("Email")}<input id="nu-email" type="email" dir="ltr" required></label>
+    <label>${t("Language")}<select id="nu-lang"><option value="ar">العربية</option><option value="en">English</option></select></label>
+    <label>${t("Days of full access")}<input id="nu-days" type="number" min="0" max="365" value="7"></label>
+    <button class="primary" type="submit">${t("Create account")}</button></div><div id="nu-out"></div></form>
+    <form class="panel" id="user-search"><div class="row"><label style="flex:1">${t("Email contains")}<input id="uq" dir="ltr" value="${esc(q)}"></label><button type="submit">${t("Search")}</button></div></form>
     <div class="panel"><p class="muted">${t("Changing roles signs the person out. Reset two-factor sign-in only after confirming who is asking, for example by phone; they enrol again at next sign-in.")}</p>
     ${table(r.items, [["Email", (u) => `<span dir="ltr">${esc(u.email)}</span>`], ["Roles", (u) => `<div class="row" data-user="${u.id}">${ROLE_NAMES.map(([k, n]) => `<label class="inline"><input type="checkbox" value="${k}"${u.roles.includes(k) ? " checked" : ""}> ${t(n)}</label>`).join("")}</div>`],
       ["Two-factor", (u) => (u.mfaEnabled ? pill("active") : `<span class="muted">${t("Off")}</span>`)],
+      ["Email confirmed", (u) => (u.emailVerified ? pill("active") : `<button data-verify="${u.id}">${t("Confirm email")}</button>`)],
       ["", (u) => `<button data-save-roles="${u.id}">${t("Save roles")}</button> ${u.mfaEnabled && u.id !== S.me.id ? `<button class="danger" data-reset="${u.id}">${t("Reset two-factor")}</button>` : ""}`]])}</div>`);
   $("#user-search").onsubmit = (ev) => { ev.preventDefault(); location.hash = "#users?q=" + encodeURIComponent($("#uq").value.trim()); };
+  $("#new-user").onsubmit = async (ev) => {
+    ev.preventDefault();
+    try {
+      const lang = $("#nu-lang").value;
+      const r = await api("POST", "/admin/users", { email: $("#nu-email").value.trim(), language: lang, days: Number($("#nu-days").value || 0) });
+      const link = location.origin + "/app";
+      const msg = lang === "ar"
+        ? `أهلًا، دي بيانات دخولك لتجربة محاكي امتحان PMP:\nالرابط: ${link}\nالإيميل: ${r.email}\nكلمة السر المؤقتة: ${r.temporaryPassword}\n${r.access.entitled ? `عندك وصول كامل لحد ${new Date(r.access.endsAt).toLocaleDateString("ar-EG")}.\n` : ""}تقدر تغيّر كلمة السر من الإعدادات بعد الدخول.`
+        : `Hi, here is your access to try the PMP exam simulator:\nLink: ${link}\nEmail: ${r.email}\nTemporary password: ${r.temporaryPassword}\n${r.access.entitled ? `You have full access until ${new Date(r.access.endsAt).toLocaleDateString("en-GB")}.\n` : ""}You can change the password in Settings after signing in.`;
+      $("#nu-out").innerHTML = `<p class="msg ok">${t("Account created. Copy the message now: the password is not shown again.")}</p><textarea id="nu-msg" rows="7" dir="auto" readonly style="width:100%">${esc(msg)}</textarea><button type="button" id="nu-copy">${t("Copy message")}</button>`;
+      $("#nu-copy").onclick = () => { navigator.clipboard?.writeText(msg).then(() => flash("ok", t("Copied."))).catch(() => { $("#nu-msg").select(); }); };
+    } catch (e) { showError(e); }
+  };
+  document.querySelectorAll("[data-verify]").forEach((b) => (b.onclick = async () => {
+    try { await api("POST", `/admin/users/${b.dataset.verify}/verify-email`); flash("ok", t("Email confirmed. The person can sign in now.")); render(); } catch (e) { showError(e); }
+  }));
   document.querySelectorAll("[data-save-roles]").forEach((b) => (b.onclick = async () => {
     const roles = [...document.querySelectorAll(`[data-user="${b.dataset.saveRoles}"] input:checked`)].map((i) => i.value);
     try { await api("PUT", `/admin/users/${b.dataset.saveRoles}/roles`, { roles }); flash("ok", t("Roles saved.")); render(); } catch (e) { showError(e); }
