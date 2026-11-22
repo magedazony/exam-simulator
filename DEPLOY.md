@@ -297,3 +297,17 @@ Settings (repo, site, health page) are in `tools/publish.config`; copy the `tool
 Optional: put a Render *Deploy Hook* URL (Render > service > Settings > Deploy Hook) in
 `tools/deploy-hook.txt` (git-ignored) to redeploy with no code change.
 Questions, translations, prices and tips are edited in the admin panel and need no publish.
+
+## Recorded course videos
+
+Lessons are added in the admin panel (Recorded course). Each lesson's video can be:
+
+- **YouTube (unlisted)**: free. Upload the video to YouTube as *Unlisted* and paste its link. Anyone who has the link can watch it, so use it for free lessons, or accept that risk.
+- **Bunny Stream (protected)**: paid by use (storage and delivery per GB). The player address is signed and expires, so the video plays only from the app. Create a Stream library, turn on *Token authentication* for embeds, then set on the server:
+  - `BUNNY_LIBRARY_ID`: the library id
+  - `BUNNY_TOKEN_KEY`: the library's token authentication key
+  Paste each video's id (a UUID) in the lesson.
+- **Video file address**: an https link to an MP4 on any host.
+- **No video**: slides or text only.
+
+Slides are a PDF up to 20 MB, stored in the database, or a link (for example a shared Google Drive PDF). On a free database, prefer links or small PDFs: the free Neon plan has limited storage.
